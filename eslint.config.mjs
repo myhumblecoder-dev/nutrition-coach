@@ -13,6 +13,13 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: { "@typescript-eslint/no-explicit-any": "warn" },
+  },
+  {
+    rules: { "react/no-unescaped-entities": "off" },
+  },
 ]);
 
 export default eslintConfig;
