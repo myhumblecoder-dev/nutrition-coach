@@ -1,6 +1,7 @@
-export { auth as proxy } from "@/auth";
+import { auth } from "@/auth";
 
-// Which routes run the auth check. Add the app's protected paths here.
+export { auth as proxy };
+
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|sign-in).*)'],
 };
