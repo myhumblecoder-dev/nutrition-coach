@@ -50,4 +50,48 @@ describe('saveMealEntry', () => {
     await expect(saveMealEntry(input)).rejects.toThrow('Invalid meal entry data')
     expect(mockCreate).not.toHaveBeenCalled()
   })
+
+  it('creates mealEntry with correct userId and confirmed=true', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1' } })
+    const mockResult = {
+      id: 'entry-1',
+      userId: 'u1',
+      photoUrl: 'https://example.com/photo.jpg',
+      foodItems: '[]',
+      totalCalories: 95,
+      totalProtein: 0,
+      confirmed: true,
+      loggedAt: new Date(Date.UTC(2024, 0, 1)),
+    }
+    mockCreate.mockResolvedValue(mockResult as any)
+
+    const input = {
+      photoUrl: 'https://example.com/photo.jpg',
+      foodItems: [{ name: 'Apple', portion: '1 medium', calories: 95, protein: 0 }],
+      totalCalories: 95,
+      totalProtein: 0,
+    }
+
+    await saveMealEntry(input)
+
+    const arg = mockCreate.mock.calls[0][0]
+    expect(arg.data.userId).toBe('u1')
+    expect(arg.data.confirmed).toBe(true)
+    expect(arg.data.foodItems).toBe(JSON.stringify([{ name: 'Apple', portion: '1 medium', calories: 95, protein: 0 }]))
+  })
+
+  it('returns the id from the created entry', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1' } })
+    mockCreate.mockResolvedValue({ id: 'entry-1' } as any)
+
+    const input = {
+      photoUrl: 'https://example.com/photo.jpg',
+      foodItems: [{ name: 'Apple', portion: '1 medium', calories: 95, protein: 0 }],
+      totalCalories: 95,
+      totalProtein: 0,
+    }
+
+    const result = await saveMealEntry(input)
+    expect(result).toEqual({ id: 'entry-1' })
+  })
 })
