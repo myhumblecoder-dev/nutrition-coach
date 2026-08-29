@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop, dispatch/integration]
+  push:
+    branches: [main, develop]
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    env:
+      # `postinstall: prisma generate` loads prisma.config.ts, which reads
+      # env("DATABASE_URL") at config-load time and throws if it's absent —
+      # even though `generate` never opens a connection. A dummy placeholder
+      # satisfies the load so install/lint/build/test can run on CI (which has
+      # no real database). Matches the postgresql provider the stack provisions.
+      DATABASE_URL: postgresql://user:password@localhost:5432/db
+    steps:
+      - uses: actions/checkout@v4
+      # No `version:` here on purpose — package.json's "packageManager" key
+      # is the single source of truth. Giving both makes action-setup fail
+      # with "Multiple versions of pnpm specified".
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run build
+      - run: pnpm test -- --run
