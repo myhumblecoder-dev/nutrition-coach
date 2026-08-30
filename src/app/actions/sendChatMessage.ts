@@ -22,7 +22,7 @@ export async function sendChatMessage(userText: string) {
     take: 10,
   });
 
-  const chronologicalHistory = history.reverse();
+  const chronologicalHistory = [...history].reverse();
   const historyString = chronologicalHistory
     .map((msg) => `${msg.role}: ${msg.content}`)
     .join('\n');
