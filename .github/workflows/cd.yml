@@ -31,6 +31,27 @@ jobs:
         run: npm install -g vercel@latest
       - name: Pull Vercel project settings
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Sync database schema
+        # The 2026-08-26 cherish.ai outage: main deployed code selecting a
+        # column production's DB never got, because CD had no schema step.
+        # Push the schema BEFORE deploying so code and database always move
+        # together. Uses the REAL DATABASE_URL from the pulled production env,
+        # not the placeholder above. A repo secret DATABASE_URL wins when set
+        # (Vercel returns `[SENSITIVE]` for vars flagged sensitive).
+        env:
+          PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          pnpm install --frozen-lockfile
+          set -a && source .vercel/.env.production.local && set +a
+          if [ -n "$PROD_DATABASE_URL" ]; then export DATABASE_URL="$PROD_DATABASE_URL"; fi
+          if [ "$DATABASE_URL" = "[SENSITIVE]" ]; then
+            echo "DATABASE_URL is Sensitive in Vercel and no DATABASE_URL repo secret is set" >&2
+            exit 1
+          fi
+          # NO --skip-generate: Prisma 7 prints help and exits 0 for it — a
+          # silent no-op. --accept-data-loss: db push refuses provably-safe
+          # diffs (a unique index on a new all-NULL column) without it.
+          pnpm exec prisma db push --accept-data-loss
       - name: Build
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
       - name: Deploy to Vercel production
