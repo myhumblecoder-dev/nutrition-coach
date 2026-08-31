@@ -26,6 +26,10 @@ model User {
   dailyTarget   DailyTarget?
   mealEntries   MealEntry[]
   chatMessages  ChatMessage[]
+  trainingEntries TrainingEntry[]
+  recoveryEntries RecoveryEntry[]
+  moodEntries   MoodEntry[]
+  measurements   Measurement[]
 }
 
 model Account {
@@ -80,8 +84,51 @@ model MealEntry {
   totalCalories Int
   totalProtein Int
   confirmed     Boolean  @default(false)
+  source        String   @default("manual")
   loggedAt      DateTime @default(now())
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TrainingEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String
+  minutes   Int?
+  steps     Int?
+  note      String?
+  source    String   @default("manual")
+  loggedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RecoveryEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String
+  value     Float
+  source    String   @default("manual")
+  loggedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MoodEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  score     Int
+  note      String?
+  source    String   @default("manual")
+  loggedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Measurement {
+  id           String   @id @default(cuid())
+  userId       String
+  weightLb     Float?
+  waistIn      Float?
+  source       String   @default("manual")
+  measuredAt   DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ChatMessage {
