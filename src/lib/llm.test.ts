@@ -42,6 +42,54 @@ describe('llm', () => {
     }))
   })
 
+  it('generate defaults to the current haiku model on the anthropic path', async () => {
+    process.env.LLM_PROVIDER = 'anthropic'
+    delete process.env.LLM_MODEL
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: [{ text: 'ok' }] }),
+    } as Response)
+
+    await generate('hi')
+
+    const body = vi.mocked(fetch).mock.calls[0][1]?.body as string
+    expect(body).toContain('"model":"claude-haiku-4-5"')
+  })
+
+  it('generate honors LLM_MODEL on the anthropic path', async () => {
+    process.env.LLM_PROVIDER = 'anthropic'
+    process.env.LLM_MODEL = 'claude-opus-5'
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: [{ text: 'ok' }] }),
+    } as Response)
+
+    await generate('hi')
+
+    const body = vi.mocked(fetch).mock.calls[0][1]?.body as string
+    expect(body).toContain('"model":"claude-opus-5"')
+  })
+
+  it('analyzePhoto defaults to the current haiku model on the anthropic path', async () => {
+    process.env.LLM_PROVIDER = 'anthropic'
+    delete process.env.LLM_MODEL
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(4),
+        headers: { get: vi.fn(() => 'image/jpeg') },
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ content: [{ text: '{}' }] }),
+      } as Response)
+
+    await analyzePhoto('https://blob/x.jpg', 'describe')
+
+    const body = vi.mocked(fetch).mock.calls[1][1]?.body as string
+    expect(body).toContain('"model":"claude-haiku-4-5"')
+  })
+
   it('generate throws on non-ok response: mock fetch to resolve `{ ok: false, statusText: \'Bad Request\'`}; call `generate(\'hi\')`; assert it rejects with an error whose message contains `Bad Request`', async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: false,
