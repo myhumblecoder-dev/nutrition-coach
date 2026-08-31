@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { prisma } from '@/lib/db';
 
 // Round rather than reject fractional model estimates (same policy as analyzeMeal).
 const roundedInt = z.number().nonnegative().transform(Math.round);
@@ -81,6 +82,64 @@ export function buildExtractionPrompt(
     'Already logged today — do not repeat: recovery: ' + list(seeds.recovery) + '\n' +
     'Message: ' + userText
   );
+}
+
+export async function recordHealthFacts(
+  userId: string,
+  facts: z.infer<typeof factsSchema>
+) {
+  for (const meal of facts.meals) {
+    // Chat-described meals have no photo; logMealForUser's schema requires a
+    // url, so this writes directly with an empty photoUrl.
+    await prisma.mealEntry.create({
+      data: {
+        userId,
+        photoUrl: '',
+        foodItems: JSON.stringify([meal]),
+        totalCalories: meal.calories,
+        totalProtein: meal.protein,
+        confirmed: true,
+        source: 'extracted',
+      },
+    });
+  }
+  for (const t of facts.training) {
+    await prisma.trainingEntry.create({
+      data: {
+        userId,
+        kind: t.kind,
+        minutes: t.minutes,
+        steps: t.steps,
+        note: t.note,
+        source: 'extracted',
+      },
+    });
+  }
+  for (const r of facts.recovery) {
+    await prisma.recoveryEntry.create({
+      data: { userId, kind: r.kind, value: r.value, source: 'extracted' },
+    });
+  }
+  for (const m of facts.mood) {
+    await prisma.moodEntry.create({
+      data: { userId, score: m.score, note: m.note, source: 'extracted' },
+    });
+  }
+  for (const m of facts.measurement) {
+    if (m.weightLb === undefined && m.waistIn === undefined) continue;
+    await prisma.measurement.create({
+      data: { userId, weightLb: m.weightLb, waistIn: m.waistIn, source: 'extracted' },
+    });
+  }
+  return {
+    meals: facts.meals.length,
+    training: facts.training.length,
+    recovery: facts.recovery.length,
+    mood: facts.mood.length,
+    measurement: facts.measurement.filter(
+      (m) => m.weightLb !== undefined || m.waistIn !== undefined
+    ).length,
+  };
 }
 
 export function parseHealthFacts(response: string) {
