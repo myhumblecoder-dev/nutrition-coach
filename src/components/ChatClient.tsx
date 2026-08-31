@@ -29,10 +29,13 @@ export default function ChatClient({ initialMessages }: ChatClientProps) {
   const router = useRouter()
 
   // Telegram-side conversation lands in the DB; a server refresh replaces the
-  // list, and the interval makes that happen without a manual reload.
-  useEffect(() => {
+  // list (adjust-during-render, not an effect), and the interval below makes
+  // that happen without a manual reload.
+  const [prevInitial, setPrevInitial] = useState(initialMessages)
+  if (prevInitial !== initialMessages) {
+    setPrevInitial(initialMessages)
     setMessages(initialMessages)
-  }, [initialMessages])
+  }
 
   useEffect(() => {
     const id = setInterval(() => router.refresh(), 15000)
