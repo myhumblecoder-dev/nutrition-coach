@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { generate } from "@/lib/llm";
 import { extractHealthFacts } from "@/lib/extraction";
+import { startOfWeek } from "@/lib/time";
 import { z } from "zod";
 
 function startOfToday(now: Date): Date {
@@ -59,6 +60,25 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     const consumedProtein = meals.reduce((sum, m) => sum + m.totalProtein, 0);
 
     coachPersona += `\nToday so far: ${consumedCal} of ${target.calories} cal, ${consumedProtein}g of ${target.protein}g protein.\n`;
+  }
+
+  const weekTraining = await prisma.trainingEntry.findMany({
+    where: { userId, loggedAt: { gte: startOfWeek(new Date()) } },
+  });
+  if (weekTraining.length > 0) {
+    const count = (kind: string) => weekTraining.filter((t) => t.kind === kind).length;
+    coachPersona += `\nThis week: ${count('resistance')} resistance, ${count('hiit')} hiit, ${count('core')} core sessions.\n`;
+  }
+
+  const latest = await prisma.measurement.findFirst({
+    where: { userId },
+    orderBy: { measuredAt: 'desc' },
+  });
+  if (latest && (latest.weightLb != null || latest.waistIn != null)) {
+    const bits = [];
+    if (latest.weightLb != null) bits.push(`${latest.weightLb} lb`);
+    if (latest.waistIn != null) bits.push(`${latest.waistIn} in waist`);
+    coachPersona += `\nLatest measurement: ${bits.join(', ')}.\n`;
   }
 
   const prompt = [
