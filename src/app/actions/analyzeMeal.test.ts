@@ -17,6 +17,38 @@ describe('analyzeMeal', () => {
     expect(firstLine).toMatch(/^['"]use server['"];?\s*$/)
   })
 
+  it('parses a response wrapped in markdown code fences', async () => {
+    const fenced =
+      '```json\n' +
+      JSON.stringify({
+        foodItems: [{ name: 'Salad', portion: '1 bowl', calories: 320, protein: 12 }],
+        totalCalories: 320,
+        totalProtein: 12,
+      }) +
+      '\n```'
+    vi.mocked(analyzePhoto).mockResolvedValue(fenced)
+
+    const result = await analyzeMeal('https://example.com/photo.jpg')
+
+    expect(result.totalCalories).toBe(320)
+    expect(result.foodItems[0].name).toBe('Salad')
+  })
+
+  it('rounds fractional calorie and protein values', async () => {
+    vi.mocked(analyzePhoto).mockResolvedValue(
+      JSON.stringify({
+        foodItems: [{ name: 'Yogurt', portion: '1 cup', calories: 149.5, protein: 8.2 }],
+        totalCalories: 149.5,
+        totalProtein: 8.2,
+      })
+    )
+
+    const result = await analyzeMeal('https://example.com/photo.jpg')
+
+    expect(result.totalCalories).toBe(150)
+    expect(result.foodItems[0].protein).toBe(8)
+  })
+
   it('returns parsed food items for valid vision JSON response', async () => {
     const mockResponse = JSON.stringify({
       foodItems: [
