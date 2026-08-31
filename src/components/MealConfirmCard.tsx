@@ -36,9 +36,11 @@ export default function MealConfirmCard({
   const [calories, setCalories] = useState<number>(analysis.totalCalories)
   const [protein, setProtein] = useState<number>(analysis.totalProtein)
   const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleLogMeal = async () => {
     setIsSaving(true)
+    setError(null)
     try {
       await saveMealEntry({
         photoUrl: analysis.photoUrl,
@@ -48,8 +50,8 @@ export default function MealConfirmCard({
       })
       onSaved()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to save meal'
-      alert(msg)
+      // Surface the failure inline; a browser alert blocks the page.
+      setError(err instanceof Error ? err.message : 'Failed to save meal')
     } finally {
       setIsSaving(false)
     }
@@ -95,6 +97,8 @@ export default function MealConfirmCard({
             />
           </div>
         </div>
+
+        {error && <p className="text-sm text-red-500">{error}</p>}
       </CardContent>
       <CardFooter className="flex gap-3">
         <Button
