@@ -7,6 +7,43 @@ describe('TodayDashboard', () => {
     vi.clearAllMocks()
   })
 
+  it('renders joined item names for a two item meal', async () => {
+    const props = {
+      consumed: { calories: 0, protein: 0 },
+      target: { calories: 2000, protein: 150 },
+      meals: [
+        {
+          id: '1',
+          foodItems: JSON.stringify([
+            { name: 'Apple', portion: '1 medium', calories: 95, protein: 0 },
+            { name: 'Rice', portion: '1 cup', calories: 200, protein: 4 },
+          ]),
+          totalCalories: 295,
+          totalProtein: 4,
+        },
+      ],
+    }
+    render(<TodayDashboard {...props} />)
+    expect(screen.getByText('Apple, Rice')).toBeInTheDocument()
+  })
+
+  it('renders the fallback label for unparseable foodItems', async () => {
+    const props = {
+      consumed: { calories: 0, protein: 0 },
+      target: { calories: 2000, protein: 150 },
+      meals: [
+        {
+          id: '1',
+          foodItems: 'not json',
+          totalCalories: 0,
+          totalProtein: 0,
+        },
+      ],
+    }
+    render(<TodayDashboard {...props} />)
+    expect(screen.getByText('Meal')).toBeInTheDocument()
+  })
+
   it('TodayDashboard renders', async () => {
     const props = {
       consumed: { calories: 800, protein: 60 },
@@ -14,13 +51,17 @@ describe('TodayDashboard', () => {
       meals: [
         {
           id: '1',
-          foodItems: 'Oatmeal with Berries',
+          foodItems: JSON.stringify([
+            { name: 'Oatmeal with Berries', portion: '1 bowl', calories: 350, protein: 12 },
+          ]),
           totalCalories: 350,
           totalProtein: 12,
         },
         {
           id: '2',
-          foodItems: 'Chicken Salad',
+          foodItems: JSON.stringify([
+            { name: 'Chicken Salad', portion: '1 plate', calories: 450, protein: 48 },
+          ]),
           totalCalories: 450,
           totalProtein: 48,
         },
