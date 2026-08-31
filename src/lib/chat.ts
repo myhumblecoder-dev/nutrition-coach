@@ -39,7 +39,8 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     .reverse()
     .map((m) => `${m.role}: ${m.content}`);
 
-  let coachPersona = "You are a friendly daily nutrition and fitness coach...";
+  // Both the web ChatClient and Telegram render raw text, so markdown litters both.
+  let coachPersona = "You are a friendly daily nutrition and fitness coach... Reply in plain conversational text — no markdown, no #, no *, no bullet lists. ";
 
   const target = await prisma.dailyTarget.findUnique({
     where: { userId },

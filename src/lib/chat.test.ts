@@ -55,6 +55,16 @@ describe('chat', () => {
     await expect(coachReply('u1', 'hello')).resolves.toEqual({ assistantReply: 'Nice!' })
   })
 
+  it('the prompt forbids markdown', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('ok')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'hello')
+
+    expect(vi.mocked(generate).mock.calls[0][0]).toContain('no markdown')
+  })
+
   it('rejects an empty message', async () => {
     await expect(coachReply('u1', '   ')).rejects.toThrow('Message cannot be empty')
     expect(prisma.chatMessage.findMany).not.toHaveBeenCalled()
