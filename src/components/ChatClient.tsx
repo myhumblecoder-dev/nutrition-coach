@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { sendChatMessage } from '@/app/actions/sendChatMessage'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,21 @@ export default function ChatClient({ initialMessages }: ChatClientProps) {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
+  // Telegram-side conversation lands in the DB; a server refresh replaces the
+  // list (adjust-during-render, not an effect), and the interval below makes
+  // that happen without a manual reload.
+  const [prevInitial, setPrevInitial] = useState(initialMessages)
+  if (prevInitial !== initialMessages) {
+    setPrevInitial(initialMessages)
+    setMessages(initialMessages)
+  }
+
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 15000)
+    return () => clearInterval(id)
+  }, [router])
 
   const handleSend = async () => {
     const trimmedInput = input.trim()

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { coachReply } from './chat'
 import { prisma } from '@/lib/db'
 import { generate } from '@/lib/llm'
+import { extractHealthFacts } from '@/lib/extraction'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -15,6 +16,12 @@ vi.mock('@/lib/db', () => ({
     mealEntry: {
       findMany: vi.mocked(vi.fn()),
     },
+    trainingEntry: {
+      findMany: vi.fn(),
+    },
+    measurement: {
+      findFirst: vi.fn(),
+    },
   },
 }))
 
@@ -22,12 +29,78 @@ vi.mock('@/lib/llm', () => ({
   generate: vi.fn(),
 }))
 
+vi.mock('@/lib/extraction', () => ({ extractHealthFacts: vi.fn() }))
+
 describe('chat', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Default behavior: no target, no meals
     vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
+    vi.mocked(prisma.trainingEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.measurement.findFirst).mockResolvedValue(null as never)
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
+    })
+  })
+
+  it('extraction runs on every user turn', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('Nice!')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'how did I do?')
+
+    expect(extractHealthFacts).toHaveBeenCalledWith('u1', 'how did I do?')
+  })
+
+  it('an extraction failure does not break the reply', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('Nice!')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(extractHealthFacts).mockRejectedValue(new Error('boom'))
+
+    await expect(coachReply('u1', 'hello')).resolves.toEqual({ assistantReply: 'Nice!' })
+  })
+
+  it('the prompt forbids markdown', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('ok')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'hello')
+
+    expect(vi.mocked(generate).mock.calls[0][0]).toContain('no markdown')
+  })
+
+  it('the prompt includes weekly training and latest measurement', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('ok')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(prisma.trainingEntry.findMany).mockResolvedValue([
+      { kind: 'resistance' }, { kind: 'resistance' }, { kind: 'hiit' },
+    ] as never)
+    vi.mocked(prisma.measurement.findFirst).mockResolvedValue({
+      weightLb: 172, waistIn: null,
+    } as never)
+
+    await coachReply('u1', 'hello')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('This week: 2 resistance, 1 hiit, 0 core sessions.')
+    expect(prompt).toContain('Latest measurement: 172 lb.')
+  })
+
+  it('the context lines are omitted without data', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('ok')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'hello')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).not.toContain('This week:')
+    expect(prompt).not.toContain('Latest measurement:')
   })
 
   it('rejects an empty message', async () => {
