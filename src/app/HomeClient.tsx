@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import MealPhotoUpload, { type MealAnalysis } from '@/components/MealPhotoUpload'
 import MealConfirmCard from '@/components/MealConfirmCard'
 import TodayDashboard from '@/components/TodayDashboard'
+import TrainingCard from '@/components/TrainingCard'
+import RecoveryCard from '@/components/RecoveryCard'
 
 interface HomeClientProps {
   today: {
@@ -17,9 +19,15 @@ interface HomeClientProps {
     target: { calories: number; protein: number } | null
     consumed: { calories: number; protein: number }
   }
+  week: {
+    training: { resistance: number; hiit: number; core: number; stepsToday: number }
+    recovery: { sleepHours: number | null; waterLiters: number | null; alcoholDrinks: number | null }
+    mood: { score: number; note: string | null } | null
+    measurement: { weightLb: number | null; waistIn: number | null } | null
+  }
 }
 
-export default function HomeClient({ today }: HomeClientProps) {
+export default function HomeClient({ today, week }: HomeClientProps) {
   const router = useRouter()
   const [pending, setPending] = useState<MealAnalysis | null>(null)
 
@@ -39,6 +47,9 @@ export default function HomeClient({ today }: HomeClientProps) {
           onCancel={() => setPending(null)}
         />
       )}
+
+      <TrainingCard training={week.training} />
+      <RecoveryCard recovery={week.recovery} mood={week.mood} measurement={week.measurement} />
 
       <TodayDashboard
         consumed={today.consumed}
