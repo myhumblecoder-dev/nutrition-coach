@@ -6,6 +6,8 @@ import Layout, { metadata } from './layout'
 // `Geist(...)` is not a function and the suite dies at module load.
 vi.mock('next/font/google', () => ({ Geist: () => ({ variable: 'v1', className: 'c1' }), Geist_Mono: () => ({ variable: 'v2', className: 'c2' }) }))
 
+vi.mock('@/components/NavBar', () => ({ default: vi.fn(() => <nav data-testid="nav-bar" />) }))
+
 describe('Layout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -17,5 +19,10 @@ describe('Layout', () => {
 
   it('metadata description equals the full tagline', async () => {
     expect(metadata.description).toBe('Photo-first meal logging with AI vision analysis, daily targets, and coach check-ins')
+  })
+
+  it('the layout renders the nav bar', async () => {
+    render(<Layout><p>child</p></Layout>)
+    expect(screen.getByTestId('nav-bar')).toBeInTheDocument()
   })
 })
