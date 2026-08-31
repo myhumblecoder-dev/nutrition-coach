@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ChatClient from './ChatClient'
 import { sendChatMessage } from '@/app/actions/sendChatMessage'
 
+const refresh = vi.fn()
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }))
 vi.mock('@/app/actions/sendChatMessage', () => ({
   sendChatMessage: vi.fn(),
 }))
@@ -59,5 +61,32 @@ describe('ChatClient', () => {
 
     expect(await screen.findByText('Message cannot be empty')).toBeInTheDocument()
     expect(screen.queryByText('trigger error')).not.toBeInTheDocument()
+  })
+
+  it('the page refreshes on the polling interval', () => {
+    vi.useFakeTimers()
+    render(<ChatClient initialMessages={[]} />)
+
+    vi.advanceTimersByTime(15000)
+
+    expect(refresh).toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('new server messages replace the list', () => {
+    const { rerender } = render(
+      <ChatClient initialMessages={[{ id: 'a', role: 'user', content: 'first' }]} />
+    )
+
+    rerender(
+      <ChatClient
+        initialMessages={[
+          { id: 'a', role: 'user', content: 'first' },
+          { id: 'b', role: 'assistant', content: 'fresh from telegram' },
+        ]}
+      />
+    )
+
+    expect(screen.getByText('fresh from telegram')).toBeInTheDocument()
   })
 })

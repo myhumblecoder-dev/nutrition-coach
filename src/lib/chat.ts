@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { generate } from "@/lib/llm";
+import { extractHealthFacts } from "@/lib/extraction";
+import { startOfWeek } from "@/lib/time";
 import { z } from "zod";
 
 function startOfToday(now: Date): Date {
@@ -38,7 +40,8 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     .reverse()
     .map((m) => `${m.role}: ${m.content}`);
 
-  let coachPersona = "You are a friendly daily nutrition and fitness coach...";
+  // Both the web ChatClient and Telegram render raw text, so markdown litters both.
+  let coachPersona = "You are a friendly daily nutrition and fitness coach... Reply in plain conversational text — no markdown, no #, no *, no bullet lists. ";
 
   const target = await prisma.dailyTarget.findUnique({
     where: { userId },
@@ -59,6 +62,25 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     coachPersona += `\nToday so far: ${consumedCal} of ${target.calories} cal, ${consumedProtein}g of ${target.protein}g protein.\n`;
   }
 
+  const weekTraining = await prisma.trainingEntry.findMany({
+    where: { userId, loggedAt: { gte: startOfWeek(new Date()) } },
+  });
+  if (weekTraining.length > 0) {
+    const count = (kind: string) => weekTraining.filter((t) => t.kind === kind).length;
+    coachPersona += `\nThis week: ${count('resistance')} resistance, ${count('hiit')} hiit, ${count('core')} core sessions.\n`;
+  }
+
+  const latest = await prisma.measurement.findFirst({
+    where: { userId },
+    orderBy: { measuredAt: 'desc' },
+  });
+  if (latest && (latest.weightLb != null || latest.waistIn != null)) {
+    const bits = [];
+    if (latest.weightLb != null) bits.push(`${latest.weightLb} lb`);
+    if (latest.waistIn != null) bits.push(`${latest.waistIn} in waist`);
+    coachPersona += `\nLatest measurement: ${bits.join(', ')}.\n`;
+  }
+
   const prompt = [
     coachPersona,
     ...historyLines,
@@ -75,6 +97,14 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
       data: { userId, role: "assistant", content: reply },
     }),
   ]);
+
+  // Belt and braces on top of the orchestrator's own guard: extraction must
+  // never break a reply.
+  try {
+    await extractHealthFacts(userId, cleanText);
+  } catch {
+    // ignore
+  }
 
   return { assistantReply: reply };
 }
