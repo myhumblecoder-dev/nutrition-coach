@@ -16,6 +16,11 @@ export async function uploadMealPhoto(formData: FormData): Promise<{ url: string
     throw new Error('No file provided');
   }
 
+  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowed.includes(file.type)) {
+    throw new Error('Unsupported image type');
+  }
+
   const result = await put(file.name, file, {
     access: 'public',
     addRandomSuffix: true,
