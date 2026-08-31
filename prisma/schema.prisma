@@ -85,6 +85,7 @@ model MealEntry {
   totalProtein Int
   confirmed     Boolean  @default(false)
   source        String   @default("manual")
+  sourceText    String?
   loggedAt      DateTime @default(now())
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -97,6 +98,7 @@ model TrainingEntry {
   steps     Int?
   note      String?
   source    String   @default("manual")
+  sourceText String?
   loggedAt  DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -107,6 +109,7 @@ model RecoveryEntry {
   kind      String
   value     Float
   source    String   @default("manual")
+  sourceText String?
   loggedAt  DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -117,6 +120,7 @@ model MoodEntry {
   score     Int
   note      String?
   source    String   @default("manual")
+  sourceText String?
   loggedAt  DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -127,6 +131,7 @@ model Measurement {
   weightLb     Float?
   waistIn      Float?
   source       String   @default("manual")
+  sourceText   String?
   measuredAt   DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
