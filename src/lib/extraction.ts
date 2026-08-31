@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
+import { generate } from '@/lib/llm';
+import { startOfToday } from '@/lib/time';
 
 // Round rather than reject fractional model estimates (same policy as analyzeMeal).
 const roundedInt = z.number().nonnegative().transform(Math.round);
@@ -154,5 +156,35 @@ export function parseHealthFacts(response: string) {
     return result.success ? result.data : EMPTY_FACTS;
   } catch {
     return EMPTY_FACTS;
+  }
+}
+
+// Extraction must never break or delay a coach reply: the whole body is
+// guarded, and a failure resolves to zero counts.
+export async function extractHealthFacts(userId: string, userText: string) {
+  try {
+    const since = startOfToday(new Date());
+    const [meals, training, recovery] = await Promise.all([
+      prisma.mealEntry.findMany({ where: { userId, loggedAt: { gte: since } } }),
+      prisma.trainingEntry.findMany({ where: { userId, loggedAt: { gte: since } } }),
+      prisma.recoveryEntry.findMany({ where: { userId, loggedAt: { gte: since } } }),
+    ]);
+    const mealNames = meals.flatMap((m) => {
+      try {
+        const items = JSON.parse(m.foodItems);
+        return Array.isArray(items) ? items.map((i) => String(i.name)) : [];
+      } catch {
+        return [];
+      }
+    });
+    const seeds = {
+      meals: mealNames,
+      training: training.map((t) => t.kind),
+      recovery: recovery.map((r) => r.kind),
+    };
+    const facts = parseHealthFacts(await generate(buildExtractionPrompt(seeds, userText)));
+    return await recordHealthFacts(userId, facts);
+  } catch {
+    return { meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 };
   }
 }

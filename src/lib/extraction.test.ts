@@ -1,16 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { buildExtractionPrompt, parseHealthFacts, recordHealthFacts } from './extraction'
+import {
+  buildExtractionPrompt,
+  parseHealthFacts,
+  recordHealthFacts,
+  extractHealthFacts,
+} from './extraction'
 import { prisma } from '@/lib/db'
+import { generate } from '@/lib/llm'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    mealEntry: { create: vi.fn() },
-    trainingEntry: { create: vi.fn() },
-    recoveryEntry: { create: vi.fn() },
+    mealEntry: { create: vi.fn(), findMany: vi.fn() },
+    trainingEntry: { create: vi.fn(), findMany: vi.fn() },
+    recoveryEntry: { create: vi.fn(), findMany: vi.fn() },
     moodEntry: { create: vi.fn() },
     measurement: { create: vi.fn() },
   },
 }))
+vi.mock('@/lib/llm', () => ({ generate: vi.fn() }))
 
 describe('extraction', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -82,5 +89,32 @@ describe('extraction', () => {
     expect(prisma.mealEntry.create).not.toHaveBeenCalled()
     expect(prisma.trainingEntry.create).not.toHaveBeenCalled()
     expect(counts).toEqual({ meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 })
+  })
+
+  it('extracts and records from a conversation turn', async () => {
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.trainingEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(generate).mockResolvedValue(
+      JSON.stringify({
+        meals: [], training: [], recovery: [{ kind: 'sleep', value: 7 }], mood: [], measurement: [],
+      })
+    )
+
+    const counts = await extractHealthFacts('u1', 'slept 7 hours')
+
+    expect(prisma.recoveryEntry.create).toHaveBeenCalledTimes(1)
+    expect(counts).toEqual({ meals: 0, training: 0, recovery: 1, mood: 0, measurement: 0 })
+  })
+
+  it('an llm failure resolves to zero counts', async () => {
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.trainingEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(generate).mockRejectedValue(new Error('down'))
+
+    await expect(extractHealthFacts('u1', 'hello')).resolves.toEqual({
+      meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
+    })
   })
 })
