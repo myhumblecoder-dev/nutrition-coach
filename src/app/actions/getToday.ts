@@ -64,6 +64,7 @@ export async function getToday() {
       totalProtein: m.totalProtein,
       photoUrl: m.photoUrl,
       loggedAt: m.loggedAt,
+      source: m.source,
     })),
     target: target
       ? {

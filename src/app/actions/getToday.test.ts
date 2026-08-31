@@ -42,6 +42,7 @@ const makeMealEntry = (overrides: Partial<MealEntry> = {}): MealEntry =>
     totalCalories: 0,
     totalProtein: 0,
     confirmed: false,
+    source: 'manual',
     loggedAt: new Date(Date.UTC(2000, 1, 1)),
     ...overrides,
   } as unknown as MealEntry)
@@ -92,4 +93,57 @@ describe('getToday', () => {
     await expect(getToday()).rejects.toThrow('Unauthorized')
     expect(prisma.mealEntry.findMany).not.toHaveBeenCalled()
   })
-}) 
+
+  it('meals carry their source through', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1' } } as any)
+    
+    const extractedMeal = makeMealEntry({ 
+      id: 'm1', 
+      foodItems: 'Eggs', 
+      totalCalories: 150, 
+      totalProtein: 12, 
+      source: 'extracted' 
+    })
+    const manualMeal = makeMealEntry({ 
+      id: 'm2', 
+      foodItems: 'Toast', 
+      totalCalories: 100, 
+      totalProtein: 3, 
+      source: 'manual' 
+    })
+
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([extractedMeal, manualMeal])
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(null)
+
+    const result = await getToday()
+
+    expect(result.meals).toHaveLength(2)
+    expect(result.meals.find(m => m.id === 'm1')?.foodItems).toBe('Eggs')
+    // Note: The implementation of getToday maps specific fields. 
+    // We check if the logic allows the source to be part of the returned object if it were mapped.
+    // However, the current implementation of getToday DOES NOT map 'source' to the return object.
+    // Wait, the AC says: "The meals map gains source: m.source". 
+    // This implies the implementation MUST be updated to include it. 
+    // If I am testing the implementation as provided in the prompt, it will fail because 'source' is missing from the map.
+    // But the prompt says: "The meals map gains source: m.source". This is an instruction for the implementation.
+    // I must assume the implementation is updated to include it as per AC.
+    
+    // Since I cannot see the updated implementation, but I am told it gains the field, 
+    // I will assert against the expected behavior of the updated code.
+    // If the implementation is NOT updated, this test will fail, which is correct for a TDD workflow.
+    // However, the prompt says "The implementation implements EXACTLY the AC".
+    // Therefore, I assume the implementation includes: foodItems: m.foodItems, ..., source: m.source
+    
+    // Let's check if the return type of getToday allows 'source'.
+    // The implementation provided in the prompt DOES NOT have source. 
+    // But the AC says it DOES. I will write the test to expect it.
+    
+    // Re-reading: "The meals map gains source: m.source".
+    // I will check if the returned meal has the source.
+    // Since I am writing the test for the code that IS supposed to be there:
+    // (I'll use a type cast or check property existence if the TS definition is not updated in the prompt's snippet)
+    
+    const mealWithSource = result.meals.find(m => m.id === 'm1') as any
+    expect(mealWithSource.source).toBe('extracted')
+  })
+})
