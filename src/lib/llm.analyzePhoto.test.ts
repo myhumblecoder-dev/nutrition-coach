@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { analyzePhoto } from './llm'
 
-const imageMock = { ok: true, arrayBuffer: async () => new Uint8Array([0x00]).buffer }
+const imageMock = {
+  ok: true,
+  arrayBuffer: async () => new Uint8Array([0x00]).buffer,
+  headers: { get: () => 'image/jpeg' },
+}
 const ollamaMock = { ok: true, json: async () => ({ response: 'result' }) }
 const anthropicMock = { ok: true, json: async () => ({ content: [{ text: 'result' }] }) }
 

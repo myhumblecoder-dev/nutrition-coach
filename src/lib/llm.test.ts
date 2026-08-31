@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { generate } from './llm'
+import { generate, analyzePhoto } from './llm'
 
 describe('llm', () => {
   const originalEnv = process.env
@@ -49,5 +49,33 @@ describe('llm', () => {
     } as Response)
 
     await expect(generate('hi')).rejects.toThrow('Bad Request')
+  })
+
+  it('analyzePhoto passes the fetched content type to the anthropic request', async () => {
+    process.env.LLM_PROVIDER = 'anthropic'
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => new ArrayBuffer(4),
+        headers: { get: vi.fn(() => 'image/png') },
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ content: [{ text: '{}' }] }),
+      } as Response)
+
+    await analyzePhoto('https://blob/x.png', 'describe')
+
+    const body = vi.mocked(fetch).mock.calls[1][1]?.body as string
+    expect(body).toContain('"media_type":"image/png"')
+  })
+
+  it('analyzePhoto throws when the image fetch is not ok', async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: false } as Response)
+
+    await expect(analyzePhoto('https://blob/x.jpg', 'describe')).rejects.toThrow(
+      'Failed to fetch image'
+    )
   })
 })

@@ -83,4 +83,22 @@ describe('MealConfirmCard', () => {
     expect(mockOnCancel).toHaveBeenCalled()
     expect(saveMealEntry).not.toHaveBeenCalled()
   })
+
+  it('shows a failed save inline and does not report', async () => {
+    const user = userEvent.setup()
+    vi.mocked(saveMealEntry).mockRejectedValue(new Error('Unauthorized'))
+
+    render(
+      <MealConfirmCard
+        analysis={mockAnalysis}
+        onSaved={mockOnSaved}
+        onCancel={mockOnCancel}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /log meal/i }))
+
+    expect(await screen.findByText('Unauthorized')).toBeInTheDocument()
+    expect(mockOnSaved).not.toHaveBeenCalled()
+  })
 })
