@@ -25,4 +25,9 @@ describe('Layout', () => {
     render(<Layout><p>child</p></Layout>)
     expect(screen.getByTestId('nav-bar')).toBeInTheDocument()
   })
+
+  it('the body carries the page background class', async () => {
+    render(<Layout><p>child</p></Layout>)
+    expect(document.body.className).toContain('bg-[#fafafa]')
+  })
 })
