@@ -9,6 +9,12 @@ vi.mock('@/lib/db', () => ({
       findMany: vi.fn(),
       create: vi.fn(),
     },
+    dailyTarget: {
+      findUnique: vi.fn(),
+    },
+    mealEntry: {
+      findMany: vi.mocked(vi.fn()),
+    },
   },
 }))
 
@@ -19,6 +25,9 @@ vi.mock('@/lib/llm', () => ({
 describe('chat', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default behavior: no target, no meals
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
   })
 
   it('rejects an empty message', async () => {
@@ -37,11 +46,9 @@ describe('chat', () => {
 
     const result = await coachReply(userId, userText)
 
-    // Verify prompt construction
     const promptCall = vi.mocked(generate).mock.calls[0][0]
     expect(promptCall).toContain(`user: ${userText}`)
 
-    // Verify persistence of user message
     expect(prisma.chatMessage.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: 'u1',
@@ -50,7 +57,6 @@ describe('chat', () => {
       }),
     })
 
-    // Verify persistence of assistant message
     expect(prisma.chatMessage.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: 'u1',
@@ -59,10 +65,53 @@ describe('chat', () => {
       }),
     })
 
-    // Verify return value
     expect(result).toEqual({ assistantReply: 'Great job!' })
-    
-    // Ensure create was called exactly twice
     expect(prisma.chatMessage.create).toHaveBeenCalledTimes(2)
+  })
+
+  it("the prompt includes today's totals when a target exists", async () => {
+    const userId = 'u1'
+    const userText = 'How am I doing?'
+    const assistantReply = 'You are doing great!'
+    
+    // Setup target and meals
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue({
+      id: 't1',
+      userId: 'u1',
+      calories: 2000,
+      protein: 150,
+      createdAt: new Date(Date.UTC(2024, 0, 1)),
+      updatedAt: new Date(Date.UTC(2024, 0, 1)),
+    } as any)
+
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      { totalCalories: 485, totalProtein: 37 } as any,
+    ])
+
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue(assistantReply)
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as any)
+
+    await coachReply(userId, userText)
+
+    const promptCall = vi.mocked(generate).mock.calls[0][0]
+    expect(promptCall).toContain('Today so far: 485 of 2000 cal, 37g of 150g protein.')
+  })
+
+  it('the prompt omits the context line without a target', async () => {
+    const userId = 'u1'
+    const userText = 'How am I doing?'
+    const assistantReply = 'You are doing great!'
+
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue(assistantReply)
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as any)
+
+    await coachReply(userId, userText)
+
+    const promptCall = vi.mocked(generate).mock.calls[0][0]
+    expect(promptCall).not.toContain('Today so far:')
   })
 })
