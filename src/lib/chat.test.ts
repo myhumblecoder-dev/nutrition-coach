@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { coachReply } from './chat'
 import { prisma } from '@/lib/db'
 import { generate } from '@/lib/llm'
+import { extractHealthFacts } from '@/lib/extraction'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -22,12 +23,36 @@ vi.mock('@/lib/llm', () => ({
   generate: vi.fn(),
 }))
 
+vi.mock('@/lib/extraction', () => ({ extractHealthFacts: vi.fn() }))
+
 describe('chat', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Default behavior: no target, no meals
     vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
+    })
+  })
+
+  it('extraction runs on every user turn', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('Nice!')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'how did I do?')
+
+    expect(extractHealthFacts).toHaveBeenCalledWith('u1', 'how did I do?')
+  })
+
+  it('an extraction failure does not break the reply', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('Nice!')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(extractHealthFacts).mockRejectedValue(new Error('boom'))
+
+    await expect(coachReply('u1', 'hello')).resolves.toEqual({ assistantReply: 'Nice!' })
   })
 
   it('rejects an empty message', async () => {

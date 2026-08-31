@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { generate } from "@/lib/llm";
+import { extractHealthFacts } from "@/lib/extraction";
 import { z } from "zod";
 
 function startOfToday(now: Date): Date {
@@ -75,6 +76,14 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
       data: { userId, role: "assistant", content: reply },
     }),
   ]);
+
+  // Belt and braces on top of the orchestrator's own guard: extraction must
+  // never break a reply.
+  try {
+    await extractHealthFacts(userId, cleanText);
+  } catch {
+    // ignore
+  }
 
   return { assistantReply: reply };
 }
