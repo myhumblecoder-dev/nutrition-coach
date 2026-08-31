@@ -10,7 +10,7 @@ export async function generate(prompt: string): Promise<string> {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
+        model: process.env.LLM_MODEL ?? 'claude-haiku-4-5',
         max_tokens: 1024,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -78,7 +78,7 @@ export async function analyzePhoto(
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: process.env.LLM_MODEL ?? 'claude-3-5-haiku-20241022',
+        model: process.env.LLM_MODEL ?? 'claude-haiku-4-5',
         max_tokens: 1024,
         messages: [
           {
