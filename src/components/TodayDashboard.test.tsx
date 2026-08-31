@@ -11,6 +11,41 @@ describe('TodayDashboard', () => {
     vi.clearAllMocks()
   })
 
+  it('only extracted meals get the via chat chip', async () => {
+    const props = {
+      consumed: { calories: 800, protein: 60 },
+      target: { calories: 2000, protein: 150 },
+      meals: [
+        {
+          id: '1',
+          foodItems: JSON.stringify([
+            { name: 'Oatmeal', portion: '1 bowl', calories: 300, protein: 10 },
+          ]),
+          totalCalories: 350,
+          totalProtein: 12,
+          source: 'extracted',
+        },
+        {
+          id: '2',
+          foodItems: JSON.stringify([
+            { name: 'Chicken Salad', portion: '1 plate', calories: 450, protein: 48 },
+          ]),
+          totalCalories: 450,
+          totalProtein: 48,
+          source: 'manual',
+        },
+      ],
+    }
+
+    render(<TodayDashboard {...props} />)
+
+    // Assert exactly one 'via chat' text is present
+    expect(screen.getByText('via chat')).toBeInTheDocument()
+    // Ensure the manual one doesn't have it
+    const manualMeal = screen.getByText('Chicken Salad').closest('div')
+    expect(manualMeal?.textContent).not.toContain('via chat')
+  })
+
   it('TodayDashboard renders', async () => {
     const props = {
       consumed: { calories: 800, protein: 60 },
