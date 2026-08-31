@@ -3,6 +3,7 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import DeleteMealButton from '@/components/DeleteMealButton'
 
 interface TodayDashboardProps {
   consumed: {
@@ -78,9 +79,12 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
                       {meal.totalCalories} cal • {meal.totalProtein}g protein
                     </span>
                   </div>
-                  <Badge variant="secondary">
-                    {meal.totalCalories} cal
-                  </Badge>
+                  <div className="flex items-center">
+                    <Badge variant="secondary">
+                      {meal.totalCalories} cal
+                    </Badge>
+                    <DeleteMealButton mealId={meal.id} />
+                  </div>
                 </div>
               ))}
             </div>

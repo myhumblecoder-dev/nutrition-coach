@@ -2,6 +2,10 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import TodayDashboard from './TodayDashboard'
 
+vi.mock('@/components/DeleteMealButton', () => ({
+  default: vi.fn(() => <button aria-label="Delete meal" />),
+}))
+
 describe('TodayDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -58,6 +62,21 @@ describe('TodayDashboard', () => {
     render(<TodayDashboard {...props} />)
 
     expect(screen.getByText('Meal')).toBeInTheDocument()
+  })
+
+  it('each meal row renders a delete button', () => {
+    const props = {
+      consumed: { calories: 800, protein: 60 },
+      target: null,
+      meals: [
+        { id: '1', foodItems: '[]', totalCalories: 300, totalProtein: 20 },
+        { id: '2', foodItems: '[]', totalCalories: 500, totalProtein: 40 },
+      ],
+    }
+
+    render(<TodayDashboard {...props} />)
+
+    expect(screen.getAllByRole('button', { name: 'Delete meal' })).toHaveLength(2)
   })
 
   it('TodayDashboard prompts when no target is set', async () => {
