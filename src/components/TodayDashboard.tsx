@@ -19,6 +19,7 @@ interface TodayDashboardProps {
     foodItems: string
     totalCalories: number
     totalProtein: number
+    source?: string
   }>
 }
 
@@ -74,7 +75,14 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
                   className="flex items-center justify-between rounded-lg border p-3"
                 >
                   <div className="flex flex-col">
-                    <span className="font-medium text-sm">{mealLabel(meal.foodItems)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{mealLabel(meal.foodItems)}</span>
+                      {meal.source === 'extracted' && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                          via chat
+                        </Badge>
+                      )}
+                    </div>
                     <span className="text-xs text-muted-foreground">
                       {meal.totalCalories} cal • {meal.totalProtein}g protein
                     </span>
