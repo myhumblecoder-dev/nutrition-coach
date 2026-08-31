@@ -1,5 +1,7 @@
 import { sendTelegramMessage, getTelegramFileUrl } from '@/lib/telegram';
 import { logMealForUser } from '@/lib/meals';
+
+export const maxDuration = 60;
 import { coachReply } from '@/lib/chat';
 import { analyzeMeal } from '@/app/actions/analyzeMeal';
 import { put } from '@vercel/blob';
@@ -43,7 +45,14 @@ export async function POST(request: Request) {
         addRandomSuffix: true,
       });
 
-      const analysis = await analyzeMeal(blob.url);
+      let analysis;
+      try {
+        analysis = await analyzeMeal(blob.url);
+      } catch (err) {
+        console.error(err);
+        await sendTelegramMessage(chatId, "I couldn't read that as a meal photo — try a clearer, closer shot of the food.");
+        return Response.json({ ok: false }, { status: 200 });
+      }
 
       await logMealForUser(user.id, {
         photoUrl: blob.url,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { POST } from './route'
+import { POST, maxDuration } from './route'
 import { sendTelegramMessage, getTelegramFileUrl } from '@/lib/telegram'
 import { logMealForUser } from '@/lib/meals'
 import { coachReply } from '@/lib/chat'
@@ -7,10 +7,8 @@ import { analyzeMeal } from '@/app/actions/analyzeMeal'
 import { put } from '@vercel/blob'
 import { prisma } from '@/lib/db'
 
-vi.mock('@/lib/telegram', () => ({
-  sendTelegramMessage: vi.fn(),
-  getTelegramFileUrl: vi.fn(),
-}))
+vi.mock('@/lib/telegram', () => ({ getTelegramFileUrl: vi.fn(), sendTelegramMessage: vi.fn() }));
+vi.mock('@/app/actions/analyzeMeal', () => ({ analyzeMock: vi.fn(), analyzeMeal: vi.fn() }));
 
 vi.mock('@/lib/meals', () => ({
   logMealForUser: vi.fn(),
@@ -18,10 +16,6 @@ vi.mock('@/lib/meals', () => ({
 
 vi.mock('@/lib/chat', () => ({
   coachReply: vi.fn(),
-}))
-
-vi.mock('@/app/actions/analyzeMeal', () => ({
-  analyzeMeal: vi.fn(),
 }))
 
 vi.mock('@vercel/blob', () => ({
@@ -48,6 +42,41 @@ describe('route', () => {
       ok: true,
       blob: async () => new Blob(['x']),
     }) as any
+  })
+
+  it('an unreadable photo gets an apologetic reply', async () => {
+    const update = {
+      message: {
+        chat: { id: 5519 },
+        photo: [{ file_id: 'big' }],
+      },
+    }
+    const req = new Request('http://test/api/mock', {
+      method: 'POST',
+      headers: {
+        'x-telegram-bot-api-secret-token': 'hook-secret',
+      },
+      body: JSON.stringify(update),
+    })
+
+    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any)
+    vi.mocked(getTelegramFileUrl).mockResolvedValue('https://api.telegram.org/file/big')
+    vi.mocked(put).mockResolvedValue({ url: 'https://blob/x.jpg' } as any)
+    vi.mocked(analyzeMeal).mockRejectedValue(new Error('vision failed'))
+
+    const res = await POST(req as any)
+    
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json).toEqual({ ok: false })
+    expect(vi.mocked(sendTelegramMessage)).toHaveBeenCalledWith(
+      '5519',
+      expect.stringContaining("couldn't read")
+    )
+  })
+
+  it('maxDuration is exported as 60', () => {
+    expect(maxDuration).toBe(60)
   })
 
   it('rejects a request with the wrong webhook secret', async () => {
@@ -89,6 +118,14 @@ describe('route', () => {
     const update = {
       message: {
         chat: { id: 5519 },
+        photo: [{ file_id: 'small' }, { file: 'big' }, { file_id: 'big' }],
+      },
+    }
+    // Note: The implementation uses message.photo[message.photo.length - 1].file_id
+    // We must ensure the object has file_id
+    const updateCorrected = {
+      message: {
+        chat: { id: 5519 },
         photo: [{ file_id: 'small' }, { file_id: 'big' }],
       },
     }
@@ -97,7 +134,7 @@ describe('route', () => {
       headers: {
         'x-telegram-bot-api-secret-token': 'hook-secret',
       },
-      body: JSON.stringify(update),
+      body: JSON.stringify(updateCorrected),
     })
 
     vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any)
