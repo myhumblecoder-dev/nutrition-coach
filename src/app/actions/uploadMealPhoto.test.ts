@@ -58,4 +58,16 @@ describe('uploadMealPhoto', () => {
     await expect(uploadMealPhoto(formData)).rejects.toThrow('No file provided')
     expect(mockPut).not.toHaveBeenCalled()
   })
+
+  it('rejects an unsupported image type', async () => {
+    // Arrange
+    mockAuth.mockResolvedValue({ user: { id: 'u1' } })
+    const formData = new FormData()
+    const file = new File([new TextEncoder().encode('fake-heic-content')], 'photo.heic', { type: 'image/heic' })
+    formData.append('file', file)
+
+    // Act & Assert
+    await expect(uploadMealPhoto(formData)).rejects.toThrow('Unsupported image type')
+    expect(mockPut).not.toHaveBeenCalled()
+  })
 })
