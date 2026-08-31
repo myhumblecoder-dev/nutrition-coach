@@ -1,4 +1,4 @@
-import { auth } from '@/auth'
+import { auth, signIn, signOut } from '@/auth'
 import { getToday } from '@/app/actions/getToday'
 import HomeClient from './HomeClient'
 
@@ -15,10 +15,42 @@ export default async function Home() {
         <p className="text-zinc-500">
           Sign in to start logging meals against your daily targets.
         </p>
+        <form
+          action={async () => {
+            'use server'
+            await signIn('github')
+          }}
+        >
+          <button
+            type="submit"
+            className="rounded-full bg-emerald-600 px-6 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+          >
+            Sign in with GitHub
+          </button>
+        </form>
       </main>
     )
   }
 
   const today = await getToday()
-  return <HomeClient today={today} />
+  return (
+    <>
+      <div className="mx-auto flex w-full max-w-2xl justify-end px-6 pt-4">
+        <form
+          action={async () => {
+            'use server'
+            await signOut()
+          }}
+        >
+          <button
+            type="submit"
+            className="text-sm text-zinc-500 underline-offset-2 hover:underline"
+          >
+            Sign out
+          </button>
+        </form>
+      </div>
+      <HomeClient today={today} />
+    </>
+  )
 }
