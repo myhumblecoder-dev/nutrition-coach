@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { saveMealEntry } from './saveMealEntry'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
@@ -21,6 +23,11 @@ const mockCreate = vi.mocked(prisma.mealEntry.create)
 describe('saveMealEntry', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('the module source begins with the use server directive', () => {
+    const firstLine = readFileSync(join(process.cwd(), 'src/app/actions/saveMealEntry.ts'), 'utf8').split('\n')[0]
+    expect(firstLine).toMatch(/^['"]use server['"];?\s*$/)
   })
 
   it('throws Unauthorized when auth returns no session', async () => {
