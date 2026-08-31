@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, it, expect, vi } from 'vitest'
 import { analyzeMeal } from './analyzeMeal'
 import { analyzePhoto } from '@/lib/llm'
@@ -7,6 +9,14 @@ vi.mock('@/lib/llm', () => ({
 }))
 
 describe('analyzeMeal', () => {
+  it('the module source begins with the use server directive', () => {
+    const firstLine = readFileSync(
+      join(process.cwd(), 'src/app/actions/analyzeMeal.ts'),
+      'utf8'
+    ).split('\n')[0]
+    expect(firstLine).toMatch(/^['"]use server['"];?\s*$/)
+  })
+
   it('returns parsed food items for valid vision JSON response', async () => {
     const mockResponse = JSON.stringify({
       foodItems: [

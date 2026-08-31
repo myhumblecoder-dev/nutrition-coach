@@ -1,3 +1,5 @@
+'use server';
+
 import { analyzePhoto } from '@/lib/llm';
 import { z } from 'zod';
 

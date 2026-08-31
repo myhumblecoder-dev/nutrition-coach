@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { sendChatMessage } from './sendChatMessage'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
 vi.mock('@/lib/db', () => ({ prisma: { chatMessage: { findMany: vi.fn(), create: vi.fn() } } }))
@@ -21,6 +23,11 @@ const makeChatMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage =>
   } as unknown as ChatMessage)
 
 describe('sendChatMessage', () => {
+  it('the module source begins with the use server directive', () => {
+    const firstLine = readFileSync(join(process.cwd(), 'src/app/actions/sendChatMessage.ts'), 'utf8').split('\n')[0]
+    expect(firstLine).toMatch(/^['"]use server['"];?\s*$/)
+  })
+
   it('unauthorized rejects: set `vi.mocked(auth).mockResolvedValue(null)`; call `sendChatMessage(\'hello\')`; assert it rejects with message `\'Unauthorized\'\'', async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
     await expect(sendChatMessage('hello')).rejects.toThrow('Unauthorized')

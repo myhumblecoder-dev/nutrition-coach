@@ -2,17 +2,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { upsertDailyTarget } from './upsertDailyTarget'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
-vi.mock('@/auth', () => ({
-  auth: vi.fn(),
-}))
-
+// We need to mock the db import as it's a singleton
 vi.mock('@/lib/db', () => ({
   prisma: {
     dailyTarget: {
       upsert: vi.fn(),
     },
   },
+}))
+
+vi.mock('@/auth', () => ({
+  auth: vi.fn(),
 }))
 
 // `auth` is overloaded in Auth.js, so vi.mocked(auth) resolves the
@@ -22,6 +25,11 @@ const mockAuth = vi.mocked(auth as unknown as () => Promise<unknown>)
 describe('upsertDailyTarget', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('the module source begins with the use server directive', () => {
+    const firstLine = readFileSync(join(process.cwd(), 'src/app/actions/upsertDailyTarget.ts'), 'utf8').split('\n')[0]
+    expect(firstLine).toMatch(/^[\"']use server[\"'];?\s*$/)
   })
 
   it("throws Unauthorized when no session: `vi.mocked(auth).mockResolvedValue(null)`; call `upsertDailyTarget({ calories: 2000, protein: 150 })`; expect it to reject with 'Unauthorized'`", async () => {

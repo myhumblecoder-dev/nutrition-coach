@@ -65,6 +65,9 @@ export async function analyzePhoto(
     throw new Error('Failed to fetch image');
   }
   const base64 = Buffer.from(await imageRes.arrayBuffer()).toString('base64');
+  // Anthropic validates media_type against the actual bytes; a PNG declared
+  // as image/jpeg is rejected, so pass through what the blob store served.
+  const mediaType = (imageRes.headers.get('content-type') ?? 'image/jpeg').split(';')[0];
 
   if (process.env.LLM_PROVIDER === 'anthropic') {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -83,7 +86,7 @@ export async function analyzePhoto(
             content: [
               {
                 type: 'image',
-                source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
+                source: { type: 'base64', media_type: mediaType, data: base64 },
               },
               { type: 'text', text: systemPrompt },
             ],
