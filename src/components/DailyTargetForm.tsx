@@ -15,12 +15,23 @@ export default function DailyTargetForm({ initial }: DailyTargetFormProps) {
   const [calories, setCalories] = useState(initial?.calories ?? 0)
   const [protein, setProtein] = useState(initial?.protein ?? 0)
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   const handleSave = async () => {
-    await upsertDailyTarget({ calories, protein })
-    router.refresh()
-    setSaved(true)
+    setError(null)
+    setSaved(false)
+    setSaving(true)
+    try {
+      await upsertDailyTarget({ calories, protein })
+      setSaved(true)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save targets')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -45,7 +56,10 @@ export default function DailyTargetForm({ initial }: DailyTargetFormProps) {
           />
         </div>
       </div>
-      <Button onClick={handleSave}>Save targets</Button>
+      <Button onClick={handleSave} disabled={saving || calories <= 0 || protein <= 0}>
+        Save targets
+      </Button>
+      {error && <p className="text-sm text-red-500">{error}</p>}
       {saved && <p className="text-sm text-green-600">Targets saved</p>}
     </div>
   )
