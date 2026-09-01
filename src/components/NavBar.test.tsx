@@ -7,15 +7,20 @@ describe('NavBar', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the home targets and chat links', async () => {
+  it('renders the three nav links', async () => {
     render(<NavBar />)
 
-    const homeLink = screen.getByRole('link', { name: 'Home' })
+    const todayLink = screen.getByRole('link', { name: 'Today' })
     const targetsLink = screen.getByRole('link', { name: 'Targets' })
     const chatLink = screen.getByRole('link', { name: 'Chat' })
 
-    expect(homeLink).toHaveAttribute('href', '/')
+    expect(todayLink).toHaveAttribute('href', '/')
     expect(targetsLink).toHaveAttribute('href', '/targets')
     expect(chatLink).toHaveAttribute('href', '/chat')
+  })
+
+  it('renders the wordmark', async () => {
+    render(<NavBar />)
+    expect(screen.getByText('Nutrition Coach')).toBeInTheDocument()
   })
 })
