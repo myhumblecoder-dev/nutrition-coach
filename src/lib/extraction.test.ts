@@ -42,8 +42,8 @@ describe('extraction', () => {
         recovery: [],
         mood: [],
         measurement: [],
-      }) +
-      '\n```'
+      })
+      + '\n```'
 
     const facts = parseHealthFacts(fenced)
 
@@ -63,7 +63,7 @@ describe('extraction', () => {
     })
   })
 
-  it('records mixed facts with extracted provenance', async () => {
+  it('creates carry the source text', async () => {
     const facts = {
       meals: [{ name: 'Baozi', portion: '5 pieces', calories: 600, protein: 25 }],
       training: [{ kind: 'resistance' as const, minutes: 30 }],
@@ -72,11 +72,13 @@ describe('extraction', () => {
       measurement: [],
     }
 
-    const counts = await recordHealthFacts('u1', facts)
+    // Passing sourceText as the third argument
+    const counts = await recordHealthFacts('u1', facts, 'had baozi')
 
     const arg = vi.mocked(prisma.mealEntry.create).mock.calls[0][0]
     expect(arg.data.userId).toBe('u1')
     expect(arg.data.source).toBe('extracted')
+    expect(arg.data.sourceText).toBe('had baozi')
     expect(arg.data.totalCalories).toBe(600)
     expect(counts).toEqual({ meals: 1, training: 1, recovery: 0, mood: 0, measurement: 0 })
   })
@@ -91,19 +93,22 @@ describe('extraction', () => {
     expect(counts).toEqual({ meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 })
   })
 
-  it('extracts and records from a conversation turn', async () => {
+  it('the orchestrator passes the user text through', async () => {
+    const userText = 'I ate a burger and slept 8 hours'
     vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([] as never)
     vi.mocked(prisma.trainingEntry.findMany).mockResolvedValue([] as never)
     vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
     vi.mocked(generate).mockResolvedValue(
       JSON.stringify({
-        meals: [], training: [], recovery: [{ kind: 'sleep', value: 7 }], mood: [], measurement: [],
+        meals: [], training: [], recovery: [{ kind: 'sleep', value: 8 }], mood: [], measurement: [],
       })
     )
 
-    const counts = await extractHealthFacts('u1', 'slept 7 hours')
+    const counts = await extractHealthFacts('u1', userText)
 
-    expect(prisma.recoveryEntry.create).toHaveBeenCalledTimes(1)
+    // Verify that the recovery entry creation received the sourceText
+    const recoveryArg = vi.mocked(prisma.recoveryEntry.create).mock.calls[0][0]
+    expect(recoveryArg.data.sourceText).toBe(userText)
     expect(counts).toEqual({ meals: 0, training: 0, recovery: 1, mood: 0, measurement: 0 })
   })
 
