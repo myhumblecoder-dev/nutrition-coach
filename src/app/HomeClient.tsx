@@ -63,7 +63,13 @@ export default function HomeClient({ today, week, activity, coachMessage }: Home
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">Today</h1>
-          <p className="text-sm text-[#71717a]">
+          <p className="text-sm text-[#71717a]" suppressHydrationWarning>
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'short',
+              day: 'numeric',
+            })}
+            {' · '}
             {today.consumed.calories} kcal in
             {proteinToGo != null ? `, ${proteinToGo}g protein to go` : ''}
           </p>

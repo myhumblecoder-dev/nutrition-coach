@@ -40,6 +40,10 @@ describe('HomeClient', () => {
     render(<HomeClient today={today} week={week} activity={[]} coachMessage={null} />)
     expect(screen.getByText('of 2000 kcal')).toBeInTheDocument()
     expect(screen.getByText(/800 kcal in/)).toBeInTheDocument()
+    const expectedDate = new Date().toLocaleDateString('en-US', {
+      weekday: 'long', month: 'short', day: 'numeric',
+    })
+    expect(screen.getByText(new RegExp(expectedDate))).toBeInTheDocument()
   })
 
   it('renders the training and recovery cards', () => {

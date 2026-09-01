@@ -31,6 +31,19 @@ describe('extraction', () => {
     expect(prompt).toContain('Already logged today')
     expect(prompt).toContain('Salad')
     expect(prompt).toContain('Message: I ran sprints')
+    expect(prompt).toContain('ESTIMATE its calories and protein')
+  })
+
+  it('a meal without a portion still parses', () => {
+    const facts = parseHealthFacts(
+      JSON.stringify({
+        meals: [{ name: 'Eggs and tortillas', calories: 540, protein: 24 }],
+        training: [], recovery: [], mood: [], measurement: [],
+      })
+    )
+
+    expect(facts.meals).toHaveLength(1)
+    expect(facts.meals[0].portion).toBe('1 serving')
   })
 
   it('a fenced response still parses', () => {
