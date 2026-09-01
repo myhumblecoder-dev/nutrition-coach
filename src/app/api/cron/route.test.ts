@@ -104,9 +104,10 @@ describe('route', () => {
     const response = await GET(request);
     const body = await response.json();
 
-    expect(generate).toHaveBeenCalledTimes(2);
-    expect(generate).toHaveBeenNthCalledWith(1, 'Write a short, friendly daily nutrition check-in message for Alice. Ask how they plan to eat today. Reply with the message only.');
-    expect(generate).toHaveBeenNthCalledWith(2, 'Write a short, friendly daily nutrition check-in message for Bob. Ask how they plan to eat today. Reply with the message only.');
+    expect(generate).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(generate).mock.calls[0][0]).toContain('Today is ');
+    expect(vi.mocked(generate).mock.calls[0][0]).toContain('Write a short, friendly daily nutrition check-in message for Alice.');
+    expect(vi.mocked(generate).mock.calls[1][0]).toContain('Write a short, friendly daily nutrition check-in message for Bob.');
     expect(body).toEqual({ ok: true, sent: 2, failed: 0 });
     
     expect(fetch).toHaveBeenCalledWith(
