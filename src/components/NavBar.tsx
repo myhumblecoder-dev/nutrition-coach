@@ -1,12 +1,6 @@
 import Link from 'next/link';
 
 export default function NavBar() {
-  const dateStr = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-    timeZone: process.env.APP_TIMEZONE ?? 'America/New_York',
-  }).format(new Date());
 
   return (
     <nav className="flex h-16 items-center justify-between border-b border-[#e4e4e7] bg-white px-10">
@@ -29,7 +23,7 @@ export default function NavBar() {
         </div>
       </div>
       <div className="text-[13px] text-muted-foreground">
-        {dateStr}
+        
       </div>
     </nav>
   );
