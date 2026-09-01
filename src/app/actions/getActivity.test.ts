@@ -75,6 +75,10 @@ describe('getActivity', () => {
 
     const result = await getActivity()
 
+    const mealArg = vi.mocked(prisma.mealEntry.findMany).mock.calls[0][0] as { where: { loggedAt: { gte: Date } } }
+    expect(mealArg?.where?.loggedAt?.gte).toBeInstanceOf(Date)
+    const trainArg = vi.mocked(prisma.trainingEntry.findMany).mock.calls[0][0] as { where: { loggedAt: { gte: Date } } }
+    expect(trainArg?.where?.loggedAt?.gte).toBeInstanceOf(Date)
     expect(result).toHaveLength(2)
     
     // Check order (descending by date)

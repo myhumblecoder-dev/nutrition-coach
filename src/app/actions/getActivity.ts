@@ -2,6 +2,7 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/db';
+import { startOfToday } from '@/lib/time';
 
 export async function getActivity() {
   const session = await auth();
@@ -10,30 +11,31 @@ export async function getActivity() {
   }
 
   const userId = session.user.id;
+  const since = startOfToday(new Date());
 
   const [meals, trainings, recoveries, moods, measurements] = await Promise.all([
     prisma.mealEntry.findMany({
-      where: { userId },
+      where: { userId, loggedAt: { gte: since } },
       orderBy: { loggedAt: 'desc' },
       take: 5,
     }),
     prisma.trainingEntry.findMany({
-      where: { userId },
+      where: { userId, loggedAt: { gte: since } },
       orderBy: { loggedAt: 'desc' },
       take: 5,
     }),
     prisma.recoveryEntry.findMany({
-      where: { userId },
+      where: { userId, loggedAt: { gte: since } },
       orderBy: { loggedAt: 'desc' },
       take: 5,
     }),
     prisma.moodEntry.findMany({
-      where: { userId },
+      where: { userId, loggedAt: { gte: since } },
       orderBy: { loggedAt: 'desc' },
       take: 5,
     }),
     prisma.measurement.findMany({
-      where: { userId },
+      where: { userId, measuredAt: { gte: since } },
       orderBy: { measuredAt: 'desc' },
       take: 5,
     }),
