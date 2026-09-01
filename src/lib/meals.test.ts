@@ -61,4 +61,18 @@ describe('meals', () => {
 
     expect(prisma.mealEntry.create).not.toHaveBeenCalled()
   })
+
+  it('carries sourceText when provided', async () => {
+    vi.mocked(prisma.mealEntry.create).mockResolvedValue({ id: 'e2' } as never)
+
+    await logMealForUser('u1', {
+      photoUrl: 'https://example.com/p.jpg',
+      foodItems: [{ name: 'Chicken', portion: '1', calories: 200, protein: 30 }],
+      totalCalories: 200,
+      totalProtein: 30,
+    }, 'my lunch caption')
+
+    const arg = vi.mocked(prisma.mealEntry.create).mock.calls[0][0]
+    expect(arg.data.sourceText).toBe('my lunch caption')
+  })
 })

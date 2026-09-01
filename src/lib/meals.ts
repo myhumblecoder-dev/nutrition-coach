@@ -15,7 +15,7 @@ const saveMealEntrySchema = z.object({
   totalProtein: z.number().nonnegative(),
 });
 
-export async function logMealForUser(userId: string, input: z.infer<typeof saveMealEntrySchema>) {
+export async function logMealForUser(userId: string, input: z.infer<typeof saveMealEntrySchema>, sourceText?: string) {
   let parsed;
   try {
     parsed = saveMealEntrySchema.parse(input);
@@ -31,6 +31,7 @@ export async function logMealForUser(userId: string, input: z.infer<typeof saveM
       totalCalories: parsed.totalCalories,
       totalProtein: parsed.totalProtein,
       confirmed: true,
+      sourceText: sourceText ?? null,
       loggedAt: new Date(),
     },
   });
