@@ -1,5 +1,6 @@
 import { generate } from '@/lib/llm'
 import { prisma } from '@/lib/db'
+import { nowLine } from '@/lib/time'
 
 async function sendTelegramMessage(text: string): Promise<void> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
 
   for (const user of users) {
     try {
-      const prompt = 'Write a short, friendly daily nutrition check-in message for ' + (user.name ?? 'the user') + '. Ask how they plan to eat today. Reply with the message only.'
+      const prompt = nowLine() + ' Write a short, friendly daily nutrition check-in message for ' + (user.name ?? 'the user') + '. Ask how they plan to eat today. Reply with the message only.'
       const reply = await generate(prompt)
       await sendTelegramMessage(reply)
       sent++

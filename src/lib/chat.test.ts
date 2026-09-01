@@ -187,4 +187,18 @@ describe('chat', () => {
     const promptCall = vi.mocked(generate).mock.calls[0][0]
     expect(promptCall).not.toContain('Today so far:')
   })
+
+  it('the prompt tells the coach the current date and time', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-15T15:41:00.000Z')) // Thu 10:41 AM EST
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('ok')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'what time is it?')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('Today is Thursday, January 15, 2026, 10:41 AM (America/New_York).')
+    vi.useRealTimers()
+  })
 })

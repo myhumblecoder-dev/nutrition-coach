@@ -51,3 +51,22 @@ export function startOfWeek(now: Date): Date {
   const startToday = startOfToday(now);
   return new Date(startToday.getTime() - daysSinceMonday * 86400000);
 }
+// The partner-coach-bot pattern: the coach's prompt opens with the current
+// date and time so it never claims it cannot see a calendar.
+export function nowLine(now: Date = new Date()): string {
+  const tz = appTimeZone();
+  const date = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(now);
+  const time = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(now);
+  return `Today is ${date}, ${time} (${tz}).`;
+}
