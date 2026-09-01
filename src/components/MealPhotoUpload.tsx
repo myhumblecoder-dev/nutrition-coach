@@ -41,12 +41,17 @@ export default function MealPhotoUpload({ onAnalyzed }: MealPhotoUploadProps) {
   }
 
   return (
-    <div className="w-full">
+    <div>
       <label
         htmlFor="meal-photo"
-        className="block text-sm font-medium text-zinc-700 dark:text-zinc-200"
+        className={`inline-flex cursor-pointer items-center gap-2.5 rounded-[10px] bg-[#059669] px-[18px] py-[11px] text-sm font-semibold text-white hover:bg-[#047857] ${busy ? 'opacity-60' : ''}`}
       >
-        Photograph a meal
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+        {busy ? 'Analyzing…' : 'Log a meal'}
+        <span className="sr-only">Photograph a meal</span>
       </label>
       <input
         id="meal-photo"
@@ -56,9 +61,8 @@ export default function MealPhotoUpload({ onAnalyzed }: MealPhotoUploadProps) {
         capture="environment"
         disabled={busy}
         onChange={handleChange}
-        className="mt-2 block w-full text-sm file:mr-4 file:rounded-full file:border-0 file:bg-emerald-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-500 disabled:opacity-50"
+        className="sr-only"
       />
-      {busy && <p className="mt-2 text-sm text-zinc-500">Analyzing…</p>}
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
     </div>
   )
