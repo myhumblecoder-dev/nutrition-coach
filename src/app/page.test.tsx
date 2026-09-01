@@ -75,7 +75,7 @@ describe('Home', () => {
     ).toBeInTheDocument()
   })
 
-  it('a signed-in user sees the sign-out button', async () => {
+  it('a signed-in user does not get an inline sign-out (it lives in the nav)', async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: 'u1' } } as never)
     vi.mocked(getToday).mockResolvedValue({
       meals: [], target: null, consumed: { calories: 0, protein: 0 },
@@ -83,6 +83,6 @@ describe('Home', () => {
 
     render(await Home())
 
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+    expect(screen.queryByText('Sign out')).not.toBeInTheDocument()
   })
 })
