@@ -23,7 +23,7 @@ describe('RecoveryCard', () => {
     expect(sleep.length).toBeGreaterThan(0)
     expect(screen.getByText(/4\/5/)).toBeInTheDocument()
     expect(screen.getByText('172')).toBeInTheDocument()
-    expect(document.querySelector('svg polyline, svg path')).not.toBeNull()
+    expect(document.querySelector('svg polyline')).not.toBeNull()
   })
 
   it('renders fallbacks without data', () => {
@@ -38,6 +38,6 @@ describe('RecoveryCard', () => {
 
     expect(screen.getByText('Sleep: not logged')).toBeInTheDocument()
     expect(screen.getByText('Measurement: not logged')).toBeInTheDocument()
-    expect(document.querySelector('svg polyline, svg path')).toBeNull()
+    expect(document.querySelector('svg polyline')).toBeNull()
   })
 })
