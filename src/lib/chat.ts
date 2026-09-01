@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db";
 import { generate } from "@/lib/llm";
 import { extractHealthFacts } from "@/lib/extraction";
-import { startOfWeek } from "@/lib/time";
+import { startOfWeek, appTimeZone } from "@/lib/time";
 import { z } from "zod";
 
 function startOfToday(now: Date): Date {
-  const tz = process.env.APP_TIMEZONE ?? 'America/New_York';
+  const tz = appTimeZone();
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     hourCycle: 'h23',

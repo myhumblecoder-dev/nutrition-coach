@@ -1,10 +1,11 @@
 'use server';
+import { appTimeZone } from '@/lib/time';
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/db';
 
 function startOfToday(now: Date): Date {
-  const tz = process.env.APP_TIMEZONE ?? 'America/New_York';
+  const tz = appTimeZone();
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     hourCycle: 'h23',
