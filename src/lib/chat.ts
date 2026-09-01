@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { generate } from "@/lib/llm";
 import { extractHealthFacts } from "@/lib/extraction";
-import { startOfWeek, appTimeZone } from "@/lib/time";
+import { startOfWeek, appTimeZone, nowLine } from "@/lib/time";
 import { z } from "zod";
 
 function startOfToday(now: Date): Date {
@@ -41,7 +41,7 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     .map((m) => `${m.role}: ${m.content}`);
 
   // Both the web ChatClient and Telegram render raw text, so markdown litters both.
-  let coachPersona = "You are a friendly daily nutrition and fitness coach... Reply in plain conversational text — no markdown, no #, no *, no bullet lists. ";
+  let coachPersona = nowLine() + " You are a friendly daily nutrition and fitness coach... Reply in plain conversational text — no markdown, no #, no *, no bullet lists. ";
 
   const target = await prisma.dailyTarget.findUnique({
     where: { userId },
