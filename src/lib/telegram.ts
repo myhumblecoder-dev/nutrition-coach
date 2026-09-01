@@ -38,5 +38,5 @@ export async function getTelegramFileUrl(fileId: string): Promise<string> {
     throw new Error('Telegram getFile failed');
   }
 
-  return `https://api.telegram.org/file/${token}/${data.result.file_path}`;
+  return `https://api.telegram.org/file/bot${token}/${data.result.file_path}`;
 }
