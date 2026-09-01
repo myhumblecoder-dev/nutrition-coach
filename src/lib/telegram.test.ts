@@ -6,7 +6,7 @@ describe('telegram', () => {
 
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
-    process.env = { ...originalEnv, TELEGRAM_BOT_TOKEN: 'bot123' }
+    process.env = { ...originalEnv, TELEGRAM_BOT_TOKEN: '123456:test-token' }
   })
 
   it('send failure throws with the status text', async () => {
@@ -25,7 +25,7 @@ describe('telegram', () => {
     } as Response)
 
     const url = await getTelegramFileUrl('file_id_123')
-    expect(url).toBe('https://api.telegram.org/file/bot123/photos/f1.jpg')
+    expect(url).toBe('https://api.telegram.org/file/bot123456:test-token/photos/f1.jpg')
   })
 
   it('missing token throws Telegram not configured', async () => {
