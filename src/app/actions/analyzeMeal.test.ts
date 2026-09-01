@@ -94,4 +94,16 @@ describe('analyzeMeal', () => {
       'Vision API returned invalid JSON structure'
     )
   })
+
+  it('passes the user caption to the vision prompt as ground truth', async () => {
+    vi.mocked(analyzePhoto).mockResolvedValue(
+      JSON.stringify({ foodItems: [{ name: 'x', portion: '1', calories: 1, protein: 1 }], totalCalories: 1, totalProtein: 1 })
+    )
+
+    await analyzeMeal('https://example.com/p.jpg', 'chicken, rice, and acorn squash')
+
+    const prompt = vi.mocked(analyzePhoto).mock.calls.at(-1)![1]
+    expect(prompt).toContain('The user says this meal is: "chicken, rice, and acorn squash"')
+    expect(prompt).toContain('Trust their description')
+  })
 })

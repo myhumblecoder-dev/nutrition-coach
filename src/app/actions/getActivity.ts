@@ -15,7 +15,7 @@ export async function getActivity() {
 
   const [meals, trainings, recoveries, moods, measurements] = await Promise.all([
     prisma.mealEntry.findMany({
-      where: { userId, loggedAt: { gte: since } },
+      where: { userId, confirmed: true, loggedAt: { gte: since } },
       orderBy: { loggedAt: 'desc' },
       take: 5,
     }),
