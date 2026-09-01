@@ -11,7 +11,7 @@ const factsSchema = z.object({
     .array(
       z.object({
         name: z.string().trim().min(1),
-        portion: z.string().trim().min(1),
+        portion: z.string().trim().min(1).catch('1 serving').default('1 serving'),
         calories: roundedInt,
         protein: roundedInt,
       })
@@ -72,8 +72,12 @@ export function buildExtractionPrompt(
 ): string {
   const list = (items: string[]) => (items.length > 0 ? items.join(', ') : 'none');
   return (
-    'Extract ONLY facts the user EXPLICITLY stated in the message ' +
-    '(never infer, never invent; empty arrays when nothing qualifies; at most 3 items per key).\n' +
+    'Extract facts from the message (empty arrays when nothing qualifies; at most 3 items per key).\n' +
+    'MEALS: when the user says they ate or drank something caloric, include it and, as a nutrition ' +
+    'coach, ESTIMATE its calories and protein as integers — use any numbers the user stated, estimate ' +
+    'the rest from typical portions. Do not skip a meal just because macros were not stated.\n' +
+    'EVERYTHING ELSE (training, recovery, mood, measurement): ONLY facts the user EXPLICITLY stated — ' +
+    'never infer, never invent.\n' +
     'Return ONLY a JSON object with keys: "meals" (array of {"name","portion","calories","protein"} ' +
     'with integer calories/protein), "training" (array of {"kind": "resistance"|"hiit"|"core"|"neat", ' +
     '"minutes"?, "steps"?, "note"?}), "recovery" (array of {"kind": "sleep"|"water"|"alcohol", ' +
