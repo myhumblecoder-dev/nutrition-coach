@@ -22,6 +22,9 @@ vi.mock('@/lib/db', () => ({
     measurement: {
       findFirst: vi.fn(),
     },
+    userProfile: {
+      findUnique: vi.fn(),
+    },
   },
 }))
 
@@ -39,6 +42,7 @@ describe('chat', () => {
     vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
     vi.mocked(prisma.trainingEntry.findMany).mockResolvedValue([] as never)
     vi.mocked(prisma.measurement.findFirst).mockResolvedValue(null as never)
+    vi.mocked(prisma.userProfile.findUnique).mockResolvedValue(null as never)
     vi.mocked(extractHealthFacts).mockResolvedValue({
       meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
     })
@@ -200,5 +204,31 @@ describe('chat', () => {
     const prompt = vi.mocked(generate).mock.calls[0][0]
     expect(prompt).toContain('Today is Thursday, January 15, 2026, 10:41 AM (America/New_York).')
     vi.useRealTimers()
+  })
+
+  it('the prompt includes the home gym equipment when a profile exists', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('ok')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(prisma.userProfile.findUnique).mockResolvedValue({
+      equipment: 'pull-up bar with rings, kettlebells, dumbbells',
+    } as never)
+
+    await coachReply('u1', 'what should I train?')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain(
+      'Home gym equipment: pull-up bar with rings, kettlebells, dumbbells.'
+    )
+  })
+
+  it('the prompt omits the equipment line without a profile', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('ok')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'hello')
+
+    expect(vi.mocked(generate).mock.calls[0][0]).not.toContain('Home gym equipment:')
   })
 })

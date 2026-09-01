@@ -62,6 +62,14 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     coachPersona += `\nToday so far: ${consumedCal} of ${target.calories} cal, ${consumedProtein}g of ${target.protein}g protein.\n`;
   }
 
+  const profile = await prisma.userProfile.findUnique({ where: { userId } });
+  if (profile?.equipment) {
+    coachPersona += `\nHome gym equipment: ${profile.equipment}.\n`;
+  }
+  if (profile?.notes) {
+    coachPersona += `\nAbout the user: ${profile.notes}\n`;
+  }
+
   const weekTraining = await prisma.trainingEntry.findMany({
     where: { userId, loggedAt: { gte: startOfWeek(new Date()) } },
   });
