@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { sendTelegramMessage, getTelegramFileUrl } from './telegram'
+import { sendTelegramMessage, getTelegramFileUrl, answerCallbackQuery } from './telegram'
 
 describe('telegram', () => {
   const originalEnv = process.env
@@ -35,5 +35,26 @@ describe('telegram', () => {
     await expect(sendTelegramMessage('c1', 'hi')).rejects.toThrow('Telegram not configured')
 
     if (backup) process.env.TELEGRAM_BOT_TOKEN = backup
+  })
+
+  it('sendTelegramMessage includes reply markup when given', async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true } as Response)
+    const markup = { inline_keyboard: [[{ text: 'Log it', callback_data: 'meal:confirm:x' }]] }
+
+    await sendTelegramMessage('c1', 'estimate', markup)
+
+    const body = JSON.parse((vi.mocked(fetch).mock.calls.at(-1)![1] as RequestInit).body as string)
+    expect(body.reply_markup).toEqual(markup)
+  })
+
+  it('answerCallbackQuery posts the callback id', async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true } as Response)
+
+    await answerCallbackQuery('cb-1')
+
+    const url = vi.mocked(fetch).mock.calls.at(-1)![0] as string
+    expect(url).toContain('/answerCallbackQuery')
+    const body = JSON.parse((vi.mocked(fetch).mock.calls.at(-1)![1] as RequestInit).body as string)
+    expect(body.callback_query_id).toBe('cb-1')
   })
 })

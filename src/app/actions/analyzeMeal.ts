@@ -31,8 +31,11 @@ function extractJson(response: string): string {
   return response.slice(start, end + 1);
 }
 
-export async function analyzeMeal(photoUrl: string) {
-  const systemPrompt = `Return ONLY valid JSON with no prose, in the exact shape: {
+export async function analyzeMeal(photoUrl: string, hint?: string) {
+  const hintBlock = hint
+    ? `The user says this meal is: "${hint}". Trust their description of what the food IS; use the photo to judge portions; any numbers the user states win.\n`
+    : '';
+  const systemPrompt = `${hintBlock}Return ONLY valid JSON with no prose, in the exact shape: {
   "foodItems": [
     {
       "name": string,
