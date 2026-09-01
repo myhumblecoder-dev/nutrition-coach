@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ChatClient from './ChatClient'
@@ -88,5 +88,47 @@ describe('ChatClient', () => {
     )
 
     expect(screen.getByText('fresh from telegram')).toBeInTheDocument()
+  })
+
+  it('user and coach messages are visually distinct blocks', () => {
+    render(
+      <ChatClient
+        initialMessages={[
+          { id: 'a', role: 'user', content: 'hi coach' },
+          { id: 'b', role: 'assistant', content: 'hello!' },
+        ]}
+      />
+    )
+
+    expect(document.querySelector('[data-role="user"]')).not.toBeNull()
+    expect(document.querySelector('[data-role="assistant"]')).not.toBeNull()
+    expect(
+      document.querySelector('[data-role="user"]')?.className
+    ).not.toBe(document.querySelector('[data-role="assistant"]')?.className)
+  })
+
+  it('scrolls to the newest message', () => {
+    const spy = vi.fn()
+    window.HTMLElement.prototype.scrollIntoView = spy
+
+    render(
+      <ChatClient initialMessages={[{ id: 'a', role: 'user', content: 'hi' }]} />
+    )
+
+    expect(spy).toHaveBeenCalled()
+  })
+
+  it('does not refresh while the user is typing', () => {
+    vi.useFakeTimers()
+    render(<ChatClient initialMessages={[]} />)
+
+    fireEvent.change(screen.getByLabelText('Message'), {
+      target: { value: 'half-written thought' },
+    })
+    refresh.mockClear()
+    vi.advanceTimersByTime(16000)
+
+    expect(refresh).not.toHaveBeenCalled()
+    vi.useRealTimers()
   })
 })
