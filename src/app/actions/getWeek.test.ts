@@ -128,12 +128,19 @@ describe('getWeek', () => {
         hiit: 0,
         core: 1,
         stepsToday: 500,
+        days: {
+          resistance: [true, false, false, false, false, false, false],
+          hiit: [false, false, false, false, false, false, false],
+          core: [true, false, false, false, false, false, false],
+        },
       },
       recovery: {
         sleepHours: 7,
         waterLiters: 2,
         alcoholDrinks: null,
       },
+      streak: [false, false, false, false, false, false, false],
+      weights: [],
       mood: null,
       measurement: null,
     })
