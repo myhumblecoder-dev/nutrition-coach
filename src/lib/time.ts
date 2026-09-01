@@ -1,15 +1,26 @@
-const TZ = process.env.APP_TIMEZONE ?? 'America/New_York';
+// A bad APP_TIMEZONE (e.g. Vercel's '[SENSITIVE]' placeholder in CI builds)
+// must degrade to the default, never throw — it once failed a prod build
+// during the /_not-found prerender.
+export function appTimeZone(): string {
+  const tz = process.env.APP_TIMEZONE ?? 'America/New_York';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return tz;
+  } catch {
+    return 'America/New_York';
+  }
+}
 
-const timeFormatOptions: Intl.DateTimeFormatOptions = {
-  timeZone: TZ,
+const timeFormatOptions = (): Intl.DateTimeFormatOptions => ({
+  timeZone: appTimeZone(),
   hourCycle: 'h23',
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
-};
+});
 
 export function startOfToday(now: Date): Date {
-  const parts = new Intl.DateTimeFormat('en-US', timeFormatOptions).formatToParts(now);
+  const parts = new Intl.DateTimeFormat('en-US', timeFormatOptions()).formatToParts(now);
   const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
 
   const hour = parseInt(getPart('hour') || '0', 10);
@@ -22,7 +33,7 @@ export function startOfToday(now: Date): Date {
 
 export function startOfWeek(now: Date): Date {
   const dayName = new Intl.DateTimeFormat('en-US', {
-    timeZone: TZ,
+    timeZone: appTimeZone(),
     weekday: 'short',
   }).format(now);
 

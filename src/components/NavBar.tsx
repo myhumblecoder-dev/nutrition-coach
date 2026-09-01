@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import { appTimeZone } from '@/lib/time';
 
 export default function NavBar() {
   const dateStr = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
-    timeZone: process.env.APP_TIMEZONE ?? 'America/New_York',
+    timeZone: appTimeZone(),
   }).format(new Date());
 
   return (

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { startOfToday, startOfWeek } from '@/lib/time'
+import { startOfToday, startOfWeek, appTimeZone } from '@/lib/time'
 
 describe('time', () => {
   const originalEnv = process.env.APP_TIMEZONE;
@@ -51,5 +51,15 @@ describe('time', () => {
     expect(result.getUTCHours()).toBe(expected.getUTCHours())
     expect(result.getUTCMinutes()).toBe(expected.getUTCMinutes())
     expect(result.getUTCSeconds()).toBe(expected.getUTCSeconds())
+  })
+
+  it('an invalid APP_TIMEZONE falls back instead of throwing', () => {
+    process.env.APP_TIMEZONE = '[SENSITIVE]'
+    try {
+      expect(appTimeZone()).toBe('America/New_York')
+      expect(() => startOfToday(new Date())).not.toThrow()
+    } finally {
+      delete process.env.APP_TIMEZONE
+    }
   })
 })
