@@ -1,4 +1,4 @@
-import { auth, signIn, signOut } from '@/auth'
+import { auth, signIn } from '@/auth'
 import { getToday } from '@/app/actions/getToday'
 import { getWeek } from '@/app/actions/getWeek'
 import { getActivity } from '@/app/actions/getActivity'
@@ -46,21 +46,6 @@ export default async function Home() {
   ])
   return (
     <>
-      <div className="mx-auto flex w-full max-w-2xl justify-end px-6 pt-4">
-        <form
-          action={async () => {
-            'use server'
-            await signOut()
-          }}
-        >
-          <button
-            type="submit"
-            className="text-sm text-zinc-500 underline-offset-2 hover:underline"
-          >
-            Sign out
-          </button>
-        </form>
-      </div>
       <HomeClient today={today} week={week} activity={activity} coachMessage={lastCoach?.content ?? null} />
     </>
   )

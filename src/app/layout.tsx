@@ -24,7 +24,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#fafafa] text-[#18181b]">
+      <body className="min-h-full flex flex-col pb-20 sm:pb-0 bg-[#fafafa] text-[#18181b]">
         <NavBar />
         {children}
       </body>

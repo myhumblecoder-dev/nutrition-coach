@@ -43,6 +43,8 @@ describe('getWeek', () => {
     const week = await getWeek()
 
     expect(week.training.days.resistance).toEqual([true, false, true, false, false, false, false])
+    const moodArg = vi.mocked(prisma.moodEntry.findFirst).mock.calls[0][0] as { where: { loggedAt: { gte: Date } } }
+    expect(moodArg?.where?.loggedAt?.gte).toBeInstanceOf(Date)
   })
 
   it('the meal streak buckets the last seven days', async () => {

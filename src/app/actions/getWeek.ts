@@ -22,7 +22,7 @@ export async function getWeek() {
         where: { userId, loggedAt: { gte: today } },
       }),
       prisma.moodEntry.findFirst({
-        where: { userId },
+        where: { userId, loggedAt: { gte: today } },
         orderBy: { loggedAt: 'desc' },
       }),
       prisma.measurement.findFirst({
