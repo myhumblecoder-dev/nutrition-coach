@@ -74,9 +74,10 @@ describe('TodayDashboard', () => {
 
     render(<TodayDashboard {...props} />)
 
-    // Test shows consumed against target
-    expect(screen.getByText('800 / 2000 cal')).toBeInTheDocument()
-    expect(screen.getByText('60 / 150 g protein')).toBeInTheDocument()
+    // Rings replace the text ratios
+    expect(screen.getByText('800')).toBeInTheDocument()
+    expect(screen.getByText('of 2000 kcal')).toBeInTheDocument()
+    expect(screen.getByText('of 150g protein')).toBeInTheDocument()
 
     // Test shows the meal rows with joined item names, not raw JSON
     expect(screen.getByText('Oatmeal, Berries')).toBeInTheDocument()
@@ -138,5 +139,27 @@ describe('TodayDashboard', () => {
 
     // Test shows the empty state
     expect(screen.getByText('No meals logged today')).toBeInTheDocument()
+  })
+
+  it('a photo meal renders its thumbnail', () => {
+    const props = {
+      consumed: { calories: 485, protein: 37 },
+      target: null,
+      meals: [
+        {
+          id: '1',
+          foodItems: '[{"name":"Salmon"}]',
+          totalCalories: 485,
+          totalProtein: 37,
+          photoUrl: 'https://blob/x.jpg',
+        },
+      ],
+    }
+
+    render(<TodayDashboard {...props} />)
+
+    const img = document.querySelector('img')
+    expect(img).not.toBeNull()
+    expect(img?.getAttribute('src')).toBe('https://blob/x.jpg')
   })
 })
