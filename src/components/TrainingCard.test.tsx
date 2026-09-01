@@ -18,7 +18,10 @@ describe('TrainingCard', () => {
   it('renders filled day dots and the cadence count', () => {
     render(<TrainingCard training={training} />)
 
-    expect(screen.getByText('2 / 3–5')).toBeInTheDocument()
+    const counts = Array.from(document.querySelectorAll('div')).filter(
+      (el) => el.textContent === '2 / 3–5' && el.querySelector('span')
+    )
+    expect(counts.length).toBeGreaterThan(0)
     const filled = document.querySelectorAll('[data-filled="true"]')
     expect(filled).toHaveLength(2)
   })
@@ -26,6 +29,9 @@ describe('TrainingCard', () => {
   it('renders the steps progress figure', () => {
     render(<TrainingCard training={training} />)
 
-    expect(screen.getByText('6,540 / 10,000')).toBeInTheDocument()
+    const steps = Array.from(document.querySelectorAll('div')).filter(
+      (el) => el.textContent === '6,540 / 10,000' && el.querySelector('span')
+    )
+    expect(steps.length).toBeGreaterThan(0)
   })
 })
