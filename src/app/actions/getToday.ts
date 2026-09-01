@@ -36,6 +36,7 @@ export async function getToday() {
     prisma.mealEntry.findMany({
       where: {
         userId,
+        confirmed: true,
         loggedAt: {
           gte: startOfDay,
         },

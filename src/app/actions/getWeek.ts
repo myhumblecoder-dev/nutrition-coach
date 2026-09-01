@@ -30,7 +30,7 @@ export async function getWeek() {
         orderBy: { measuredAt: 'desc' },
       }),
       prisma.mealEntry.findMany({
-        where: { userId, loggedAt: { gte: streakStart } },
+        where: { userId, confirmed: true, loggedAt: { gte: streakStart } },
       }),
       prisma.measurement.findMany({
         where: { userId, weightLb: { not: null } },

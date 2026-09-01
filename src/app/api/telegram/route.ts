@@ -1,4 +1,4 @@
-import { sendTelegramMessage, getTelegramFileUrl } from '@/lib/telegram';
+import { sendTelegramMessage, getTelegramFileUrl, answerCallbackQuery } from '@/lib/telegram';
 import { logMealForUser } from '@/lib/meals';
 
 export const maxDuration = 60;
@@ -17,6 +17,32 @@ export async function POST(request: Request) {
 
   try {
     const update = await request.json();
+
+    // Button taps on a pending meal's Log it / Discard keyboard.
+    const cb = update?.callback_query;
+    if (cb) {
+      const cbChatId = String(cb.message?.chat?.id ?? '');
+      const data = typeof cb.data === 'string' ? cb.data : '';
+      const match = data.match(/^meal:(confirm|discard):(.+)$/);
+      if (cbChatId !== process.env.TELEGRAM_CHAT_ID || !match) {
+        return Response.json({ ok: true, ignored: true });
+      }
+      const [, action, mealId] = match;
+      if (action === 'confirm') {
+        await prisma.mealEntry.updateMany({
+          where: { id: mealId, confirmed: false },
+          data: { confirmed: true },
+        });
+        await answerCallbackQuery(cb.id);
+        await sendTelegramMessage(cbChatId, 'Logged ✓');
+      } else {
+        await prisma.mealEntry.deleteMany({ where: { id: mealId, confirmed: false } });
+        await answerCallbackQuery(cb.id);
+        await sendTelegramMessage(cbChatId, 'Discarded — tell me or resend the photo if you want it logged differently.');
+      }
+      return Response.json({ ok: true });
+    }
+
     const message = update?.message;
 
     if (!message || String(message.chat?.id) !== process.env.TELEGRAM_CHAT_ID) {
@@ -51,26 +77,46 @@ export async function POST(request: Request) {
         addRandomSuffix: true,
       });
 
+      // The caption is ground truth for WHAT the food is; the photo judges portions.
+      const caption =
+        typeof message.caption === 'string' && message.caption.trim().length > 0
+          ? message.caption.trim()
+          : undefined;
+
       let analysis;
       try {
-        analysis = await analyzeMeal(blob.url);
+        analysis = await analyzeMeal(blob.url, caption);
       } catch (err) {
         console.error(err);
         await sendTelegramMessage(chatId, "I couldn't read that as a meal photo — try a clearer, closer shot of the food.");
         return Response.json({ ok: false }, { status: 200 });
       }
 
-      await logMealForUser(user.id, {
-        photoUrl: blob.url,
-        foodItems: analysis.foodItems,
-        totalCalories: analysis.totalCalories,
-        totalProtein: analysis.totalProtein,
-      });
+      // Pending until the user taps Log it — excluded from totals meanwhile.
+      const { id: mealId } = await logMealForUser(
+        user.id,
+        {
+          photoUrl: blob.url,
+          foodItems: analysis.foodItems,
+          totalCalories: analysis.totalCalories,
+          totalProtein: analysis.totalProtein,
+        },
+        caption,
+        false
+      );
 
       const foodList = analysis.foodItems.map((i: { name: string }) => i.name).join(', ');
       await sendTelegramMessage(
         chatId,
-        `Logged: ${foodList} — ${analysis.totalCalories} cal, ${analysis.totalProtein}g protein.`
+        `I see: ${foodList} — ~${analysis.totalCalories} cal, ${analysis.totalProtein}g protein. Log it?`,
+        {
+          inline_keyboard: [
+            [
+              { text: '✓ Log it', callback_data: `meal:confirm:${mealId}` },
+              { text: '✕ Discard', callback_data: `meal:discard:${mealId}` },
+            ],
+          ],
+        }
       );
 
       return Response.json({ ok: true });
