@@ -31,6 +31,8 @@ model User {
   moodEntries   MoodEntry[]
   measurements   Measurement[]
   profile        UserProfile?
+  telegramChat  TelegramChat?
+  telegramLinkToken TelegramLinkToken?
 }
 
 model Account {
@@ -145,6 +147,23 @@ model ChatMessage {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model TelegramChat {
+  id        String   @id @default(cuid())
+  chatId    String   @unique
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model TelegramLinkToken {
+  token     String   @id
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
 model UserProfile {
   id        String  @id @default(cuid())
   userId    String  @unique
