@@ -37,7 +37,13 @@ export async function POST(request: Request) {
       
       const res = await fetch(fileUrl);
       if (!res.ok) {
-        throw new Error('Failed to download photo');
+
+        const body = await res.text().catch(() => '');
+
+        console.error('photo download failed', res.status, body.slice(0, 200));
+
+        throw new Error('Failed to download photo: HTTP ' + res.status);
+
       }
 
       const blob = await put('telegram-meal.jpg', await res.blob(), {
