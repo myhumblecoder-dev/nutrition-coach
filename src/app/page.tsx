@@ -1,6 +1,8 @@
 import { auth, signIn, signOut } from '@/auth'
 import { getToday } from '@/app/actions/getToday'
 import { getWeek } from '@/app/actions/getWeek'
+import { getActivity } from '@/app/actions/getActivity'
+import { prisma } from '@/lib/db'
 import HomeClient from './HomeClient'
 
 // Reads the session and today's meals on every request.
@@ -33,7 +35,15 @@ export default async function Home() {
     )
   }
 
-  const [today, week] = await Promise.all([getToday(), getWeek()])
+  const [today, week, activity, lastCoach] = await Promise.all([
+    getToday(),
+    getWeek(),
+    getActivity(),
+    prisma.chatMessage.findFirst({
+      where: { userId: session.user.id, role: 'assistant' },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ])
   return (
     <>
       <div className="mx-auto flex w-full max-w-2xl justify-end px-6 pt-4">
@@ -51,7 +61,7 @@ export default async function Home() {
           </button>
         </form>
       </div>
-      <HomeClient today={today} week={week} />
+      <HomeClient today={today} week={week} activity={activity} coachMessage={lastCoach?.content ?? null} />
     </>
   )
 }

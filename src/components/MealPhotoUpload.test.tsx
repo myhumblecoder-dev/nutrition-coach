@@ -48,4 +48,10 @@ describe('MealPhotoUpload', () => {
     expect(await screen.findByText(/invalid JSON structure/i)).toBeInTheDocument()
     expect(onAnalyzed).not.toHaveBeenCalled()
   })
+
+  it('the control renders as the log a meal button', () => {
+    render(<MealPhotoUpload onAnalyzed={vi.fn()} />)
+
+    expect(screen.getByText('Log a meal')).toBeInTheDocument()
+  })
 })

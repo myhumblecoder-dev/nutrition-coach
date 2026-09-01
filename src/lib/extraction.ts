@@ -88,7 +88,8 @@ export function buildExtractionPrompt(
 
 export async function recordHealthFacts(
   userId: string,
-  facts: z.infer<typeof factsSchema>
+  facts: z.infer<typeof factsSchema>,
+  sourceText?: string
 ) {
   for (const meal of facts.meals) {
     // Chat-described meals have no photo; logMealForUser's schema requires a
@@ -102,6 +103,7 @@ export async function recordHealthFacts(
         totalProtein: meal.protein,
         confirmed: true,
         source: 'extracted',
+        sourceText: sourceText ?? null,
       },
     });
   }
@@ -114,23 +116,24 @@ export async function recordHealthFacts(
         steps: t.steps,
         note: t.note,
         source: 'extracted',
+        sourceText: sourceText ?? null,
       },
     });
   }
   for (const r of facts.recovery) {
     await prisma.recoveryEntry.create({
-      data: { userId, kind: r.kind, value: r.value, source: 'extracted' },
+      data: { userId, kind: r.kind, value: r.value, source: 'extracted', sourceText: sourceText ?? null },
     });
   }
   for (const m of facts.mood) {
     await prisma.moodEntry.create({
-      data: { userId, score: m.score, note: m.note, source: 'extracted' },
+      data: { userId, score: m.score, note: m.note, source: 'extracted', sourceText: sourceText ?? null },
     });
   }
   for (const m of facts.measurement) {
     if (m.weightLb === undefined && m.waistIn === undefined) continue;
     await prisma.measurement.create({
-      data: { userId, weightLb: m.weightLb, waistIn: m.waistIn, source: 'extracted' },
+      data: { userId, weightLb: m.weightLb, waistIn: m.waistIn, source: 'extracted', sourceText: sourceText ?? null },
     });
   }
   return {
@@ -183,7 +186,7 @@ export async function extractHealthFacts(userId: string, userText: string) {
       recovery: recovery.map((r) => r.kind),
     };
     const facts = parseHealthFacts(await generate(buildExtractionPrompt(seeds, userText)));
-    return await recordHealthFacts(userId, facts);
+    return await recordHealthFacts(userId, facts, userText.slice(0, 200));
   } catch {
     return { meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 };
   }

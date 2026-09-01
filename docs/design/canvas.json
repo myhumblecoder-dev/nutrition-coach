@@ -1,0 +1,11 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 920, "title": "Desktop — Today" },
+    { "file": "Phone.dc.html", "x": 1540, "y": 0, "w": 390, "h": 940, "title": "Phone — conversation mirror" }
+  ],
+  "annotations": [
+    { "id": "design-principle", "x": 1540, "y": -170, "w": 390, "text": "Principle: conversation is the only input.\nYou talk fitness, diet and sleep to the coach (Telegram or web chat); the app never asks you to fill a form. The dashboard is the mirror — every number traces back to something you said, with 'via chat' receipts." },
+    { "id": "sample-note", "x": 0, "y": -120, "w": 300, "text": "Real data where it exists (485 kcal salad, 37g, 45-min walk, 172 lb goal). Sleep, mood, steps and the weight trend are sample values showing the designed state." }
+  ],
+  "launch": { "view": "canvas" }
+}

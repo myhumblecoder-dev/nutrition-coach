@@ -3,6 +3,7 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import RingGauge from '@/components/RingGauge'
 import DeleteMealButton from '@/components/DeleteMealButton'
 
 interface TodayDashboardProps {
@@ -19,6 +20,7 @@ interface TodayDashboardProps {
     foodItems: string
     totalCalories: number
     totalProtein: number
+    photoUrl?: string
     source?: string
   }>
 }
@@ -46,13 +48,21 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
         </CardHeader>
         <CardContent>
           {target ? (
-            <div className="space-y-2">
-              <div className="text-2xl font-bold">
-                {consumed.calories} / {target.calories} cal
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {consumed.protein} / {target.protein} g protein
-              </div>
+            <div className="flex items-center justify-around">
+              <RingGauge
+                value={consumed.calories}
+                max={target.calories}
+                centerText={String(consumed.calories)}
+                subText={`of ${target.calories} kcal`}
+                label="Calories"
+              />
+              <RingGauge
+                value={consumed.protein}
+                max={target.protein}
+                centerText={`${consumed.protein}g`}
+                subText={`of ${target.protein}g protein`}
+                label="Protein"
+              />
             </div>
           ) : (
             <p className="text-muted-foreground">Set your daily targets</p>
@@ -74,7 +84,18 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
                   key={meal.id}
                   className="flex items-center justify-between rounded-lg border p-3"
                 >
-                  <div className="flex flex-col">
+                  <div className="flex items-center gap-3">
+                    {meal.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={meal.photoUrl}
+                        alt=""
+                        className="h-11 w-11 flex-shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="h-11 w-11 flex-shrink-0 rounded-lg bg-[#f4f4f5]" />
+                    )}
+                    <div className="flex flex-col">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">{mealLabel(meal.foodItems)}</span>
                       {meal.source === 'extracted' && (
@@ -86,6 +107,7 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
                     <span className="text-xs text-muted-foreground">
                       {meal.totalCalories} cal • {meal.totalProtein}g protein
                     </span>
+                    </div>
                   </div>
                   <div className="flex items-center">
                     <Badge variant="secondary">

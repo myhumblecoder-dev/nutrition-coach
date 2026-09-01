@@ -1,32 +1,43 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import RecoveryCard from './RecoveryCard'
 
 describe('RecoveryCard', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
+  it('renders bars mood and the weight sparkline', () => {
+    render(
+      <RecoveryCard
+        recovery={{ sleepHours: 7.5, waterLiters: 2.5, alcoholDrinks: 0 }}
+        mood={{ score: 4, note: 'good energy' }}
+        measurement={{ weightLb: 172, waistIn: null }}
+        weights={[
+          { at: '2026-08-01T12:00:00Z', weightLb: 174 },
+          { at: '2026-08-15T12:00:00Z', weightLb: 173 },
+          { at: '2026-08-31T12:00:00Z', weightLb: 172 },
+        ]}
+      />
+    )
+
+    const sleep = Array.from(document.querySelectorAll('div')).filter(
+      (el) => el.textContent === '7.5h · target 7–9h' && el.querySelector('span')
+    )
+    expect(sleep.length).toBeGreaterThan(0)
+    expect(screen.getByText(/4\/5/)).toBeInTheDocument()
+    expect(screen.getByText('172')).toBeInTheDocument()
+    expect(document.querySelector('svg polyline')).not.toBeNull()
   })
 
-  it('renders logged recovery mood and measurement values', async () => {
-    const recovery = { sleepHours: 7.5, waterLiters: 2, alcoholDrinks: 0 }
-    const mood = { score: 4, note: 'good energy' }
-    const measurement = { weightLb: 172, waistIn: 34 }
-
-    render(<RecoveryCard recovery={recovery} mood={mood} measurement={measurement} />)
-
-    expect(screen.getByText('Sleep: 7.5h / 7–9h')).toBeInTheDocument()
-    expect(screen.getByText('Mood: 4/5')).toBeInTheDocument()
-    expect(screen.getByText('Weight: 172 lb')).toBeInTheDocument()
-  })
-
-  it('renders the not-logged fallbacks', async () => {
-    const recovery = { sleepHours: null, waterLiters: null, alcoholDrinks: null }
-    const mood = null
-    const measurement = null
-
-    render(<RecoveryCard recovery={recovery} mood={mood} measurement={measurement} />)
+  it('renders fallbacks without data', () => {
+    render(
+      <RecoveryCard
+        recovery={{ sleepHours: null, waterLiters: null, alcoholDrinks: null }}
+        mood={null}
+        measurement={null}
+        weights={[]}
+      />
+    )
 
     expect(screen.getByText('Sleep: not logged')).toBeInTheDocument()
     expect(screen.getByText('Measurement: not logged')).toBeInTheDocument()
+    expect(document.querySelector('svg polyline')).toBeNull()
   })
 })
