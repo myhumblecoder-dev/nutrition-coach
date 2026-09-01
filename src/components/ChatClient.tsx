@@ -39,7 +39,9 @@ export default function ChatClient({ initialMessages }: ChatClientProps) {
 
   // A refresh mid-typing would blow away the draft; only poll while idle.
   const inputRef = useRef('')
-  inputRef.current = input
+  useEffect(() => {
+    inputRef.current = input
+  }, [input])
   useEffect(() => {
     const id = setInterval(() => {
       if (inputRef.current.trim() === '') router.refresh()
