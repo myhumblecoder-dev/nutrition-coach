@@ -124,6 +124,21 @@ export default function ChatClient({ initialMessages }: ChatClientProps) {
             id="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              // nativeEvent.isComposing: while an IME candidate is open,
+              // Enter confirms the word rather than ending the message —
+              // sending here would cut it in half.
+              if (
+                e.key === 'Enter' &&
+                !e.shiftKey &&
+                !e.nativeEvent.isComposing &&
+                !isLoading &&
+                input.trim()
+              ) {
+                e.preventDefault()
+                handleSend()
+              }
+            }}
             placeholder="Type a message..."
             disabled={isLoading}
           />
