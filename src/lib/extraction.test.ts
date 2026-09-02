@@ -64,6 +64,75 @@ describe('extraction', () => {
     expect(facts.training[0].kind).toBe('hiit')
   })
 
+  it('keeps meals when the model lists more than the cap', () => {
+    // The real regression: "two eggs and a piece of toast this morning, with
+    // coffee, tea, and 32oz of water" yields four consumables, and the whole
+    // meals array used to be discarded.
+    const facts = parseHealthFacts(
+      JSON.stringify({
+        meals: [
+          { name: 'eggs', portion: '2', calories: 140, protein: 12 },
+          { name: 'toast', portion: '1 slice', calories: 90, protein: 3 },
+          { name: 'coffee', portion: '1 cup', calories: 5, protein: 0 },
+          { name: 'tea', portion: '1 cup', calories: 2, protein: 0 },
+        ],
+        training: [],
+        recovery: [{ kind: 'sleep', value: 7.5 }, { kind: 'water', value: 0.95 }],
+        mood: [],
+        measurement: [],
+      })
+    )
+
+    expect(facts.meals).toHaveLength(4)
+    expect(facts.meals.map((m) => m.name)).toEqual(['eggs', 'toast', 'coffee', 'tea'])
+    expect(facts.recovery).toHaveLength(2)
+  })
+
+  it('drops only the malformed item, not its siblings', () => {
+    const facts = parseHealthFacts(
+      JSON.stringify({
+        meals: [
+          { name: 'eggs', portion: '2', calories: 140, protein: 12 },
+          { name: 'toast', portion: '1 slice', calories: 'ninety', protein: 3 },
+          { name: 'banana', portion: '1', calories: 105, protein: 1 },
+        ],
+        training: [],
+        recovery: [],
+        mood: [],
+        measurement: [],
+      })
+    )
+
+    expect(facts.meals.map((m) => m.name)).toEqual(['eggs', 'banana'])
+  })
+
+  it('still bounds a runaway model response', () => {
+    const many = Array.from({ length: 40 }, (_, i) => ({
+      name: `item ${i}`, portion: '1', calories: 10, protein: 1,
+    }))
+    const facts = parseHealthFacts(
+      JSON.stringify({ meals: many, training: [], recovery: [], mood: [], measurement: [] })
+    )
+
+    expect(facts.meals.length).toBeGreaterThan(3)
+    expect(facts.meals.length).toBeLessThanOrEqual(8)
+  })
+
+  it('warns when the schema discards items so drops are not silent', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    parseHealthFacts(
+      JSON.stringify({
+        meals: [{ name: 'ok', portion: '1', calories: 10, protein: 1 }, { name: '', portion: '', calories: -5, protein: 0 }],
+        training: [], recovery: [], mood: [], measurement: [],
+      })
+    )
+
+    expect(warn).toHaveBeenCalled()
+    expect(String(warn.mock.calls[0][0])).toMatch(/extraction/i)
+    warn.mockRestore()
+  })
+
   it('garbage input returns empty facts', () => {
     const facts = parseHealthFacts('no json here')
 
