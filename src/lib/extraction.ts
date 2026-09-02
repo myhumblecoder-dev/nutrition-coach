@@ -6,56 +6,78 @@ import { startOfToday } from '@/lib/time';
 // Round rather than reject fractional model estimates (same policy as analyzeMeal).
 const roundedInt = z.number().nonnegative().transform(Math.round);
 
+// Counts what a lenient array threw away, so a drop can be reported instead of
+// vanishing. Reset per parse.
+let discarded = 0;
+
+/**
+ * A bounded array that degrades item by item.
+ *
+ * `z.array(x).max(n).catch([])` looks like a cap but is a validation failure:
+ * one extra item — or one bad field in one item — discards EVERY item. A
+ * breakfast described as "eggs, toast, coffee and tea" is four meals, so the
+ * whole meal list was being dropped while sleep and water came through. Here a
+ * malformed item is skipped, its siblings survive, and the cap truncates.
+ */
+function lenientArray<T extends z.ZodTypeAny>(item: T, max: number) {
+  return z.unknown().transform((raw) => {
+    if (!Array.isArray(raw)) return [] as z.infer<T>[];
+    const kept: z.infer<T>[] = [];
+    for (const candidate of raw) {
+      if (kept.length >= max) {
+        discarded += raw.length - kept.length;
+        break;
+      }
+      const parsed = item.safeParse(candidate);
+      if (parsed.success) kept.push(parsed.data);
+      else discarded++;
+    }
+    return kept;
+  });
+}
+
+// Caps bound a runaway response; they are not editorial. A single meal
+// description routinely names four or five things.
 const factsSchema = z.object({
-  meals: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1),
-        portion: z.string().trim().min(1).catch('1 serving').default('1 serving'),
-        calories: roundedInt,
-        protein: roundedInt,
-      })
-    )
-    .max(3)
-    .catch([]),
-  training: z
-    .array(
-      z.object({
-        kind: z.enum(['resistance', 'hiit', 'core', 'neat']),
-        minutes: z.number().int().nonnegative().optional(),
-        steps: z.number().int().nonnegative().optional(),
-        note: z.string().optional(),
-      })
-    )
-    .max(3)
-    .catch([]),
-  recovery: z
-    .array(
-      z.object({
-        kind: z.enum(['sleep', 'water', 'alcohol']),
-        value: z.number().nonnegative(),
-      })
-    )
-    .max(3)
-    .catch([]),
-  mood: z
-    .array(
-      z.object({
-        score: z.number().int().min(1).max(5),
-        note: z.string().optional(),
-      })
-    )
-    .max(3)
-    .catch([]),
-  measurement: z
-    .array(
-      z.object({
-        weightLb: z.number().nonnegative().optional(),
-        waistIn: z.number().nonnegative().optional(),
-      })
-    )
-    .max(3)
-    .catch([]),
+  meals: lenientArray(
+    z.object({
+      name: z.string().trim().min(1),
+      portion: z.string().trim().min(1).catch('1 serving').default('1 serving'),
+      calories: roundedInt,
+      protein: roundedInt,
+    }),
+    8
+  ),
+  training: lenientArray(
+    z.object({
+      kind: z.enum(['resistance', 'hiit', 'core', 'neat']),
+      minutes: z.number().int().nonnegative().optional(),
+      steps: z.number().int().nonnegative().optional(),
+      note: z.string().optional(),
+    }),
+    5
+  ),
+  recovery: lenientArray(
+    z.object({
+      kind: z.enum(['sleep', 'water', 'alcohol']),
+      value: z.number().nonnegative(),
+    }),
+    5
+  ),
+  mood: lenientArray(
+    z.object({
+      score: z.number().int().min(1).max(5),
+      note: z.string().optional(),
+    }),
+    3
+  ),
+  measurement: lenientArray(
+    z.object({
+      weightLb: z.number().nonnegative().optional(),
+      waistIn: z.number().nonnegative().optional(),
+    }),
+    3
+  ),
 });
 
 const EMPTY_FACTS = {
@@ -72,7 +94,8 @@ export function buildExtractionPrompt(
 ): string {
   const list = (items: string[]) => (items.length > 0 ? items.join(', ') : 'none');
   return (
-    'Extract facts from the message (empty arrays when nothing qualifies; at most 3 items per key).\n' +
+    'Extract facts from the message (empty arrays when nothing qualifies). List each distinct item ' +
+    'separately — a breakfast of eggs, toast and coffee is three meal items, not one.\n' +
     'MEALS: when the user says they ate or drank something caloric, include it and, as a nutrition ' +
     'coach, ESTIMATE its calories and protein as integers — use any numbers the user stated, estimate ' +
     'the rest from typical portions. Do not skip a meal just because macros were not stated.\n' +
@@ -159,7 +182,13 @@ export function parseHealthFacts(response: string) {
   }
   try {
     const parsed = JSON.parse(response.slice(start, end + 1));
+    discarded = 0;
     const result = factsSchema.safeParse(parsed);
+    if (discarded > 0) {
+      // Extraction is fail-silent by design, which once hid a bug that threw
+      // away whole meal lists. Dropping anything is now on the record.
+      console.warn(`extraction: discarded ${discarded} malformed or over-cap item(s)`);
+    }
     return result.success ? result.data : EMPTY_FACTS;
   } catch {
     return EMPTY_FACTS;
