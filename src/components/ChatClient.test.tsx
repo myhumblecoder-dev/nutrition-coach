@@ -131,4 +131,45 @@ describe('ChatClient', () => {
     expect(refresh).not.toHaveBeenCalled()
     vi.useRealTimers()
   })
+
+  it('sends on Enter', async () => {
+    vi.mocked(sendChatMessage).mockResolvedValue({ assistantReply: 'noted' } as never)
+    render(<ChatClient initialMessages={[]} />)
+
+    const input = screen.getByLabelText('Message')
+    fireEvent.change(input, { target: { value: 'two coffees' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(await screen.findByText('noted')).toBeInTheDocument()
+    expect(sendChatMessage).toHaveBeenCalledWith('two coffees')
+  })
+
+  it('ignores Enter on an empty composer', () => {
+    render(<ChatClient initialMessages={[]} />)
+
+    fireEvent.keyDown(screen.getByLabelText('Message'), { key: 'Enter' })
+
+    expect(sendChatMessage).not.toHaveBeenCalled()
+  })
+
+  it('does not send while an IME candidate is being confirmed', () => {
+    render(<ChatClient initialMessages={[]} />)
+
+    const input = screen.getByLabelText('Message')
+    fireEvent.change(input, { target: { value: 'こんにちは' } })
+    // Enter confirms the candidate here; sending would cut the word in half.
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+
+    expect(sendChatMessage).not.toHaveBeenCalled()
+  })
+
+  it('leaves Shift+Enter alone', () => {
+    render(<ChatClient initialMessages={[]} />)
+
+    const input = screen.getByLabelText('Message')
+    fireEvent.change(input, { target: { value: 'hello' } })
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true })
+
+    expect(sendChatMessage).not.toHaveBeenCalled()
+  })
 })
