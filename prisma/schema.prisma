@@ -33,6 +33,22 @@ model User {
   profile        UserProfile?
   telegramChat  TelegramChat?
   telegramLinkToken TelegramLinkToken?
+  deviceTokens  DeviceToken[]
+}
+
+// One row per installed app instance. Registering a token IS the opt-in:
+// the iOS toggle registers on grant and deletes on revoke, so a user with no
+// rows receives nothing. A user may have several (phone, iPad, reinstall).
+model DeviceToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform  String   @default("ios")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Account {
