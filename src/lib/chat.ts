@@ -101,7 +101,7 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
       new Date()
     );
     if (status.currentMg > 0) {
-      coachPersona += `\nCaffeine: about ${status.currentMg} mg still active from ${status.totalMg} mg today, roughly ${status.hoursUntilNegligible} hours until it wears off. Factor this into sleep and training advice when relevant.\n`;
+      coachPersona += `\nCaffeine: about ${status.currentMg} mg still active from ${status.totalMg} mg today, effects fading over roughly ${status.hoursUntilEffectsFade} more hours (fully clear in about ${status.hoursUntilNegligible}). Factor this into sleep and training advice when relevant.\n`;
     }
   }
 

@@ -48,13 +48,14 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
         </CardHeader>
         <CardContent>
           {target ? (
-            <div className="flex items-center justify-around">
+            <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-6 py-2">
               <RingGauge
                 value={consumed.calories}
                 max={target.calories}
-                centerText={String(consumed.calories)}
-                subText={`of ${target.calories} kcal`}
+                centerText={consumed.calories.toLocaleString()}
+                subText={`of ${target.calories.toLocaleString()} kcal`}
                 label="Calories"
+                size={168}
               />
               <RingGauge
                 value={consumed.protein}
@@ -62,6 +63,7 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
                 centerText={`${consumed.protein}g`}
                 subText={`of ${target.protein}g protein`}
                 label="Protein"
+                size={168}
               />
             </div>
           ) : (
@@ -93,7 +95,13 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
                         className="h-11 w-11 flex-shrink-0 rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="h-11 w-11 flex-shrink-0 rounded-lg bg-[#f4f4f5]" />
+                      // A chat-logged meal has no photo; an empty grey square
+                      // reads as a broken image rather than an absent one.
+                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-[#f4f4f5] text-[#a1a1aa]">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M3 2v7c0 1.1.9 2 2 2h1a2 2 0 0 0 2-2V2M6 2v20M18 2c-1.7 0-3 1.8-3 4v6h3v10" />
+                        </svg>
+                      </div>
                     )}
                     <div className="flex flex-col">
                     <div className="flex items-center gap-2">

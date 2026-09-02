@@ -47,7 +47,7 @@ describe('RecoveryCard', () => {
         recovery={{
           sleepHours: 7,
           waterLiters: 2,
-          caffeine: { totalMg: 250, currentMg: 120, hoursUntilNegligible: 4.2 },
+          caffeine: { totalMg: 250, currentMg: 120, hoursUntilEffectsFade: 6.3, hoursUntilNegligible: 11.3 },
         }}
         mood={null}
         measurement={null}
@@ -56,7 +56,10 @@ describe('RecoveryCard', () => {
     )
 
     expect(screen.getByText('Caffeine')).toBeInTheDocument()
-    expect(screen.getByText('120 mg · ~4.2h left')).toBeInTheDocument()
+    expect(screen.getByText(/120 mg/)).toBeInTheDocument()
+    // The user asked how long it LASTS — lead with effects, not the trace tail.
+    expect(screen.getByText(/effects ~6.3h/)).toBeInTheDocument()
+    expect(screen.queryByText(/11.3/)).not.toBeInTheDocument()
     expect(screen.queryByText('Alcohol')).not.toBeInTheDocument()
   })
 
@@ -66,7 +69,7 @@ describe('RecoveryCard', () => {
         recovery={{
           sleepHours: 7,
           waterLiters: 2,
-          caffeine: { totalMg: 95, currentMg: 12, hoursUntilNegligible: 0 },
+          caffeine: { totalMg: 95, currentMg: 12, hoursUntilEffectsFade: 0, hoursUntilNegligible: 0 },
         }}
         mood={null}
         measurement={null}
@@ -74,6 +77,6 @@ describe('RecoveryCard', () => {
       />
     )
 
-    expect(screen.getByText('12 mg · worn off')).toBeInTheDocument()
+    expect(screen.getByText(/worn off/)).toBeInTheDocument()
   })
 })

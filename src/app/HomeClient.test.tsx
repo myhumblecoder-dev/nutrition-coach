@@ -38,7 +38,7 @@ describe('HomeClient', () => {
 
   it('renders the dashboard from props', () => {
     render(<HomeClient today={today} week={week} activity={[]} coachMessage={null} />)
-    expect(screen.getByText('of 2000 kcal')).toBeInTheDocument()
+    expect(screen.getByText('of 2,000 kcal')).toBeInTheDocument()
     expect(screen.getByText(/800 kcal in/)).toBeInTheDocument()
     const expectedDate = new Date().toLocaleDateString('en-US', {
       weekday: 'long', month: 'short', day: 'numeric',

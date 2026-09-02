@@ -10,14 +10,17 @@ interface RemainingCardProps {
 export default function RemainingCard({ remaining, streak }: RemainingCardProps) {
   const logged = streak.filter(Boolean).length
 
+  // Two compact cards rather than one stretched to `h-full`: the column beside
+  // this one holds two cards, so forcing a single card to match their combined
+  // height opened a ~200px void between the headline number and the streak.
   return (
-    <Card className="h-full">
-      <CardContent className="flex h-full flex-col justify-between gap-6 pt-2">
-        <div className="space-y-1">
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="space-y-1 pt-2">
           <div className="text-[13px] font-semibold text-[#52525b]">Remaining today</div>
           {remaining != null ? (
             <>
-              <div className="text-[40px] font-bold tracking-tight">
+              <div className="text-[40px] font-bold leading-tight tracking-tight">
                 {remaining.toLocaleString()}{' '}
                 <span className="text-base font-medium text-[#71717a]">kcal</span>
               </div>
@@ -26,9 +29,12 @@ export default function RemainingCard({ remaining, streak }: RemainingCardProps)
           ) : (
             <p className="text-muted-foreground">Set your daily targets</p>
           )}
-        </div>
-        {streak.length > 0 && (
-          <div className="space-y-2">
+        </CardContent>
+      </Card>
+
+      {streak.length > 0 && (
+        <Card>
+          <CardContent className="space-y-2 pt-2">
             <div className="flex justify-between text-xs text-[#71717a]">
               <span>Logging streak</span>
               <span className="font-semibold text-[#18181b]">
@@ -45,9 +51,9 @@ export default function RemainingCard({ remaining, streak }: RemainingCardProps)
                 />
               ))}
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }
