@@ -21,6 +21,7 @@ vi.mock('@/app/actions/uploadMealPhoto', () => ({ uploadMealPhoto: vi.fn() }))
 vi.mock('@/app/actions/analyzeMeal', () => ({ analyzeMeal: vi.fn() }))
 vi.mock('@/app/actions/saveMealEntry', () => ({ saveMealEntry: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
+vi.mock('@/components/SignInButtons', () => ({ default: vi.fn(() => <div data-testid="sign-in-buttons" />) }))
 
 describe('Home', () => {
   beforeEach(() => {
@@ -65,14 +66,15 @@ describe('Home', () => {
     expect(getActivity).toHaveBeenCalled()
   })
 
-  it('a signed-out visitor sees the sign-in button', async () => {
+  it('a signed-out visitor sees the provider sign-in buttons', async () => {
     vi.mocked(auth).mockResolvedValue(null as never)
 
     render(await Home())
 
+    expect(screen.getByTestId('sign-in-buttons')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Sign in with GitHub' })
-    ).toBeInTheDocument()
+      screen.queryByRole('button', { name: 'Sign in with GitHub' })
+    ).not.toBeInTheDocument()
   })
 
   it('a signed-in user does not get an inline sign-out (it lives in the nav)', async () => {
