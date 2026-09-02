@@ -172,4 +172,16 @@ describe('ChatClient', () => {
 
     expect(sendChatMessage).not.toHaveBeenCalled()
   })
+
+  it('keeps the composer label available to screen readers while hiding it visually', () => {
+    render(<ChatClient initialMessages={[]} />)
+
+    // The visible "Message" caption was pushing the Send button out of line
+    // with the input; hiding it must not cost the accessible name.
+    const input = screen.getByLabelText('Message')
+    expect(input).toBeInTheDocument()
+
+    const label = document.querySelector('label[for="chat-input"]')!
+    expect(label.className).toContain('sr-only')
+  })
 })
