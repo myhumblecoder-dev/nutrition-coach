@@ -3,9 +3,19 @@ import { logMealForUser } from '@/lib/meals';
 
 export const maxDuration = 60;
 import { coachReply } from '@/lib/chat';
-import { analyzeMeal } from '@/app/actions/analyzeMeal';
+import { analyzeMeal } from '@/lib/analyzeMeal';
+import { consumeLinkToken, resolveUserByChat, disconnectUser } from '@/lib/telegramLink';
 import { put } from '@vercel/blob';
 import { prisma } from '@/lib/db';
+
+const APP_URL = process.env.APP_URL ?? 'https://nutrition-coach-omega.vercel.app';
+
+const CONNECT_NUDGE =
+  `This chat isn't linked to an account yet. Sign in at ${APP_URL}/targets and tap Connect Telegram to get your personal link.`;
+
+function ok(extra?: Record<string, unknown>) {
+  return Response.json({ ok: true, ...extra });
+}
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -21,55 +31,107 @@ export async function POST(request: Request) {
     // Button taps on a pending meal's Log it / Discard keyboard.
     const cb = update?.callback_query;
     if (cb) {
-      const cbChatId = String(cb.message?.chat?.id ?? '');
+      const chat = cb.message?.chat;
+      const cbChatId = String(chat?.id ?? '');
       const data = typeof cb.data === 'string' ? cb.data : '';
       const match = data.match(/^meal:(confirm|discard):(.+)$/);
-      if (cbChatId !== process.env.TELEGRAM_CHAT_ID || !match) {
-        return Response.json({ ok: true, ignored: true });
+      // Private chats only, and the tapper must BE the chat: in a group the
+      // chat id identifies the room, not the person pressing the button.
+      const tapperIsChat = String(cb.from?.id ?? '') === cbChatId;
+      if (chat?.type !== 'private' || !tapperIsChat || !match) {
+        await answerCallbackQuery(cb.id);
+        return ok({ ignored: true });
+      }
+      const user = await resolveUserByChat(cbChatId);
+      if (!user) {
+        await answerCallbackQuery(cb.id);
+        return ok({ ignored: true });
       }
       const [, action, mealId] = match;
-      if (action === 'confirm') {
-        await prisma.mealEntry.updateMany({
-          where: { id: mealId, confirmed: false },
-          data: { confirmed: true },
-        });
-        await answerCallbackQuery(cb.id);
+      // Scoped by userId: callback_data is client-supplied and forgeable.
+      const where = { id: mealId, userId: user.id, confirmed: false };
+      const { count } =
+        action === 'confirm'
+          ? await prisma.mealEntry.updateMany({ where, data: { confirmed: true } })
+          : await prisma.mealEntry.deleteMany({ where });
+      await answerCallbackQuery(cb.id);
+      if (count === 0) {
+        await sendTelegramMessage(cbChatId, "That meal's no longer pending.");
+      } else if (action === 'confirm') {
         await sendTelegramMessage(cbChatId, 'Logged ✓');
       } else {
-        await prisma.mealEntry.deleteMany({ where: { id: mealId, confirmed: false } });
-        await answerCallbackQuery(cb.id);
         await sendTelegramMessage(cbChatId, 'Discarded — tell me or resend the photo if you want it logged differently.');
       }
-      return Response.json({ ok: true });
+      return ok();
     }
 
     const message = update?.message;
 
-    if (!message || String(message.chat?.id) !== process.env.TELEGRAM_CHAT_ID) {
-      return Response.json({ ok: true, ignored: true });
-    }
-
-    const user = await prisma.user.findFirst();
-    if (!user) {
-      return Response.json({ ok: true, ignored: true });
+    // Groups break the chat-equals-identity model; the bot is private-only.
+    if (!message || message.chat?.type !== 'private') {
+      return ok({ ignored: true });
     }
 
     const chatId = String(message.chat.id);
+    const text = typeof message.text === 'string' ? message.text : undefined;
+
+    // Commands are handled statically, before any user resolution or LLM.
+    if (text && /^\/start(\s|$)/.test(text)) {
+      const payload = text.slice('/start'.length).trim();
+      if (payload) {
+        const user = await consumeLinkToken(payload, chatId);
+        if (user) {
+          await sendTelegramMessage(
+            chatId,
+            `Connected to the account for ${user.email ?? 'your account'} — not you? Send /disconnect.\n\nI'm your nutrition coach: tell me what you eat, how you train, and how you sleep.`
+          );
+        } else {
+          await sendTelegramMessage(chatId, "That link expired — get a fresh one from the app's Targets page.");
+        }
+        return ok();
+      }
+      const user = await resolveUserByChat(chatId);
+      await sendTelegramMessage(
+        chatId,
+        user
+          ? "You're connected. Tell me what you eat, how you train, and how you sleep — or send a meal photo."
+          : CONNECT_NUDGE
+      );
+      return ok();
+    }
+
+    if (text === '/disconnect') {
+      const user = await resolveUserByChat(chatId);
+      if (user) {
+        await disconnectUser(user.id);
+        await sendTelegramMessage(chatId, 'Disconnected — this chat is no longer linked.');
+      } else {
+        await sendTelegramMessage(chatId, CONNECT_NUDGE);
+      }
+      return ok();
+    }
+
+    const user = await resolveUserByChat(chatId);
+    if (!user) {
+      // Static nudge for text only; anything else from a stranger is dropped.
+      // Never coachReply here — the bot is publicly discoverable.
+      if (text) {
+        await sendTelegramMessage(chatId, CONNECT_NUDGE);
+        return ok();
+      }
+      return ok({ ignored: true });
+    }
 
     // PHOTO branch
     if (message.photo && message.photo.length > 0) {
       const fileId = message.photo[message.photo.length - 1].file_id;
       const fileUrl = await getTelegramFileUrl(fileId);
-      
+
       const res = await fetch(fileUrl);
       if (!res.ok) {
-
         const body = await res.text().catch(() => '');
-
         console.error('photo download failed', res.status, body.slice(0, 200));
-
         throw new Error('Failed to download photo: HTTP ' + res.status);
-
       }
 
       const blob = await put('telegram-meal.jpg', await res.blob(), {
@@ -119,17 +181,17 @@ export async function POST(request: Request) {
         }
       );
 
-      return Response.json({ ok: true });
+      return ok();
     }
 
     // TEXT branch
-    if (typeof message.text === 'string' && message.text.length > 0) {
-      const { assistantReply } = await coachReply(user.id, message.text);
+    if (text && text.length > 0) {
+      const { assistantReply } = await coachReply(user.id, text);
       await sendTelegramMessage(chatId, assistantReply);
-      return Response.json({ ok: true });
+      return ok();
     }
 
-    return Response.json({ ok: true, ignored: true });
+    return ok({ ignored: true });
   } catch (err) {
     console.error(err);
     return Response.json({ ok: false }, { status: 200 });
