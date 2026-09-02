@@ -6,7 +6,7 @@ describe('RecoveryCard', () => {
   it('renders bars mood and the weight sparkline', () => {
     render(
       <RecoveryCard
-        recovery={{ sleepHours: 7.5, waterLiters: 2.5, alcoholDrinks: 0 }}
+        recovery={{ sleepHours: 7.5, waterLiters: 2.5, caffeine: null }}
         mood={{ score: 4, note: 'good energy' }}
         measurement={{ weightLb: 172, waistIn: null }}
         weights={[
@@ -29,7 +29,7 @@ describe('RecoveryCard', () => {
   it('renders fallbacks without data', () => {
     render(
       <RecoveryCard
-        recovery={{ sleepHours: null, waterLiters: null, alcoholDrinks: null }}
+        recovery={{ sleepHours: null, waterLiters: null, caffeine: null }}
         mood={null}
         measurement={null}
         weights={[]}
@@ -39,5 +39,41 @@ describe('RecoveryCard', () => {
     expect(screen.getByText('Sleep: not logged')).toBeInTheDocument()
     expect(screen.getByText('Measurement: not logged')).toBeInTheDocument()
     expect(document.querySelector('svg polyline')).toBeNull()
+  })
+
+  it('shows the active caffeine load and how long it lasts', () => {
+    render(
+      <RecoveryCard
+        recovery={{
+          sleepHours: 7,
+          waterLiters: 2,
+          caffeine: { totalMg: 250, currentMg: 120, hoursUntilNegligible: 4.2 },
+        }}
+        mood={null}
+        measurement={null}
+        weights={[]}
+      />
+    )
+
+    expect(screen.getByText('Caffeine')).toBeInTheDocument()
+    expect(screen.getByText('120 mg · ~4.2h left')).toBeInTheDocument()
+    expect(screen.queryByText('Alcohol')).not.toBeInTheDocument()
+  })
+
+  it('says worn off once the load is negligible', () => {
+    render(
+      <RecoveryCard
+        recovery={{
+          sleepHours: 7,
+          waterLiters: 2,
+          caffeine: { totalMg: 95, currentMg: 12, hoursUntilNegligible: 0 },
+        }}
+        mood={null}
+        measurement={null}
+        weights={[]}
+      />
+    )
+
+    expect(screen.getByText('12 mg · worn off')).toBeInTheDocument()
   })
 })

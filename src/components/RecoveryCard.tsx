@@ -6,7 +6,7 @@ interface Props {
   recovery: {
     sleepHours: number | null
     waterLiters: number | null
-    alcoholDrinks: number | null
+    caffeine: { totalMg: number; currentMg: number; hoursUntilNegligible: number } | null
   }
   mood: { score: number; note: string | null } | null
   measurement: { weightLb: number | null; waistIn: number | null } | null
@@ -61,7 +61,7 @@ function Sparkline({ weights }: { weights: Array<{ at: Date | string; weightLb: 
 }
 
 export default function RecoveryCard({ recovery, mood, measurement, weights }: Props) {
-  const { sleepHours, waterLiters, alcoholDrinks } = recovery
+  const { sleepHours, waterLiters, caffeine } = recovery
   const rowLabel = 'text-[12.5px] font-medium text-[#52525b]'
   const rowValue = 'text-[12.5px] text-[#71717a]'
 
@@ -101,16 +101,21 @@ export default function RecoveryCard({ recovery, mood, measurement, weights }: P
         )}
 
         <div className="flex items-center justify-between">
-          <div className={rowLabel}>Alcohol</div>
-          {alcoholDrinks == null || alcoholDrinks === 0 ? (
+          <div className={rowLabel}>Caffeine</div>
+          {caffeine == null ? (
             <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#047857]">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6 9 17l-5-5" />
               </svg>
-              {alcoholDrinks === 0 ? 'none today' : 'none logged'}
+              none logged
             </div>
           ) : (
-            <div className={rowValue}>{alcoholDrinks} drinks</div>
+            <div className={rowValue}>
+              {caffeine.currentMg} mg ·{' '}
+              {caffeine.hoursUntilNegligible === 0
+                ? 'worn off'
+                : `~${caffeine.hoursUntilNegligible}h left`}
+            </div>
           )}
         </div>
 

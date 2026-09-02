@@ -133,6 +133,41 @@ describe('extraction', () => {
     warn.mockRestore()
   })
 
+  it('parses a caffeine recovery item in milligrams', () => {
+    const facts = parseHealthFacts(
+      JSON.stringify({
+        meals: [], training: [],
+        recovery: [{ kind: 'sleep', value: 7 }, { kind: 'caffeine', value: 190 }],
+        mood: [], measurement: [],
+      })
+    )
+
+    expect(facts.recovery).toEqual([
+      { kind: 'sleep', value: 7 },
+      { kind: 'caffeine', value: 190 },
+    ])
+  })
+
+  it('rejects the retired alcohol kind without harming its siblings', () => {
+    const facts = parseHealthFacts(
+      JSON.stringify({
+        meals: [], training: [],
+        recovery: [{ kind: 'alcohol', value: 2 }, { kind: 'water', value: 1.5 }],
+        mood: [], measurement: [],
+      })
+    )
+
+    expect(facts.recovery).toEqual([{ kind: 'water', value: 1.5 }])
+  })
+
+  it('the prompt documents caffeine estimation in milligrams', () => {
+    const prompt = buildExtractionPrompt({ meals: [], training: [], recovery: [] }, 'two coffees')
+
+    expect(prompt).toContain('caffeine in milligrams')
+    expect(prompt).toContain('95')
+    expect(prompt).not.toContain('alcohol')
+  })
+
   it('garbage input returns empty facts', () => {
     const facts = parseHealthFacts('no json here')
 

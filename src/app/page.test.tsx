@@ -32,7 +32,7 @@ describe('Home', () => {
         resistance: 0, hiit: 0, core: 0, stepsToday: 0,
         days: { resistance: noDays, hiit: noDays, core: noDays },
       },
-      recovery: { sleepHours: null, waterLiters: null, alcoholDrinks: null },
+      recovery: { sleepHours: null, waterLiters: null, caffeine: null },
       mood: null,
       measurement: null,
       streak: noDays,
