@@ -16,12 +16,24 @@ describe('NavBar', () => {
 
     // Desktop links and mobile tabs both point at the same three routes.
     const todayLinks = screen.getAllByRole('link', { name: /Today/ })
-    const targetsLinks = screen.getAllByRole('link', { name: /Targets/ })
     const chatLinks = screen.getAllByRole('link', { name: /Chat/ })
+    const settingsLinks = screen.getAllByRole('link', { name: /Settings/ })
 
     expect(todayLinks[0]).toHaveAttribute('href', '/')
-    expect(targetsLinks[0]).toHaveAttribute('href', '/targets')
     expect(chatLinks[0]).toHaveAttribute('href', '/chat')
+    expect(settingsLinks[0]).toHaveAttribute('href', '/settings')
+    expect(screen.queryByRole('link', { name: /Targets/ })).not.toBeInTheDocument()
+  })
+
+  it('orders the nav as Today, Chat, Settings', async () => {
+    render(await NavBar())
+
+    const labels = screen
+      .getAllByRole('link')
+      .map((l) => l.textContent?.trim())
+      .filter((text): text is string => ['Today', 'Chat', 'Settings'].includes(text ?? ''))
+
+    expect(labels.slice(0, 3)).toEqual(['Today', 'Chat', 'Settings'])
   })
 
   it('renders the wordmark', async () => {

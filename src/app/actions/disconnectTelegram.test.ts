@@ -20,14 +20,14 @@ describe('disconnectTelegram', () => {
     expect(disconnectUser).not.toHaveBeenCalled()
   })
 
-  it('disconnects the session user and revalidates targets', async () => {
+  it('disconnects the session user and revalidates settings', async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: 'u1' } } as never)
     vi.mocked(disconnectUser).mockResolvedValue(1)
 
     const result = await disconnectTelegram()
 
     expect(disconnectUser).toHaveBeenCalledWith('u1')
-    expect(revalidatePath).toHaveBeenCalledWith('/targets')
+    expect(revalidatePath).toHaveBeenCalledWith('/settings')
     expect(result).toEqual({ ok: true })
   })
 })

@@ -11,6 +11,6 @@ export async function disconnectTelegram(): Promise<{ ok: true }> {
   }
 
   await disconnectUser(session.user.id);
-  revalidatePath('/targets');
+  revalidatePath('/settings');
   return { ok: true };
 }

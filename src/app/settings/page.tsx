@@ -3,16 +3,17 @@ import { prisma } from "@/lib/db"
 import { createLinkToken } from "@/lib/telegramLink"
 import DailyTargetForm from "@/components/DailyTargetForm"
 import ConnectTelegram from "@/components/ConnectTelegram"
+import DeleteAccount from "@/components/DeleteAccount"
 
 export const dynamic = 'force-dynamic'
 
-export default async function TargetsPage() {
+export default async function SettingsPage() {
   const session = await auth()
 
   if (!session?.user?.id) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <p>Sign in to set targets</p>
+        <p>Sign in to view settings</p>
       </div>
     )
   }
@@ -43,6 +44,7 @@ export default async function TargetsPage() {
       <div className="max-w-md mx-auto">
         <DailyTargetForm initial={target ?? null} />
         <ConnectTelegram linked={Boolean(telegramChat)} linkUrl={linkUrl} />
+        <DeleteAccount />
       </div>
     </div>
   )
