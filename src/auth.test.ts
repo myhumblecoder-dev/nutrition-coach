@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const { nextAuthMock, buildAuthConfigMock } = vi.hoisted(() => ({
-  nextAuthMock: vi.fn(() => ({
+  nextAuthMock: vi.fn((_config?: unknown) => ({
     handlers: {},
     auth: vi.fn(),
     signIn: vi.fn(),
