@@ -1,121 +1,97 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET } from './route';
+import { GET, maxDuration } from './route';
 import { prisma } from '@/lib/db';
 import { generate } from '@/lib/llm';
+import { sendTelegramMessage } from '@/lib/telegram';
 
-vi.mock('@/lib/db', () => ({ prisma: { user: { findMany: vi.fn() } } }));
+vi.mock('@/lib/db', () => ({ prisma: { telegramChat: { findMany: vi.fn() } } }));
 vi.mock('@/lib/llm', () => ({ generate: vi.fn() }));
+vi.mock('@/lib/telegram', () => ({ sendTelegramMessage: vi.fn() }));
+
+function chatRow(chatId: string, name: string) {
+  return { id: `tc-${chatId}`, chatId, userId: `u-${chatId}`, user: { id: `u-${chatId}`, name } };
+}
+
+function makeRequest(auth?: string) {
+  return new Request('http://localhost/api/cron', {
+    method: 'GET',
+    headers: auth ? { authorization: auth } : {},
+  });
+}
 
 describe('route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.CRON_SECRET = 'test-secret';
-    process.env.TELEGRAM_BOT_TOKEN = 'bot123';
-    process.env.TELEGRAM_CHAT_ID = 'chat123';
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
-    // Mock console.error to keep test output clean
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  it('returns 401 when authorization header is missing', async () => {
-    const request = new Request('http://localhost/api/cron', {
-      method: 'GET',
-      headers: {},
-    });
-
-    const response = await GET(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(body).toEqual({ ok: false });
-    expect(prisma.user.findMany).not.toHaveBeenCalled();
+  it('allows five minutes for the per-user LLM loop', () => {
+    expect(maxDuration).toBe(300);
   });
 
-  it('returns 401 when wrong secret is provided', async () => {
-    const request = new Request('http://localhost/api/cron', {
-      method: 'GET',
-      headers: { authorization: 'Bearer wrong-secret' },
-    });
+  it('returns 401 without the bearer secret', async () => {
+    const missing = await GET(makeRequest());
+    expect(missing.status).toBe(401);
 
-    const response = await GET(request);
-    const body = await response.json();
+    const wrong = await GET(makeRequest('Bearer nope'));
+    expect(wrong.status).toBe(401);
 
-    expect(response.status).toBe(401);
-    expect(body).toEqual({ ok: false });
-    expect(prisma.user.findMany).not.toHaveBeenCalled();
+    expect(prisma.telegramChat.findMany).not.toHaveBeenCalled();
   });
 
-  it('a telegram send failure is isolated per user', async () => {
-    vi.mocked(prisma.user.findMany).mockResolvedValue([
-      { id: '1', name: 'Alice' } as any,
-      { id: '2', name: 'Bob' } as any,
-    ]);
+  it('sends one personalized check-in per linked chat through the telegram lib', async () => {
+    vi.mocked(prisma.telegramChat.findMany).mockResolvedValue([
+      chatRow('101', 'Alice'),
+      chatRow('202', 'Bob'),
+    ] as never);
     vi.mocked(generate).mockResolvedValue('stay healthy');
-    
-    // First call succeeds, second call fails
-    vi.mocked(fetch).mockResolvedValueOnce({ ok: true } as any)
-      .mockResolvedValueOnce({ ok: false, statusText: 'Forbidden' } as any);
+    vi.mocked(sendTelegramMessage).mockResolvedValue(undefined as never);
 
-    const request = new Request('http://localhost/api/cron', {
-      method: 'GET',
-      headers: { authorization: 'Bearer test-secret' },
-    });
-
-    const response = await GET(request);
+    const response = await GET(makeRequest('Bearer test-secret'));
     const body = await response.json();
 
-    // Alice succeeds, Bob fails. Total: sent 1, failed 1.
-    expect(body).toEqual({ ok: false, sent: 1, failed: 1 });
-    expect(console.error).toHaveBeenCalled();
-  });
-
-  it('missing telegram config counts as a failure', async () => {
-    vi.mocked(prisma.user.findMany).mockResolvedValue([
-      { id: '1', name: 'Alice' } as any,
-    ]);
-    vi.mocked(generate).mockResolvedValue('stay healthy');
-    
-    delete process.env.TELEGRAM_BOT_TOKEN;
-
-    const request = new Request('http://cal.com/api/cron', {
-      method: 'GET',
-      headers: { authorization: 'Bearer test-secret' },
-    });
-
-    const response = await GET(request);
-    const body = await response.json();
-
-    expect(body).toEqual({ ok: false, sent: 0, failed: 1 });
-    expect(console.error).toHaveBeenCalled();
-  });
-
-  it("calls generate once per user and returns ok with correct sent count: mock `prisma.user.findMany` to resolve `[{ id: '1', name: 'Alice' }, { id: '2', name: 'Bob' }]`, mock `generate` to resolve `'stay healthy'`; assert `generate` was called twice, first call with `'Write a short, friendly daily nutrition check-in message for Alice. Ask how they plan to eat today. Reply with the message only.'`, second call with `'Write a short, friendly daily nutrition check-in message for Bob. Ask how they plan to eat today. Reply with the message only.'`; assert response JSON is `{ ok: true, sent: 2, failed: 0 }`", async () => {
-    vi.mocked(prisma.user.findMany).mockResolvedValue([
-      { id: '1', name: 'Alice' } as any,
-      { id: '2', name: 'Bob' } as any,
-    ]);
-    vi.mocked(generate).mockResolvedValue('stay healthy');
-
-    const request = new Request('http://localhost/api/cron', {
-      method: 'GET',
-      headers: { authorization: 'Bearer test-secret' },
-    });
-
-    const response = await GET(request);
-    const body = await response.json();
-
-    expect(generate).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(generate).mock.calls[0][0]).toContain('Today is ');
-    expect(vi.mocked(generate).mock.calls[0][0]).toContain('Write a short, friendly daily nutrition check-in message for Alice.');
-    expect(vi.mocked(generate).mock.calls[1][0]).toContain('Write a short, friendly daily nutrition check-in message for Bob.');
     expect(body).toEqual({ ok: true, sent: 2, failed: 0 });
-    
-    expect(fetch).toHaveBeenCalledWith(
-      'https://api.telegram.org/botbot123/sendMessage',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ chat_id: 'chat123', text: 'stay healthy' }),
-      })
-    );
+    expect(generate).toHaveBeenCalledTimes(2);
+    const prompts = vi.mocked(generate).mock.calls.map((c) => c[0]);
+    expect(prompts.some((p) => p.includes('for Alice'))).toBe(true);
+    expect(prompts.some((p) => p.includes('for Bob'))).toBe(true);
+    expect(prompts[0]).toContain('Today is ');
+
+    const sends = vi.mocked(sendTelegramMessage).mock.calls;
+    expect(sends).toContainEqual(['101', 'stay healthy']);
+    expect(sends).toContainEqual(['202', 'stay healthy']);
+  });
+
+  it('a failed send counts without aborting the other chats', async () => {
+    vi.mocked(prisma.telegramChat.findMany).mockResolvedValue([
+      chatRow('101', 'Alice'),
+      chatRow('202', 'Bob'),
+      chatRow('303', 'Cara'),
+    ] as never);
+    vi.mocked(generate).mockResolvedValue('stay healthy');
+    vi.mocked(sendTelegramMessage)
+      .mockResolvedValueOnce(undefined as never)
+      .mockRejectedValueOnce(new Error('Forbidden'))
+      .mockResolvedValueOnce(undefined as never);
+
+    const response = await GET(makeRequest('Bearer test-secret'));
+    const body = await response.json();
+
+    expect(body).toEqual({ ok: false, sent: 2, failed: 1 });
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it('delivers to every chat when there are more than one batch of five', async () => {
+    const rows = Array.from({ length: 7 }, (_, i) => chatRow(String(i), `User${i}`));
+    vi.mocked(prisma.telegramChat.findMany).mockResolvedValue(rows as never);
+    vi.mocked(generate).mockResolvedValue('hello');
+    vi.mocked(sendTelegramMessage).mockResolvedValue(undefined as never);
+
+    const response = await GET(makeRequest('Bearer test-secret'));
+    const body = await response.json();
+
+    expect(body).toEqual({ ok: true, sent: 7, failed: 0 });
+    expect(sendTelegramMessage).toHaveBeenCalledTimes(7);
   });
 });

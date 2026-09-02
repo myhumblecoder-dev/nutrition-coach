@@ -70,7 +70,7 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith
   const missing = required.filter((r) => !params[r]);
 
   if (missing.length > 0) {
-    console.error(`Usage: node generate-apple-secret.mjs --key <p8_path> --team-id <id> --key-rypt <id> --client-id <id>`);
+    console.error(`Usage: node generate-apple-secret.mjs --key <p8_path> --team-id <id> --key-id <id> --client-id <id>`);
     console.error(`Missing arguments: ${missing.join(', ')}`);
     process.exit(1);
   }

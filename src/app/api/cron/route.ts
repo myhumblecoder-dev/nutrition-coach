@@ -1,31 +1,13 @@
 import { generate } from '@/lib/llm'
 import { prisma } from '@/lib/db'
 import { nowLine } from '@/lib/time'
+import { sendTelegramMessage } from '@/lib/telegram'
 
-async function sendTelegramMessage(text: string): Promise<void> {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN
-  const chatId = process.env.TELEGRAM_CHAT_ID
+// One LLM call per linked user: batches of 5 keep hundreds of users inside
+// the window where a sequential loop would die at a dozen.
+export const maxDuration = 300
 
-  if (!botToken || !chatId) {
-    throw new Error('Telegram not configured')
-  }
-
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content\u0000Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: text,
-    }),
-  })
-
-  if (!res.ok) {
-    throw new Error('Telegram send failed: ' + res.statusText)
-  }
-}
+const BATCH_SIZE = 5
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET
@@ -35,19 +17,30 @@ export async function GET(request: Request) {
     return Response.json({ ok: false }, { status: 401 })
   }
 
-  const users = await prisma.user.findMany()
+  const chats = await prisma.telegramChat.findMany({ include: { user: true } })
   let sent = 0
   let failed = 0
 
-  for (const user of users) {
-    try {
-      const prompt = nowLine() + ' Write a short, friendly daily nutrition check-in message for ' + (user.name ?? 'the user') + '. Ask how they plan to eat today. Reply with the message only.'
-      const reply = await generate(prompt)
-      await sendTelegramMessage(reply)
-      sent++
-    } catch (err) {
-      failed++
-      console.error(err instanceof Error ? err.message : 'Unknown error')
+  for (let i = 0; i < chats.length; i += BATCH_SIZE) {
+    const batch = chats.slice(i, i + BATCH_SIZE)
+    const results = await Promise.allSettled(
+      batch.map(async (chat) => {
+        const prompt =
+          nowLine() +
+          ' Write a short, friendly daily nutrition check-in message for ' +
+          (chat.user.name ?? 'the user') +
+          '. Ask how they plan to eat today. Reply with the message only.'
+        const reply = await generate(prompt)
+        await sendTelegramMessage(chat.chatId, reply)
+      })
+    )
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        sent++
+      } else {
+        failed++
+        console.error(result.reason instanceof Error ? result.reason.message : 'Unknown error')
+      }
     }
   }
 

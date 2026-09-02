@@ -1,14 +1,18 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { analyzeMeal } from './analyzeMeal'
-import { analyzePhoto } from '@/lib/llm'
+import { auth } from '@/auth'
+import { analyzeMeal as analyzeMealCore } from '@/lib/analyzeMeal'
 
-vi.mock('@/lib/llm', () => ({
-  analyzePhoto: vi.fn()
-}))
+vi.mock('@/auth', () => ({ auth: vi.fn() }))
+vi.mock('@/lib/analyzeMeal', () => ({ analyzeMeal: vi.fn() }))
 
-describe('analyzeMeal', () => {
+describe('analyzeMeal (action wrapper)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('the module source begins with the use server directive', () => {
     const firstLine = readFileSync(
       join(process.cwd(), 'src/app/actions/analyzeMeal.ts'),
@@ -17,93 +21,21 @@ describe('analyzeMeal', () => {
     expect(firstLine).toMatch(/^['"]use server['"];?\s*$/)
   })
 
-  it('parses a response wrapped in markdown code fences', async () => {
-    const fenced =
-      '```json\n' +
-      JSON.stringify({
-        foodItems: [{ name: 'Salad', portion: '1 bowl', calories: 320, protein: 12 }],
-        totalCalories: 320,
-        totalProtein: 12,
-      }) +
-      '\n```'
-    vi.mocked(analyzePhoto).mockResolvedValue(fenced)
+  it('throws Unauthorized for a signed-out caller without touching the LLM', async () => {
+    vi.mocked(auth).mockResolvedValue(null as never)
 
-    const result = await analyzeMeal('https://example.com/photo.jpg')
-
-    expect(result.totalCalories).toBe(320)
-    expect(result.foodItems[0].name).toBe('Salad')
+    await expect(analyzeMeal('https://example.com/p.jpg')).rejects.toThrow('Unauthorized')
+    expect(analyzeMealCore).not.toHaveBeenCalled()
   })
 
-  it('rounds fractional calorie and protein values', async () => {
-    vi.mocked(analyzePhoto).mockResolvedValue(
-      JSON.stringify({
-        foodItems: [{ name: 'Yogurt', portion: '1 cup', calories: 149.5, protein: 8.2 }],
-        totalCalories: 149.5,
-        totalProtein: 8.2,
-      })
-    )
+  it('delegates to the core lib for a signed-in user', async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: 'u1' } } as never)
+    const analysis = { foodItems: [], totalCalories: 1, totalProtein: 1 }
+    vi.mocked(analyzeMealCore).mockResolvedValue(analysis as never)
 
-    const result = await analyzeMeal('https://example.com/photo.jpg')
+    const result = await analyzeMeal('https://example.com/p.jpg', 'a caption')
 
-    expect(result.totalCalories).toBe(150)
-    expect(result.foodItems[0].protein).toBe(8)
-  })
-
-  it('returns parsed food items for valid vision JSON response', async () => {
-    const mockResponse = JSON.stringify({
-      foodItems: [
-        { name: 'Egg', portion: '1 large', calories: 70, protein: 6 }
-      ],
-      totalCalories: 70,
-      totalProtein: 6
-    })
-
-    vi.mocked(analyzePhoto).mockResolvedValue(mockResponse)
-
-    const result = await analyzeMeal('https://example.com/photo.jpg')
-
-    expect(result.foodItems).toHaveLength(1)
-    expect(result.foodItems[0].name).toBe('Egg')
-    expect(result.totalCalories).toBe(70)
-    expect(analyzePhoto).toHaveBeenCalledWith(
-      'https://example.com/photo.jpg',
-      expect.stringContaining('Return ONLY valid JSON')
-    )
-  })
-
-  it('throws containing invalid JSON structure message for non-JSON response', async () => {
-    vi.mocked(analyzePhoto).mockResolvedValue('Not a JSON string')
-
-    await expect(analyzeMeal('https://example/bad.jpg')).rejects.toThrow(
-      'Vision API returned invalid JSON structure'
-    )
-  })
-
-  it('throws for JSON that fails the Zod schema', async () => {
-    // Missing totalCalories
-    const invalidSchemaResponse = JSON.stringify({
-      foodItems: [
-        { name: 'Egg', portion: '1 large', calories: 70, protein: 6 }
-      ],
-      totalProtein: 6
-    })
-
-    vi.mocked(analyzePhoto).mockResolvedValue(invalidSchemaResponse)
-
-    await expect(analyzeMeal('https://example/bad-schema.jpg')).rejects.toThrow(
-      'Vision API returned invalid JSON structure'
-    )
-  })
-
-  it('passes the user caption to the vision prompt as ground truth', async () => {
-    vi.mocked(analyzePhoto).mockResolvedValue(
-      JSON.stringify({ foodItems: [{ name: 'x', portion: '1', calories: 1, protein: 1 }], totalCalories: 1, totalProtein: 1 })
-    )
-
-    await analyzeMeal('https://example.com/p.jpg', 'chicken, rice, and acorn squash')
-
-    const prompt = vi.mocked(analyzePhoto).mock.calls.at(-1)![1]
-    expect(prompt).toContain('The user says this meal is: "chicken, rice, and acorn squash"')
-    expect(prompt).toContain('Trust their description')
+    expect(analyzeMealCore).toHaveBeenCalledWith('https://example.com/p.jpg', 'a caption')
+    expect(result).toBe(analysis)
   })
 })

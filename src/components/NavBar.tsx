@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { auth, signIn, signOut } from '@/auth';
+import { auth, signOut } from '@/auth';
 
 function TabIcon({ path }: { path: string }) {
   return (
@@ -45,20 +45,13 @@ export default async function NavBar() {
       </button>
     </form>
   ) : (
-    <form
-      action={async () => {
-        'use server';
-        await signIn('github');
-      }}
+    <Link
+      href="/sign-in"
+      aria-label="Sign in"
+      className="flex h-9 w-9 items-center justify-center rounded-full text-[#71717a] hover:bg-[#f4f4f5] hover:text-[#18181b]"
     >
-      <button
-        type="submit"
-        aria-label="Sign in"
-        className="flex h-9 w-9 items-center justify-center rounded-full text-[#71717a] hover:bg-[#f4f4f5] hover:text-[#18181b]"
-      >
-        <TabIcon path={ICONS.signIn} />
-      </button>
-    </form>
+      <TabIcon path={ICONS.signIn} />
+    </Link>
   );
 
   return (

@@ -3,36 +3,27 @@ import { POST, maxDuration } from './route'
 import { sendTelegramMessage, getTelegramFileUrl, answerCallbackQuery } from '@/lib/telegram'
 import { logMealForUser } from '@/lib/meals'
 import { coachReply } from '@/lib/chat'
-import { analyzeMeal } from '@/app/actions/analyzeMeal'
+import { analyzeMeal } from '@/lib/analyzeMeal'
+import { consumeLinkToken, resolveUserByChat, disconnectUser } from '@/lib/telegramLink'
 import { put } from '@vercel/blob'
 import { prisma } from '@/lib/db'
 
-vi.mock('@/lib/telegram', () => ({ getTelegramFileUrl: vi.fn(), sendTelegramMessage: vi.fn(), answerCallbackQuery: vi.fn() }));
-vi.mock('@/app/actions/analyzeMeal', () => ({ analyzeMock: vi.fn(), analyzeMeal: vi.fn() }));
-
-vi.mock('@/lib/meals', () => ({
-  logMealForUser: vi.fn(),
-}))
-
-vi.mock('@/lib/chat', () => ({
-  coachReply: vi.fn(),
-}))
-
-vi.mock('@vercel/blob', () => ({
-  put: vi.fn(),
-}))
-
+vi.mock('@/lib/telegram', () => ({ getTelegramFileUrl: vi.fn(), sendTelegramMessage: vi.fn(), answerCallbackQuery: vi.fn() }))
+vi.mock('@/lib/analyzeMeal', () => ({ analyzeMeal: vi.fn() }))
+vi.mock('@/lib/telegramLink', () => ({ consumeLinkToken: vi.fn(), resolveUserByChat: vi.fn(), disconnectUser: vi.fn() }))
+vi.mock('@/lib/meals', () => ({ logMealForUser: vi.fn() }))
+vi.mock('@/lib/chat', () => ({ coachReply: vi.fn() }))
+vi.mock('@vercel/blob', () => ({ put: vi.fn() }))
 vi.mock('@/lib/db', () => ({
   prisma: {
-    user: {
-      findFirst: vi.fn(),
-    },
     mealEntry: {
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
   },
 }))
+
+const TOKEN = 'f'.repeat(32)
 
 function makeRequest(update: object) {
   return new Request('http://test/api/telegram', {
@@ -42,49 +33,20 @@ function makeRequest(update: object) {
   }) as never
 }
 
+function privateChat(id = 5519) {
+  return { id, type: 'private' }
+}
+
 describe('route', () => {
   const originalEnv = process.env
 
   beforeEach(() => {
     vi.resetAllMocks()
-    process.env = { ...originalEnv, TELEGRAM_WEBHOOK_SECRET: 'hook-secret', TELEGRAM_CHAT_ID: '5519' }
-    
-    // Stub global fetch for downloading photo
+    process.env = { ...originalEnv, TELEGRAM_WEBHOOK_SECRET: 'hook-secret' }
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       blob: async () => new Blob(['x']),
-    }) as any
-  })
-
-  it('an unreadable photo gets an apologetic reply', async () => {
-    const update = {
-      message: {
-        chat: { id: 5519 },
-        photo: [{ file_id: 'big' }],
-      },
-    }
-    const req = new Request('http://test/api/mock', {
-      method: 'POST',
-      headers: {
-        'x-telegram-bot-api-secret-token': 'hook-secret',
-      },
-      body: JSON.stringify(update),
-    })
-
-    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any)
-    vi.mocked(getTelegramFileUrl).mockResolvedValue('https://api.telegram.org/file/big')
-    vi.mocked(put).mockResolvedValue({ url: 'https://blob/x.jpg' } as any)
-    vi.mocked(analyzeMeal).mockRejectedValue(new Error('vision failed'))
-
-    const res = await POST(req as any)
-    
-    expect(res.status).toBe(200)
-    const json = await res.json()
-    expect(json).toEqual({ ok: false })
-    expect(vi.mocked(sendTelegramMessage)).toHaveBeenCalledWith(
-      '5519',
-      expect.stringContaining("couldn't read")
-    )
+    }) as never
   })
 
   it('maxDuration is exported as 60', () => {
@@ -92,107 +54,134 @@ describe('route', () => {
   })
 
   it('rejects a request with the wrong webhook secret', async () => {
-    const update = { message: { chat: { id: 5519 }, text: 'hi' } }
     const req = new Request('http://test/api/telegram', {
       method: 'POST',
-      headers: {
-        'x-telegram-bot-api-secret-token': 'wrong-secret',
-      },
-      body: JSON.stringify(update),
+      headers: { 'x-telegram-bot-api-secret-token': 'wrong-secret' },
+      body: JSON.stringify({ message: { chat: privateChat(), text: 'hi' } }),
     })
 
-    const res = await POST(req as any)
+    const res = await POST(req as never)
     expect(res.status).toBe(401)
-    const json = await res.json()
-    expect(json).toEqual({ ok: false })
   })
 
-  it('a text message gets a coach reply', async () => {
-    const update = { message: { chat: { id: 5519 }, text: 'hi coach' } }
-    const req = new Request('http://test/api/telegram', {
-      method: 'POST',
-      headers: {
-        'x-telegram-bot-api-secret-token': 'hook-secret',
-      },
-      body: JSON.stringify(update),
-    })
+  it('ignores anything from a non-private chat', async () => {
+    const res = await POST(makeRequest({
+      message: { chat: { id: -100, type: 'group' }, text: '/start ' + TOKEN },
+    }))
 
-    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any)
-    vi.mocked(coachReply).mockResolvedValue({ assistantReply: 'Hello!' })
+    expect((await res.json()).ignored).toBe(true)
+    expect(consumeLinkToken).not.toHaveBeenCalled()
+    expect(coachReply).not.toHaveBeenCalled()
+    expect(sendTelegramMessage).not.toHaveBeenCalled()
+  })
 
-    const res = await POST(req as any)
+  it('/start with a valid token links the chat and names the account', async () => {
+    vi.mocked(consumeLinkToken).mockResolvedValue({ id: 'u1', email: 'thomas@example.com' } as never)
+
+    const res = await POST(makeRequest({
+      message: { chat: privateChat(), text: `/start ${TOKEN}` },
+    }))
+
     expect(res.status).toBe(200)
-    expect(coachReply).toHaveBeenCalledWith('u1', 'hi coach')
-    expect(sendTelegramMessage).toHaveBeenCalledWith('5519', 'Hello!')
+    expect(consumeLinkToken).toHaveBeenCalledWith(TOKEN, '5519')
+    const reply = vi.mocked(sendTelegramMessage).mock.calls.at(-1)!
+    expect(reply[0]).toBe('5519')
+    expect(reply[1]).toContain('thomas@example.com')
+    expect(reply[1]).toContain('/disconnect')
+    expect(coachReply).not.toHaveBeenCalled()
   })
 
-  it('a photo message logs the meal from the largest size', async () => {
-    const update = {
-      message: {
-        chat: { id: 5519 },
-        photo: [{ file_id: 'small' }, { file: 'big' }, { file_id: 'big' }],
-      },
-    }
-    // Note: The implementation uses message.photo[message.photo.length - 1].file_id
-    // We must ensure the object has file_id
-    const updateCorrected = {
-      message: {
-        chat: { id: 5519 },
-        photo: [{ file_id: 'small' }, { file_id: 'big' }],
-      },
-    }
-    const req = new Request('http://test/api/telegram', {
-      method: 'POST',
-      headers: {
-        'x-telegram-bot-api-secret-token': 'hook-secret',
-      },
-      body: JSON.stringify(updateCorrected),
-    })
+  it('/start with a bad or expired token explains how to get a fresh link', async () => {
+    vi.mocked(consumeLinkToken).mockResolvedValue(null)
 
-    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any)
-    vi.mocked(getTelegramFileUrl).mockResolvedValue('https://api.telegram.org/file/big')
-    vi.mocked(put).mockResolvedValue({ url: 'https://blob/x.jpg' } as any)
-    vi.mocked(analyzeMeal).mockResolvedValue({
-      foodItems: [{ name: 'Salad', portion: '1 bowl', calories: 300, protein: 12 }],
-      totalCalories: 300,
-      totalProtein: 12,
-    })
-    vi.mocked(logMealForUser).mockResolvedValue({ id: 'meal-1' })
+    await POST(makeRequest({
+      message: { chat: privateChat(), text: `/start ${TOKEN}` },
+    }))
 
-    const res = await POST(req as any)
+    const reply = vi.mocked(sendTelegramMessage).mock.calls.at(-1)!
+    expect(reply[1].toLowerCase()).toContain('expired')
+    expect(coachReply).not.toHaveBeenCalled()
+  })
+
+  it('bare /start from a linked chat greets statically without the LLM', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue({ id: 'u1' } as never)
+
+    await POST(makeRequest({ message: { chat: privateChat(), text: '/start' } }))
+
+    expect(sendTelegramMessage).toHaveBeenCalled()
+    expect(coachReply).not.toHaveBeenCalled()
+    expect(consumeLinkToken).not.toHaveBeenCalled()
+  })
+
+  it('/disconnect unlinks the chat', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue({ id: 'u1' } as never)
+    vi.mocked(disconnectUser).mockResolvedValue(1)
+
+    await POST(makeRequest({ message: { chat: privateChat(), text: '/disconnect' } }))
+
+    expect(disconnectUser).toHaveBeenCalledWith('u1')
+    const reply = vi.mocked(sendTelegramMessage).mock.calls.at(-1)!
+    expect(reply[1]).toContain('Disconnected')
+    expect(coachReply).not.toHaveBeenCalled()
+  })
+
+  it('an unknown chat texting gets one static connect nudge, never the LLM', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue(null)
+
+    const res = await POST(makeRequest({
+      message: { chat: privateChat(777), text: 'hello?' },
+    }))
+
     expect(res.status).toBe(200)
-    expect(getTelegramFileUrl).toHaveBeenCalledWith('big')
-    expect(logMealForUser).toHaveBeenCalledWith('u1', {
-      photoUrl: 'https://blob/x.jpg',
-      foodItems: [{ name: 'Salad', portion: '1 bowl', calories: 300, protein: 12 }],
-      totalCalories: 300,
-      totalProtein: 12,
-    }, undefined, false)
-    expect(sendTelegramMessage).toHaveBeenCalledWith(
-      '5519',
-      expect.stringContaining('I see: Salad — ~300 cal, 12g protein. Log it?'),
-      expect.anything()
-    )
+    const reply = vi.mocked(sendTelegramMessage).mock.calls.at(-1)!
+    expect(reply[0]).toBe('777')
+    expect(reply[1]).toContain('/targets')
+    expect(reply[1]).toContain('Connect Telegram')
+    expect(coachReply).not.toHaveBeenCalled()
   })
 
-  it('a photo logs pending with a confirm keyboard and passes the caption', async () => {
-    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as never)
+  it('an unknown chat sending a photo is silently ignored', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue(null)
+
+    const res = await POST(makeRequest({
+      message: { chat: privateChat(777), photo: [{ file_id: 'big' }] },
+    }))
+
+    expect((await res.json()).ignored).toBe(true)
+    expect(sendTelegramMessage).not.toHaveBeenCalled()
+    expect(analyzeMeal).not.toHaveBeenCalled()
+  })
+
+  it('a linked chat text message gets a coach reply for its own user', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue({ id: 'u2' } as never)
+    vi.mocked(coachReply).mockResolvedValue({ assistantReply: 'Hello!' } as never)
+
+    await POST(makeRequest({ message: { chat: privateChat(88), text: 'hi coach' } }))
+
+    expect(resolveUserByChat).toHaveBeenCalledWith('88')
+    expect(coachReply).toHaveBeenCalledWith('u2', 'hi coach')
+    expect(sendTelegramMessage).toHaveBeenCalledWith('88', 'Hello!')
+  })
+
+  it('a linked chat photo logs pending with a confirm keyboard and the caption', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue({ id: 'u1' } as never)
     vi.mocked(getTelegramFileUrl).mockResolvedValue('https://tg/file.jpg')
     vi.mocked(put).mockResolvedValue({ url: 'https://blob/x.jpg' } as never)
     vi.mocked(analyzeMeal).mockResolvedValue({
       foodItems: [{ name: 'Chicken', portion: '1', calories: 500, protein: 40 }],
       totalCalories: 500,
       totalProtein: 40,
-    })
+    } as never)
     vi.mocked(logMealForUser).mockResolvedValue({ id: 'meal-9' })
 
-    const res = await POST(makeRequest({
-      message: { chat: { id: 5519 }, photo: [{ file_id: 'big' }], caption: 'chicken and rice' },
+    await POST(makeRequest({
+      message: { chat: privateChat(), photo: [{ file_id: 'small' }, { file_id: 'big' }], caption: 'chicken and rice' },
     }))
 
-    expect(res.status).toBe(200)
+    expect(getTelegramFileUrl).toHaveBeenCalledWith('big')
     expect(analyzeMeal).toHaveBeenCalledWith('https://blob/x.jpg', 'chicken and rice')
     const logArgs = vi.mocked(logMealForUser).mock.calls.at(-1)!
+    expect(logArgs[0]).toBe('u1')
     expect(logArgs[2]).toBe('chicken and rice')
     expect(logArgs[3]).toBe(false)
     const sendArgs = vi.mocked(sendTelegramMessage).mock.calls.at(-1)!
@@ -200,28 +189,65 @@ describe('route', () => {
     expect(JSON.stringify(sendArgs[2])).toContain('meal:confirm:meal-9')
   })
 
-  it('a confirm tap flips the pending meal and answers the callback', async () => {
-    vi.mocked(prisma.mealEntry.updateMany).mockResolvedValue({ count: 1 } as never)
+  it('an unreadable photo gets an apologetic reply', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue({ id: 'u1' } as never)
+    vi.mocked(getTelegramFileUrl).mockResolvedValue('https://tg/file.jpg')
+    vi.mocked(put).mockResolvedValue({ url: 'https://blob/x.jpg' } as never)
+    vi.mocked(analyzeMeal).mockRejectedValue(new Error('vision failed'))
 
     const res = await POST(makeRequest({
-      callback_query: { id: 'cb1', data: 'meal:confirm:meal-9', message: { chat: { id: 5519 } } },
+      message: { chat: privateChat(), photo: [{ file_id: 'big' }] },
     }))
 
     expect(res.status).toBe(200)
-    const arg = vi.mocked(prisma.mealEntry.updateMany).mock.calls.at(-1)![0]
-    expect(arg?.where?.id).toBe('meal-9')
-    expect(arg?.data?.confirmed).toBe(true)
-    expect(answerCallbackQuery).toHaveBeenCalledWith('cb1')
+    expect(sendTelegramMessage).toHaveBeenCalledWith('5519', expect.stringContaining("couldn't read"))
   })
 
-  it('a discard tap deletes the pending meal', async () => {
-    vi.mocked(prisma.mealEntry.deleteMany).mockResolvedValue({ count: 1 } as never)
+  it('a confirm tap flips only the resolved user own pending meal', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue({ id: 'u1' } as never)
+    vi.mocked(prisma.mealEntry.updateMany).mockResolvedValue({ count: 1 } as never)
 
     await POST(makeRequest({
-      callback_query: { id: 'cb2', data: 'meal:discard:meal-9', message: { chat: { id: 5519 } } },
+      callback_query: { id: 'cb1', data: 'meal:confirm:meal-9', from: { id: 5519 }, message: { chat: privateChat() } },
     }))
 
-    const arg = vi.mocked(prisma.mealEntry.deleteMany).mock.calls.at(-1)![0]
-    expect(arg?.where?.id).toBe('meal-9')
+    const arg = vi.mocked(prisma.mealEntry.updateMany).mock.calls.at(-1)![0]
+    expect(arg?.where).toEqual({ id: 'meal-9', userId: 'u1', confirmed: false })
+    expect(answerCallbackQuery).toHaveBeenCalledWith('cb1')
+    const reply = vi.mocked(sendTelegramMessage).mock.calls.at(-1)!
+    expect(reply[1]).toContain('Logged')
+  })
+
+  it('a confirm tap on a stale or forged meal id says nothing was pending', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue({ id: 'u1' } as never)
+    vi.mocked(prisma.mealEntry.updateMany).mockResolvedValue({ count: 0 } as never)
+
+    await POST(makeRequest({
+      callback_query: { id: 'cb1', data: 'meal:confirm:meal-x', from: { id: 5519 }, message: { chat: privateChat() } },
+    }))
+
+    const reply = vi.mocked(sendTelegramMessage).mock.calls.at(-1)!
+    expect(reply[1]).toContain('no longer pending')
+  })
+
+  it('a callback from a tapper who is not the chat is answered and ignored', async () => {
+    await POST(makeRequest({
+      callback_query: { id: 'cb3', data: 'meal:confirm:meal-9', from: { id: 42 }, message: { chat: privateChat() } },
+    }))
+
+    expect(answerCallbackQuery).toHaveBeenCalledWith('cb3')
+    expect(prisma.mealEntry.updateMany).not.toHaveBeenCalled()
+    expect(sendTelegramMessage).not.toHaveBeenCalled()
+  })
+
+  it('a callback from an unlinked chat is answered and ignored', async () => {
+    vi.mocked(resolveUserByChat).mockResolvedValue(null)
+
+    await POST(makeRequest({
+      callback_query: { id: 'cb4', data: 'meal:discard:meal-9', from: { id: 5519 }, message: { chat: privateChat() } },
+    }))
+
+    expect(answerCallbackQuery).toHaveBeenCalledWith('cb4')
+    expect(prisma.mealEntry.deleteMany).not.toHaveBeenCalled()
   })
 })

@@ -1,6 +1,8 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
+import { createLinkToken } from "@/lib/telegramLink"
 import DailyTargetForm from "@/components/DailyTargetForm"
+import ConnectTelegram from "@/components/ConnectTelegram"
 
 export const dynamic = 'force-dynamic'
 
@@ -15,16 +17,32 @@ export default async function TargetsPage() {
     )
   }
 
-  const target = await prisma.dailyTarget.findUnique({
-    where: {
-      userId: session.user.id
-    }
-  })
+  const [target, telegramChat] = await Promise.all([
+    prisma.dailyTarget.findUnique({
+      where: {
+        userId: session.user.id
+      }
+    }),
+    prisma.telegramChat.findUnique({
+      where: {
+        userId: session.user.id
+      }
+    }),
+  ])
+
+  // Minting on every render is fine: the token upserts per user and the
+  // deep link only has to survive the tap that follows.
+  let linkUrl: string | null = null
+  if (!telegramChat) {
+    const { token } = await createLinkToken(session.user.id)
+    linkUrl = `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?start=${token}`
+  }
 
   return (
     <div className="container mx-auto py-8">
       <div className="max-w-md mx-auto">
         <DailyTargetForm initial={target ?? null} />
+        <ConnectTelegram linked={Boolean(telegramChat)} linkUrl={linkUrl} />
       </div>
     </div>
   )
