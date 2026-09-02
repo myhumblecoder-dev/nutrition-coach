@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { generate } from "@/lib/llm";
 import { extractHealthFacts } from "@/lib/extraction";
+import { caffeineStatus } from "@/lib/caffeine";
 import { startOfWeek, appTimeZone, nowLine } from "@/lib/time";
 import { z } from "zod";
 
@@ -87,6 +88,21 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     if (latest.weightLb != null) bits.push(`${latest.weightLb} lb`);
     if (latest.waistIn != null) bits.push(`${latest.waistIn} in waist`);
     coachPersona += `\nLatest measurement: ${bits.join(', ')}.\n`;
+  }
+
+  // Caffeine still in the system shapes sleep and training advice, so the
+  // coach gets the live level rather than the raw doses.
+  const caffeineRows = await prisma.recoveryEntry.findMany({
+    where: { userId, kind: 'caffeine', loggedAt: { gte: startOfToday(new Date()) } },
+  });
+  if (caffeineRows.length > 0) {
+    const status = caffeineStatus(
+      caffeineRows.map((r) => ({ mg: r.value, at: r.loggedAt })),
+      new Date()
+    );
+    if (status.currentMg > 0) {
+      coachPersona += `\nCaffeine: about ${status.currentMg} mg still active from ${status.totalMg} mg today, roughly ${status.hoursUntilNegligible} hours until it wears off. Factor this into sleep and training advice when relevant.\n`;
+    }
   }
 
   const prompt = [

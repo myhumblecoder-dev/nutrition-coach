@@ -3,6 +3,7 @@ import { coachReply } from './chat'
 import { prisma } from '@/lib/db'
 import { generate } from '@/lib/llm'
 import { extractHealthFacts } from '@/lib/extraction'
+import { caffeineStatus } from '@/lib/caffeine'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -25,6 +26,9 @@ vi.mock('@/lib/db', () => ({
     userProfile: {
       findUnique: vi.fn(),
     },
+    recoveryEntry: {
+      findMany: vi.fn(),
+    },
   },
 }))
 
@@ -33,6 +37,7 @@ vi.mock('@/lib/llm', () => ({
 }))
 
 vi.mock('@/lib/extraction', () => ({ extractHealthFacts: vi.fn() }))
+vi.mock('@/lib/caffeine', () => ({ caffeineStatus: vi.fn() }))
 
 describe('chat', () => {
   beforeEach(() => {
@@ -43,6 +48,7 @@ describe('chat', () => {
     vi.mocked(prisma.trainingEntry.findMany).mockResolvedValue([] as never)
     vi.mocked(prisma.measurement.findFirst).mockResolvedValue(null as never)
     vi.mocked(prisma.userProfile.findUnique).mockResolvedValue(null as never)
+    vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
     vi.mocked(extractHealthFacts).mockResolvedValue({
       meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
     })
@@ -230,5 +236,30 @@ describe('chat', () => {
     await coachReply('u1', 'hello')
 
     expect(vi.mocked(generate).mock.calls[0][0]).not.toContain('Home gym equipment:')
+  })
+
+  it('tells the coach how much caffeine is still active', async () => {
+    vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([
+      { kind: 'caffeine', value: 250, loggedAt: new Date('2026-09-02T13:00:00Z') },
+    ] as never)
+    vi.mocked(caffeineStatus).mockReturnValue({ totalMg: 250, currentMg: 120, hoursUntilNegligible: 4.2 })
+    vi.mocked(generate).mockResolvedValue('noted')
+
+    await coachReply('u1', 'should I nap?')
+
+    const prompt = vi.mocked(generate).mock.calls.at(-1)![0]
+    expect(prompt).toContain('120 mg still active')
+    expect(prompt).toContain('250 mg today')
+    expect(prompt).toContain('4.2 hours')
+  })
+
+  it('says nothing about caffeine when none was logged today', async () => {
+    vi.mocked(caffeineStatus).mockReturnValue({ totalMg: 0, currentMg: 0, hoursUntilNegligible: 0 })
+    vi.mocked(generate).mockResolvedValue('noted')
+
+    await coachReply('u1', 'hello')
+
+    const prompt = vi.mocked(generate).mock.calls.at(-1)![0]
+    expect(prompt).not.toContain('Caffeine:')
   })
 })

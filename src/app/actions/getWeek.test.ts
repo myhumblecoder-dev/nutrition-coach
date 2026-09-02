@@ -3,8 +3,11 @@ import { getWeek } from './getWeek'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { startOfToday, startOfWeek } from '@/lib/time'
+import { caffeineStatus } from '@/lib/caffeine'
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
+// The maths has its own tests; here we assert this action's wiring into it.
+vi.mock('@/lib/caffeine', () => ({ caffeineStatus: vi.fn() }))
 vi.mock('@/lib/db', () => ({
   prisma: {
     trainingEntry: { findMany: vi.fn() },
@@ -139,7 +142,7 @@ describe('getWeek', () => {
       recovery: {
         sleepHours: 7,
         waterLiters: 2,
-        alcoholDrinks: null,
+        caffeine: null,
       },
       streak: [false, false, false, false, false, false, false],
       weights: [],
@@ -153,5 +156,36 @@ describe('getWeek', () => {
         loggedAt: { gte: startOfWeekDate },
       },
     })
+  })
+
+  it('feeds today caffeine rows to the calculator as timed doses', async () => {
+    const at = new Date('2026-09-02T14:00:00Z')
+    vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([
+      { kind: 'sleep', value: 7, loggedAt: at },
+      { kind: 'caffeine', value: 95, loggedAt: at },
+      { kind: 'caffeine', value: 65, loggedAt: at },
+    ] as never)
+    vi.mocked(caffeineStatus).mockReturnValue({ totalMg: 160, currentMg: 120, hoursUntilNegligible: 4.2 })
+
+    const week = await getWeek()
+
+    const doses = vi.mocked(caffeineStatus).mock.calls[0][0]
+    expect(doses).toEqual([
+      { mg: 95, at },
+      { mg: 65, at },
+    ])
+    expect(week.recovery.caffeine).toEqual({ totalMg: 160, currentMg: 120, hoursUntilNegligible: 4.2 })
+    expect(week.recovery.sleepHours).toBe(7)
+  })
+
+  it('reports null caffeine when none was logged today', async () => {
+    vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([
+      { kind: 'water', value: 1.5, loggedAt: new Date() },
+    ] as never)
+
+    const week = await getWeek()
+
+    expect(week.recovery.caffeine).toBeNull()
+    expect(caffeineStatus).not.toHaveBeenCalled()
   })
 })
