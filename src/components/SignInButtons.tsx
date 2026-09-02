@@ -1,60 +1,72 @@
 import { signIn } from "@/auth";
 
-async function SignInAction({ provider }: { provider: "google" | "apple" | "github" }) {
-  "use server";
-  await signIn(provider);
-}
-
-function ProviderForm({ provider, children, className }: { provider: "google" | "apple" | "github"; children: React.ReactNode; className?: string }) {
+function ProviderForm({ provider, children }: { provider: "google" | "apple" | "github"; children: React.ReactNode }) {
   return (
-    <form action={async () => { "use server"; await signIn(provider); }} className={className}>
+    <form
+      action={async () => {
+        "use server";
+        await signIn(provider);
+      }}
+    >
       {children}
     </form>
   );
 }
 
+// Official Google "G" mark — required verbatim by the Sign in with Google
+// brand guidelines (no recoloring, no monochrome variant on a button).
+function GoogleMark() {
+  return (
+    <svg className="h-[18px] w-[18px]" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9087c1.7018-1.5668 2.6836-3.874 2.6836-6.615z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9087-2.2581c-.8059.54-1.8368.859-3.0477.859-2.344 0-4.3282-1.5831-5.0359-3.7104H.9573v2.3318C2.4382 15.9832 5.4818 18 9 18z" />
+      <path fill="#FBBC05" d="M3.9641 10.71c-.18-.54-.2823-1.1168-.2823-1.71s.1023-1.17.2823-1.71V4.9582H.9573C.3477 6.1732 0 7.5477 0 9s.3477 2.8268.9573 4.0418L3.9641 10.71z" />
+      <path fill="#EA4335" d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4636.8918 11.4264 0 9 0 5.4818 0 2.4382 2.0168.9573 4.9582L3.9641 7.29C4.6718 5.1627 6.6559 3.5795 9 3.5795z" />
+    </svg>
+  );
+}
+
+function AppleMark() {
+  return (
+    <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.031 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.702" />
+    </svg>
+  );
+}
+
 export function SignInButtons() {
   return (
-    <div className="flex flex-col gap-4 w-full max-w-sm mx-auto">
+    <div className="mx-auto flex w-full max-w-sm flex-col gap-3">
       <ProviderForm provider="google">
         <button
           type="submit"
-          aria-label="Sign in with Google"
-          className="flex items-center justify-center w-full h-[40px] bg-white border border-[#747775] text-[#1f1f1f] rounded-md"
+          className="flex h-[40px] w-full items-center justify-center gap-3 rounded-md border border-[#747775] bg-white text-sm font-medium text-[#1f1f1f] hover:bg-[#f8f9fa]"
         >
-          <svg className="w-5 h-5" viewBox="0 0 48 48">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.35 30.47 0 24 0 16.46 0 9.9나 5.35 5.84 12.85l7.15 5.53c1.51-8.53 9.11-14.75 18.01-14.75z" />
-            <path fill="#4285F4" d="M24 24c4.76 0 8.77 1.62 11.71 4.43l8.53-8.53C35.9 5.35 30.47 0 24 0 13.95 0 5.35 5.35 2.42 13.5l7.15 5.53c1.48-7.05 8.12-12.1 14.44-12.1z" />
-            <path fill="#FBBC05" d="M5.84 22.35c-.48-1.45-.76-2.99-.76-4.6 0-1.61.28-3.15.76-4.6L2.42 13.5C.85 16.85 0 20.45 0 24c0 3.55.85 7.15 2.42 10.5l7.15-5.53c-.39-1.17-.63-2.41-.63-3.87 0-1.46.28-2.91.76-4.27z" />
-            <path fill="#34A853" d="M24 48c6.48 0 11.96-2.81 15.89-7.85l-7.15-5.53c-2.13 1.44-4.83 2.25-7.74 2.25-5.35 0-9.9-3.55-11.71-8.43l-7.15 5.53C5.35 42.65 13.95 48 24 48z" />
-            <path fill="#4285F4" d="M24 48c4.76 0 8.77-1.62 11.71-4.43l-8.53-8.53C27.77 38.38 25.84 39 24 39c-5.45 0-10.44-3.55-11.71-8.43l-7.15 5.53C5.35 35.9 0 39.45 0 45c0-3.55.85-7.15 2.42-10.5z" />
-          </svg>
+          <GoogleMark />
+          Sign in with Google
         </button>
       </ProviderForm>
 
       <ProviderForm provider="apple">
         <button
           type="submit"
-          aria-label="Sign in with Apple"
-          className="flex items-center justify-center w-full h-[44px] bg-black text-white rounded-md"
+          className="flex h-[44px] w-full items-center justify-center gap-3 rounded-md bg-black text-sm font-medium text-white hover:bg-[#1d1d1f]"
         >
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17.05 20.28c-.98.95-2.05 1.72-3.1 1.72-1.05 0-1.4-.65-2.63-.65-1.23 0-1.6.65-2.63.65-1.05 0-2.12-.77-3.1-1.72C3.5 18.36 2.7 14.8 2.7 11.2c0-3.6 2.3-5.5 4.5-5.5 1.1 0 2 .65 2.7 0.65.7 0 1.6-.65 2.7-.65 1.1 0 2.5.5 3.6 1.6-2.8 1.5-2.3 5.3 0 6.8-.8 1.1-1.8 2.1-3 2.1zM12 7.5c0-2.5 2-4.5 4.5-4.5 2.5 0 4.5 2 4.5 4.5 0 2.5-2 4.5-4.5 4.5-2.5 0-4.5-2-4.5-4.5z" />
-          </svg>
+          <AppleMark />
+          Sign in with Apple
         </button>
       </ProviderForm>
 
-      <div className="relative flex items-center py-2">
-        <div className="flex-grow border-t border-gray-300"></div>
-        <span className="flex-shrink mx-4 text-gray-400 text-sm">or</span>
-        <div className="flex-grow border-t border-gray-300"></div>
+      <div className="flex items-center py-1">
+        <div className="grow border-t border-[#e4e4e7]"></div>
+        <span className="mx-4 shrink text-sm text-[#a1a1aa]">or</span>
+        <div className="grow border-t border-[#e4e4e7]"></div>
       </div>
 
       <ProviderForm provider="github">
         <button
           type="submit"
-          aria-label="Continue with GitHub"
-          className="text-sm text-gray-600 hover:text-black transition-colors"
+          className="w-full text-sm text-[#71717a] transition-colors hover:text-[#18181b]"
         >
           Continue with GitHub
         </button>

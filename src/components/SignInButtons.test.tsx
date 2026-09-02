@@ -19,6 +19,14 @@ describe('SignInButtons', () => {
     expect(screen.getByRole('button', { name: 'Sign in with Apple' })).toBeInTheDocument()
   })
 
+  it('labels the brand buttons with visible text, not icon-only', async () => {
+    const Component = await SignInButtons()
+    render(Component)
+
+    expect(screen.getByText('Sign in with Google')).toBeInTheDocument()
+    expect(screen.getByText('Sign in with Apple')).toBeInTheDocument()
+  })
+
   it('renders GitHub fallback under a divider', async () => {
     const Component = await SignInButtons()
     render(Component)
