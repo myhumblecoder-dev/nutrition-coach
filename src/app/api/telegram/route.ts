@@ -11,7 +11,7 @@ import { prisma } from '@/lib/db';
 const APP_URL = process.env.APP_URL ?? 'https://nutrition-coach-omega.vercel.app';
 
 const CONNECT_NUDGE =
-  `This chat isn't linked to an account yet. Sign in at ${APP_URL}/targets and tap Connect Telegram to get your personal link.`;
+  `This chat isn't linked to an account yet. Sign in at ${APP_URL}/settings and tap Connect Telegram to get your personal link.`;
 
 function ok(extra?: Record<string, unknown>) {
   return Response.json({ ok: true, ...extra });
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
             `Connected to the account for ${user.email ?? 'your account'} — not you? Send /disconnect.\n\nI'm your nutrition coach: tell me what you eat, how you train, and how you sleep.`
           );
         } else {
-          await sendTelegramMessage(chatId, "That link expired — get a fresh one from the app's Targets page.");
+          await sendTelegramMessage(chatId, "That link expired — get a fresh one from the app's Settings page.");
         }
         return ok();
       }
