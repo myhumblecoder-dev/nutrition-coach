@@ -6,9 +6,17 @@ on:
   push:
     branches: [main, develop]
 
+# A newer push to the same branch/PR makes the in-flight run obsolete; cancel it
+# rather than paying for a result nobody reads.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
+    # The whole job takes ~1 minute; anything past 15 is hung, not slow.
+    timeout-minutes: 15
     env:
       # `postinstall: prisma generate` loads prisma.config.ts, which reads
       # env("DATABASE_URL") at config-load time and throws if it's absent —
@@ -24,9 +32,22 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Matches the Node version Vercel runs in production. Testing on a
+          # different major than we ship is how runtime-only breakage hides.
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
       - run: pnpm run build
-      - run: pnpm test -- --run
+      # AFTER build: tsconfig includes .next/types/**, so the generated route
+      # types only exist once the build has run. `next build` does not fail on
+      # every type error the way a dedicated check does — this step is what
+      # catches, for example, a server action whose return type a form action
+      # cannot accept.
+      - run: pnpm run typecheck
+      # `pnpm exec vitest run` explicitly: `pnpm test -- --run` forwarded a bare
+      # `--` to vitest and passed only because vitest ignored it AND defaults to
+      # a single run when stdout is not a TTY. If either changed, a filter that
+      # matched no tests would still exit 0 and CI would go green having run
+      # nothing.
+      - run: pnpm exec vitest run
