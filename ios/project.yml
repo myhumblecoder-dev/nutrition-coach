@@ -1,0 +1,61 @@
+name: NutritionCoach
+options:
+  bundleIdPrefix: dev.myhumblecoder
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  NutritionCoach:
+    type: application
+    platform: iOS
+    sources:
+      - path: NutritionCoach
+    settings:
+      base:
+        # Must match the App ID registered for Sign in with Apple: a native
+        # identity token carries the Bundle ID as its audience, and the
+        # backend verifies against exactly this string.
+        PRODUCT_BUNDLE_IDENTIFIER: dev.myhumblecoder.nutritioncoach
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Nutrition Coach
+        # Camera is for meal photos; the string is what App Review reads, and
+        # a vague one is a documented rejection reason.
+        INFOPLIST_KEY_NSCameraUsageDescription: Take a photo of a meal so the coach can estimate what is in it.
+        TARGETED_DEVICE_FAMILY: "1"
+    entitlements:
+      path: NutritionCoach/NutritionCoach.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+        aps-environment: development
+
+  NutritionCoachTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: NutritionCoachTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dev.myhumblecoder.nutritioncoach.tests
+    dependencies:
+      - target: NutritionCoach
+
+schemes:
+  NutritionCoach:
+    build:
+      targets:
+        NutritionCoach: all
+        NutritionCoachTests: [test]
+    test:
+      targets:
+        - NutritionCoachTests
+      gatherCoverageData: true

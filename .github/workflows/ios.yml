@@ -1,0 +1,62 @@
+name: iOS
+
+on:
+  pull_request:
+    branches: [main, develop, dispatch/integration]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+
+# A newer push to the same branch/PR makes the in-flight run obsolete; cancel it
+# rather than paying for a result nobody reads. macOS minutes bill at 10x Linux,
+# so this matters more here than on the JS job.
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    # A clean run is a few minutes; anything past 30 is hung, not slow.
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      # The .xcodeproj is generated, not committed: ios/project.yml is the
+      # source of truth, so CI builds it before anything else.
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the Xcode project
+        run: xcodegen generate
+
+      # Simulator names and OS versions change with every runner image, and
+      # hardcoding one is the usual cause of a green pipeline going red for no
+      # code reason. Resolve whatever iPhone this image actually has.
+      - name: Resolve a simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          udid=$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE "[0-9A-F-]{36}")
+          if [ -z "$udid" ]; then echo "no available iPhone simulator"; exit 1; fi
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          echo "Using simulator $udid"
+
+      # CODE_SIGNING_ALLOWED=NO: a simulator test needs no signing identity,
+      # and requiring one would make CI depend on provisioning secrets.
+      - name: Build and test
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project NutritionCoach.xcodeproj \
+            -scheme NutritionCoach \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO
