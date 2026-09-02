@@ -8,9 +8,16 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Never run two production deploys at once, and never cancel one midway — a
+# half-finished deploy is worse than a queued one.
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
 jobs:
   deploy-production:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -25,8 +32,20 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Same major Vercel runs in production.
+          node-version: 24
           cache: pnpm
+      # CD triggers on push to main independently of CI, so without this a
+      # direct push — or a merge made while CI was red — would deploy
+      # unverified code straight to users. Re-running the checks here makes
+      # the gate part of the deploy itself rather than a convention.
+      - name: Verify before deploying
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run lint
+          pnpm run build
+          pnpm run typecheck
+          pnpm exec vitest run
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
       - name: Pull Vercel project settings
