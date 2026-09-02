@@ -32,7 +32,11 @@ interface HomeClientProps {
       stepsToday: number
       days: { resistance: boolean[]; hiit: boolean[]; core: boolean[] }
     }
-    recovery: { sleepHours: number | null; waterLiters: number | null; alcoholDrinks: number | null }
+    recovery: {
+      sleepHours: number | null
+      waterLiters: number | null
+      caffeine: { totalMg: number; currentMg: number; hoursUntilNegligible: number } | null
+    }
     mood: { score: number; note: string | null } | null
     measurement: { weightLb: number | null; waistIn: number | null } | null
     streak: boolean[]

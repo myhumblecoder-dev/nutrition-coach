@@ -3,6 +3,7 @@
 import { auth } from '@/auth';
 import { prisma } from '@/lib/db';
 import { startOfToday, startOfWeek } from '@/lib/time';
+import { caffeineStatus } from '@/lib/caffeine';
 
 export async function getWeek() {
   const session = await auth();
@@ -69,10 +70,16 @@ export async function getWeek() {
     },
   };
 
+  // Each caffeine row is a dose with its own timestamp: the level still in the
+  // user's system depends on WHEN it was drunk, not just how much.
+  const caffeineDoses = recoveryEntries
+    .filter((e) => e.kind === 'caffeine')
+    .map((e) => ({ mg: e.value, at: e.loggedAt }));
+
   const recovery = {
     sleepHours: recoveryEntries.find((e) => e.kind === 'sleep')?.value ?? null,
     waterLiters: recoveryEntries.find((e) => e.kind === 'water')?.value ?? null,
-    alcoholDrinks: recoveryEntries.find((e) => e.kind === 'alcohol')?.value ?? null,
+    caffeine: caffeineDoses.length > 0 ? caffeineStatus(caffeineDoses, new Date()) : null,
   };
 
   return {
