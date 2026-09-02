@@ -11,7 +11,12 @@ export function ConnectTelegram({ linked, linkUrl }: { linked: boolean; linkUrl:
       {linked ? (
         <div className="mt-4 flex items-center justify-between">
           <p className="text-sm font-medium text-[#059669]">Connected ✓</p>
-          <form action={disconnectTelegram}>
+          <form
+            action={async () => {
+              'use server'
+              await disconnectTelegram()
+            }}
+          >
             <button
               type="submit"
               className="rounded-md border border-[#e4e4e7] px-3 py-1.5 text-sm text-[#71717a] hover:text-[#18181b]"
