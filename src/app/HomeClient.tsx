@@ -35,7 +35,12 @@ interface HomeClientProps {
     recovery: {
       sleepHours: number | null
       waterLiters: number | null
-      caffeine: { totalMg: number; currentMg: number; hoursUntilNegligible: number } | null
+      caffeine: {
+        totalMg: number
+        currentMg: number
+        hoursUntilEffectsFade: number
+        hoursUntilNegligible: number
+      } | null
     }
     mood: { score: number; note: string | null } | null
     measurement: { weightLb: number | null; waistIn: number | null } | null

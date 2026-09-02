@@ -17,7 +17,7 @@ export default function RingGauge({
   centerText,
   subText,
   label,
-  size = 132,
+  size = 148,
 }: RingGaugeProps) {
   const radius = size * 0.424;
   const circumference = 2 * Math.PI * radius;
@@ -29,7 +29,15 @@ export default function RingGauge({
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
+      {/* width/height are required: with only a viewBox the svg collapses to
+          the default replaced-element size, and since every label is sized in
+          viewBox units the numbers shrink with it until unreadable. */}
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="overflow-visible"
+      >
         <circle
           cx={mid}
           cy={mid}
