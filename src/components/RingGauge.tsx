@@ -58,22 +58,29 @@ export default function RingGauge({
           fill="none"
           transform={`rotate(-90 ${mid} ${mid})`}
         />
-        <g transform={`rotate(90 ${mid} ${mid})`}>
+        {/* No rotation here: only the progress arc is rotated, to start at
+            twelve o'clock. The matching rotate(90) this group used to carry
+            stood the numbers on their side. */}
+        <g>
           <text
             x={mid}
-            y={mid - (radius * 0.05)}
+            y={mid - size * 0.04}
             textAnchor="middle"
+            dominantBaseline="middle"
             fontSize={size * 0.2}
             fontWeight="bold"
             fill="#18181b"
           >
             {centerText}
           </text>
+          {/* Sized to keep the longest sub-label inside the ring's inner
+              diameter now that it runs horizontally. */}
           <text
             x={mid}
-            y={mid + (radius * 0.25)}
+            y={mid + size * 0.13}
             textAnchor="middle"
-            fontSize={size * 0.12}
+            dominantBaseline="middle"
+            fontSize={size * 0.09}
             fill="#71717a"
           >
             {subText}
