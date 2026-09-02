@@ -242,7 +242,12 @@ describe('chat', () => {
     vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([
       { kind: 'caffeine', value: 250, loggedAt: new Date('2026-09-02T13:00:00Z') },
     ] as never)
-    vi.mocked(caffeineStatus).mockReturnValue({ totalMg: 250, currentMg: 120, hoursUntilNegligible: 4.2 })
+    vi.mocked(caffeineStatus).mockReturnValue({
+      totalMg: 250,
+      currentMg: 120,
+      hoursUntilEffectsFade: 6.3,
+      hoursUntilNegligible: 11.3,
+    })
     vi.mocked(generate).mockResolvedValue('noted')
 
     await coachReply('u1', 'should I nap?')
@@ -250,11 +255,16 @@ describe('chat', () => {
     const prompt = vi.mocked(generate).mock.calls.at(-1)![0]
     expect(prompt).toContain('120 mg still active')
     expect(prompt).toContain('250 mg today')
-    expect(prompt).toContain('4.2 hours')
+    expect(prompt).toContain('6.3 more hours')
   })
 
   it('says nothing about caffeine when none was logged today', async () => {
-    vi.mocked(caffeineStatus).mockReturnValue({ totalMg: 0, currentMg: 0, hoursUntilNegligible: 0 })
+    vi.mocked(caffeineStatus).mockReturnValue({
+      totalMg: 0,
+      currentMg: 0,
+      hoursUntilEffectsFade: 0,
+      hoursUntilNegligible: 0,
+    })
     vi.mocked(generate).mockResolvedValue('noted')
 
     await coachReply('u1', 'hello')

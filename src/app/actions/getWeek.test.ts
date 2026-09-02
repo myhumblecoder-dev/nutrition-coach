@@ -165,7 +165,12 @@ describe('getWeek', () => {
       { kind: 'caffeine', value: 95, loggedAt: at },
       { kind: 'caffeine', value: 65, loggedAt: at },
     ] as never)
-    vi.mocked(caffeineStatus).mockReturnValue({ totalMg: 160, currentMg: 120, hoursUntilNegligible: 4.2 })
+    vi.mocked(caffeineStatus).mockReturnValue({
+      totalMg: 160,
+      currentMg: 120,
+      hoursUntilEffectsFade: 6.3,
+      hoursUntilNegligible: 11.3,
+    })
 
     const week = await getWeek()
 
@@ -174,7 +179,12 @@ describe('getWeek', () => {
       { mg: 95, at },
       { mg: 65, at },
     ])
-    expect(week.recovery.caffeine).toEqual({ totalMg: 160, currentMg: 120, hoursUntilNegligible: 4.2 })
+    expect(week.recovery.caffeine).toEqual({
+      totalMg: 160,
+      currentMg: 120,
+      hoursUntilEffectsFade: 6.3,
+      hoursUntilNegligible: 11.3,
+    })
     expect(week.recovery.sleepHours).toBe(7)
   })
 

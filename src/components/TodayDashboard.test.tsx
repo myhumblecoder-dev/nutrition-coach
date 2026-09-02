@@ -76,7 +76,7 @@ describe('TodayDashboard', () => {
 
     // Rings replace the text ratios
     expect(screen.getByText('800')).toBeInTheDocument()
-    expect(screen.getByText('of 2000 kcal')).toBeInTheDocument()
+    expect(screen.getByText('of 2,000 kcal')).toBeInTheDocument()
     expect(screen.getByText('of 150g protein')).toBeInTheDocument()
 
     // Test shows the meal rows with joined item names, not raw JSON

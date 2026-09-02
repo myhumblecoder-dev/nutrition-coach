@@ -6,7 +6,12 @@ interface Props {
   recovery: {
     sleepHours: number | null
     waterLiters: number | null
-    caffeine: { totalMg: number; currentMg: number; hoursUntilNegligible: number } | null
+    caffeine: {
+      totalMg: number
+      currentMg: number
+      hoursUntilEffectsFade: number
+      hoursUntilNegligible: number
+    } | null
   }
   mood: { score: number; note: string | null } | null
   measurement: { weightLb: number | null; waistIn: number | null } | null
@@ -100,7 +105,8 @@ export default function RecoveryCard({ recovery, mood, measurement, weights }: P
           <p className="text-[12.5px] text-muted-foreground">Water: not logged</p>
         )}
 
-        <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
           <div className={rowLabel}>Caffeine</div>
           {caffeine == null ? (
             <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#047857]">
@@ -111,12 +117,14 @@ export default function RecoveryCard({ recovery, mood, measurement, weights }: P
             </div>
           ) : (
             <div className={rowValue}>
-              {caffeine.currentMg} mg ·{' '}
-              {caffeine.hoursUntilNegligible === 0
-                ? 'worn off'
-                : `~${caffeine.hoursUntilNegligible}h left`}
+              <span className="font-semibold text-[#18181b]">{caffeine.currentMg} mg</span>
+              {caffeine.hoursUntilEffectsFade === 0
+                ? ' · worn off'
+                : ` · effects ~${caffeine.hoursUntilEffectsFade}h`}
             </div>
           )}
+          </div>
+          {caffeine != null && <Bar pct={(caffeine.currentMg / 400) * 100} />}
         </div>
 
         <div className="flex items-center justify-between border-t border-[#f0f0f1] pt-3">
