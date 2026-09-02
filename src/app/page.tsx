@@ -1,4 +1,5 @@
-import { auth, signIn } from '@/auth'
+import { auth } from '@/auth'
+import SignInButtons from '@/components/SignInButtons'
 import { getToday } from '@/app/actions/getToday'
 import { getWeek } from '@/app/actions/getWeek'
 import { getActivity } from '@/app/actions/getActivity'
@@ -18,19 +19,7 @@ export default async function Home() {
         <p className="text-zinc-500">
           Sign in to start logging meals against your daily targets.
         </p>
-        <form
-          action={async () => {
-            'use server'
-            await signIn('github')
-          }}
-        >
-          <button
-            type="submit"
-            className="rounded-full bg-emerald-600 px-6 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-          >
-            Sign in with GitHub
-          </button>
-        </form>
+        <SignInButtons />
       </main>
     )
   }

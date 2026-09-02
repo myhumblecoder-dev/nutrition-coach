@@ -29,12 +29,14 @@ describe('NavBar', () => {
     expect(screen.getByText('Nutrition Coach')).toBeInTheDocument()
   })
 
-  it('signed out shows the sign-in icon button', async () => {
+  it('signed out shows a sign-in icon link to /sign-in', async () => {
     vi.mocked(auth).mockResolvedValue(null as never)
 
     render(await NavBar())
 
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'Sign in' })
+    expect(link).toHaveAttribute('href', '/sign-in')
+    expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument()
     expect(screen.queryByText('Sign in')).not.toBeInTheDocument()
   })
 
