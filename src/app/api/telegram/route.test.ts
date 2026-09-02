@@ -135,7 +135,7 @@ describe('route', () => {
     expect(res.status).toBe(200)
     const reply = vi.mocked(sendTelegramMessage).mock.calls.at(-1)!
     expect(reply[0]).toBe('777')
-    expect(reply[1]).toContain('/targets')
+    expect(reply[1]).toContain('/settings')
     expect(reply[1]).toContain('Connect Telegram')
     expect(coachReply).not.toHaveBeenCalled()
   })

@@ -34,6 +34,10 @@ vi.mock('@/components/DailyTargetForm', () => ({
   default: vi.fn(() => <div data-testid="daily-target-form" />),
 }))
 
+vi.mock('@/components/DeleteAccount', () => ({
+  default: vi.fn(() => <div data-testid="delete-account" />),
+}))
+
 vi.mock('@/components/ConnectTelegram', () => ({
   default: vi.fn((props: { linked: boolean; linkUrl: string | null }) => (
     <div data-testid="connect-telegram" data-linked={String(props.linked)} data-link-url={props.linkUrl ?? ''} />
@@ -58,7 +62,7 @@ describe('Page', () => {
     mockAuth.mockResolvedValue(null)
     const UnauthenticatedPage = await Page()
     render(UnauthenticatedPage)
-    expect(screen.getByText('Sign in to set targets')).toBeInTheDocument()
+    expect(screen.getByText('Sign in to view settings')).toBeInTheDocument()
     expect(mockFindUnique).not.toHaveBeenCalled()
 
     // Test renders form with saved target
@@ -90,6 +94,18 @@ describe('Page', () => {
     const connect = screen.getByTestId('connect-telegram')
     expect(connect.dataset.linked).toBe('false')
     expect(connect.dataset.linkUrl).toBe(`https://t.me/testbot?start=${'b'.repeat(32)}`)
+  })
+
+  it('offers account deletion to a signed-in user only', async () => {
+    mockAuth.mockResolvedValue(null)
+    render(await Page())
+    expect(screen.queryByTestId('delete-account')).not.toBeInTheDocument()
+
+    mockAuth.mockResolvedValue({ user: { id: 'u1' } } as never)
+    mockFindUnique.mockResolvedValue(null as never)
+    mockChatFindUnique.mockResolvedValue({ chatId: '5519', userId: 'u1' } as never)
+    render(await Page())
+    expect(screen.getByTestId('delete-account')).toBeInTheDocument()
   })
 
   it('a linked user sees the connected state and no fresh token is minted', async () => {
