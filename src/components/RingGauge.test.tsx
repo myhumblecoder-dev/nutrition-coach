@@ -71,4 +71,33 @@ describe('RingGauge', () => {
     expect(parseFloat(center.getAttribute('font-size')!)).toBeGreaterThanOrEqual(28)
     expect(parseFloat(sub.getAttribute('font-size')!)).toBeGreaterThanOrEqual(12)
   })
+
+  it('renders its labels upright', () => {
+    // Only the progress arc needs rotating so it starts at twelve o'clock;
+    // the text group inherited a matching rotate(90) that stood the numbers
+    // on their side.
+    const { container } = render(
+      <RingGauge value={920} max={2000} centerText="920" subText="of 2,000 kcal" label="Calories" size={168} />
+    )
+
+    const group = container.querySelector('svg > g')!
+    expect(group.getAttribute('transform')).toBeNull()
+  })
+
+  it('keeps the sub-label narrow enough to sit inside the ring', () => {
+    const size = 168
+    const { container } = render(
+      <RingGauge value={1} max={2} centerText="920" subText="of 2,000 kcal" label="Calories" size={size} />
+    )
+
+    const sub = Array.from(container.querySelectorAll('text')).find(
+      (n) => n.textContent === 'of 2,000 kcal'
+    )!
+    const fontSize = parseFloat(sub.getAttribute('font-size')!)
+    // Rough advance width for the longest sub-label vs the ring's inner
+    // diameter (2r minus the stroke), so horizontal text cannot overflow.
+    const approxWidth = 'of 2,000 kcal'.length * fontSize * 0.55
+    const innerDiameter = 2 * (size * 0.424) - size / 12
+    expect(approxWidth).toBeLessThan(innerDiameter)
+  })
 })
