@@ -1,0 +1,24 @@
+{
+  "bundleId": "dev.myhumblecoder.nutritioncoach",
+  "projectDir": "ios",
+  "scheme": "NutritionCoach",
+  "appTarget": "NutritionCoach",
+  "deploymentTarget": "17.0",
+  "deviceFamily": "iphone",
+  "urlSchemes": [],
+  "capabilities": {
+    "push": true
+  },
+  "listing": {
+    "path": "ios/STORE-LISTING.md"
+  },
+  "reviewNotes": {
+    "path": "ios/REVIEW-NOTES.md"
+  },
+  "checks": {
+    "noInAppViewer": true,
+    "noThirdPartySignIn": [],
+    "noBackgroundModes": true
+  },
+  "gates": []
+}
