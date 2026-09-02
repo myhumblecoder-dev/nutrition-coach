@@ -117,9 +117,15 @@ export default function ChatClient({ initialMessages }: ChatClientProps) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex gap-2">
-        <div className="flex flex-col flex-1 gap-1.5">
-          <Label htmlFor="chat-input">Message</Label>
+      {/* One row, vertically centred: the label used to render above the
+          input, which pushed the Send button up level with the caption
+          instead of the field. Chat composers don't show a caption — it stays
+          for screen readers only. */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <Label htmlFor="chat-input" className="sr-only">
+            Message
+          </Label>
           <Input
             id="chat-input"
             value={input}
