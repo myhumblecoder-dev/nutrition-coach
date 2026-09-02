@@ -187,3 +187,66 @@ final class APIClientTests: XCTestCase {
         }
     }
 }
+
+// MARK: - Weekly check-in
+
+extension APIClientTests {
+    func testCheckInsDecodesCurrentQuestionAndHistory() async throws {
+        respond(200, """
+        {"current":{"weekOf":"2026-08-31T04:00:00.000Z","complete":false,
+                    "nextField":"sleep","nextQuestion":"How have you been sleeping?"},
+         "history":[{"weekOf":"2026-08-24T04:00:00.000Z","complete":true,
+           "body":{"answer":"about the same","said":"jeans fit the same"},
+           "strength":{"answer":"stronger","said":"lifts went up"},
+           "sleep":{"answer":"worse","said":"kid was up a lot"},
+           "mood":{"answer":"flat","said":"just tired"}}]}
+        """)
+
+        let response = try await client.checkIns()
+
+        XCTAssertEqual(response.current.nextField, "sleep")
+        XCTAssertFalse(response.current.complete)
+        XCTAssertEqual(response.history.first?.strength.said, "lifts went up",
+                       "the verbatim answer is the receipt and must survive decoding")
+        XCTAssertTrue(response.history.first?.body.isAnswered ?? false)
+    }
+
+    func testAnUnansweredFieldDecodesAsNulls() async throws {
+        respond(200, """
+        {"current":{"weekOf":"2026-08-31T04:00:00.000Z","complete":false,
+                    "nextField":"body","nextQuestion":"Do you feel fatter, thinner, or about the same?"},
+         "history":[{"weekOf":"2026-08-31T04:00:00.000Z","complete":false,
+           "body":{"answer":null,"said":null},
+           "strength":{"answer":null,"said":null},
+           "sleep":{"answer":null,"said":null},
+           "mood":{"answer":null,"said":null}}]}
+        """)
+
+        let response = try await client.checkIns()
+
+        XCTAssertFalse(response.history.first?.body.isAnswered ?? true)
+    }
+
+    func testAnsweringPostsTheTextAndReturnsTheNextQuestion() async throws {
+        respond(200, """
+        {"complete":false,"recorded":{"field":"body","answer":"a bit leaner"},
+         "reply":"Nice — why do you think that is?","nextQuestion":"And stronger, weaker, or about the same?"}
+        """)
+
+        let result = try await client.answerCheckIn("jeans feel looser")
+
+        XCTAssertEqual(result.recorded?.field, "body")
+        XCTAssertEqual(result.nextQuestion, "And stronger, weaker, or about the same?")
+        XCTAssertEqual(StubURLProtocol.lastRequest?.httpMethod, "POST")
+    }
+
+    func testAnsweringToleratesAMissingReply() async throws {
+        // The server saves the answer even when reply generation fails.
+        respond(200, #"{"complete":true,"recorded":{"field":"mood","answer":"good"},"reply":null,"nextQuestion":null}"#)
+
+        let result = try await client.answerCheckIn("good")
+
+        XCTAssertNil(result.reply)
+        XCTAssertTrue(result.complete)
+    }
+}

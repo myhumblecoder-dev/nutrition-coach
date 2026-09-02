@@ -34,6 +34,38 @@ model User {
   telegramChat  TelegramChat?
   telegramLinkToken TelegramLinkToken?
   deviceTokens  DeviceToken[]
+  weeklyCheckIns WeeklyCheckIn[]
+}
+
+// The weekly review: am I fatter or thinner, stronger or weaker, how am I
+// sleeping, how am I feeling. Four questions the user answers in their own
+// words — the app never substitutes a computed number for a judgement the
+// person can make directly.
+//
+// Every answer stores the verbatim text beside it, the same receipts rule the
+// pillar tables follow: a summary the user never said is a fabrication.
+model WeeklyCheckIn {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Monday-anchored, from startOfWeek() — one review per person per week.
+  weekOf   DateTime
+
+  bodyAnswer         String?
+  bodySourceText     String?
+  strengthAnswer     String?
+  strengthSourceText String?
+  sleepAnswer        String?
+  sleepSourceText    String?
+  moodAnswer         String?
+  moodSourceText     String?
+
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, weekOf])
+  @@index([userId])
 }
 
 // One row per installed app instance. Registering a token IS the opt-in:

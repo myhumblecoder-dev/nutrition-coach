@@ -75,6 +75,14 @@ final class APIClient {
         return response.assistantReply
     }
 
+    func checkIns() async throws -> CheckInsResponse {
+        try await send("/api/v1/checkins", method: "GET", body: nil)
+    }
+
+    func answerCheckIn(_ text: String) async throws -> CheckInReplyResponse {
+        try await send("/api/v1/checkins", method: "POST", body: ["message": text])
+    }
+
     func registerDevice(token: String) async throws {
         try await sendIgnoringResponse("/api/v1/devices", method: "POST", body: ["token": token])
     }

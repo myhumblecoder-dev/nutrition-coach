@@ -67,3 +67,50 @@ enum APIError: Error, Equatable {
     case badStatus(Int)
     case notSignedIn
 }
+
+// MARK: - Weekly check-in
+
+/// One answer: the coach's short summary plus the words the user actually
+/// used. Both travel together so the review screen can show the receipt
+/// rather than only the app's interpretation.
+struct CheckInAnswer: Codable, Equatable {
+    let answer: String?
+    let said: String?
+
+    var isAnswered: Bool { answer != nil }
+}
+
+struct CheckInWeek: Codable, Equatable, Identifiable {
+    let weekOf: Date
+    let complete: Bool
+    let body: CheckInAnswer
+    let strength: CheckInAnswer
+    let sleep: CheckInAnswer
+    let mood: CheckInAnswer
+
+    var id: Date { weekOf }
+}
+
+struct CurrentCheckIn: Codable, Equatable {
+    let weekOf: Date
+    let complete: Bool
+    let nextField: String?
+    let nextQuestion: String?
+}
+
+struct CheckInsResponse: Codable, Equatable {
+    let current: CurrentCheckIn
+    let history: [CheckInWeek]
+}
+
+struct RecordedAnswer: Codable, Equatable {
+    let field: String
+    let answer: String?
+}
+
+struct CheckInReplyResponse: Codable, Equatable {
+    let complete: Bool
+    let recorded: RecordedAnswer?
+    let reply: String?
+    let nextQuestion: String?
+}
