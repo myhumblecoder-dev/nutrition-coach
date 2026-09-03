@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { nowLine } from '@/lib/time'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { sendPushNotification } from '@/lib/push'
+import { COACH_PREAMBLE } from '@/lib/voice'
 
 // One LLM call per user: batches of 5 keep hundreds of users inside the
 // window where a sequential loop would die at a dozen.
@@ -25,9 +26,12 @@ async function deliverToUser(user: {
   // to say the same thing, and could say two different things.
   const prompt =
     nowLine() +
-    ' Write a short, friendly daily nutrition check-in message for ' +
+    ' ' +
+    COACH_PREAMBLE +
+    ' Write a short daily check-in message for ' +
     (user.name ?? 'the user') +
-    '. Ask how they plan to eat today. Reply with the message only.'
+    '. Ask how they plan to eat today. One or two sentences.' +
+    ' Reply with the message only.'
   const message = await generate(prompt)
 
   const deliveries: Promise<Delivery>[] = []

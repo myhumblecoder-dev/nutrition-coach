@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, POST } from './route'
 import { authenticateBearer } from '@/lib/apiAuth'
 import { generate } from '@/lib/llm'
-import { getOrCreateCheckIn, recordAnswer, listCheckIns } from '@/lib/checkin'
+import { getOrCreateCheckIn, recordAnswer, listCheckIns, QUESTIONS } from '@/lib/checkin'
 
 vi.mock('@/lib/apiAuth', () => ({ authenticateBearer: vi.fn() }))
 vi.mock('@/lib/llm', () => ({ generate: vi.fn() }))
@@ -65,7 +65,7 @@ describe('GET /api/v1/checkins', () => {
     const body = await (await GET(req('GET'))).json()
 
     expect(body.current.nextField).toBe('body')
-    expect(body.current.nextQuestion).toMatch(/fatter, thinner/i)
+    expect(body.current.nextQuestion).toBe(QUESTIONS.body)
     expect(body.current.complete).toBe(false)
   })
 
@@ -125,7 +125,7 @@ describe('POST /api/v1/checkins', () => {
 
     expect(mockRecord).toHaveBeenCalledWith('u1', 'strength', 'lifts went up')
     expect(body.recorded).toEqual({ field: 'strength', answer: 'stronger' })
-    expect(body.nextQuestion).toMatch(/sleeping/i)
+    expect(body.nextQuestion).toBe(QUESTIONS.sleep)
     expect(body.complete).toBe(false)
   })
 

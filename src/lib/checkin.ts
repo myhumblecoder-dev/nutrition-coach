@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { generate } from '@/lib/llm'
 import { startOfWeek } from '@/lib/time'
+import { COACH_PERSONA, PLAIN_TEXT_RULE } from '@/lib/voice'
 
 // The weekly review. Four questions, answered in the user's own words.
 //
@@ -12,11 +13,13 @@ import { startOfWeek } from '@/lib/time'
 export const CHECKIN_FIELDS = ['body', 'strength', 'sleep', 'mood'] as const
 export type CheckInField = (typeof CHECKIN_FIELDS)[number]
 
+// Asked in the coach's voice, and short enough to answer on a phone while
+// standing up. No question asks for a measurement.
 export const QUESTIONS: Record<CheckInField, string> = {
-  body: 'Looking back on the week — do you feel fatter, thinner, or about the same?',
-  strength: 'And stronger, weaker, or about the same?',
-  sleep: 'How have you been sleeping?',
-  mood: 'How are you feeling in yourself?',
+  body: "Alright, week's up. Fatter, thinner, or about the same?",
+  strength: 'And stronger, weaker, or the same as you were?',
+  sleep: "How'd you sleep this week? And don't just say fine.",
+  mood: 'And how are you doing? Actually doing.',
 }
 
 // Long enough for a real answer, short enough that a runaway paste cannot
@@ -63,14 +66,16 @@ export function buildProbePrompt(
     : 'Then tell them that is the whole check-in and you will ask again next week.'
 
   return (
-    'You are a friendly weekly check-in coach. ' +
+    COACH_PERSONA +
+    '\n\n' +
     `The user was asked: "${QUESTIONS[field]}" and replied: "${userText}".\n\n` +
     'Briefly acknowledge what they said, then ask ONE short question about why ' +
     'they think that is — you are curious about the cause, not collecting numbers. ' +
     'Never ask them to count or weigh anything.\n' +
     closing +
-    '\nPlain conversational text only — no markdown, no bullet lists. Two or three ' +
-    'sentences total. Reply with the message only.'
+    '\n' +
+    PLAIN_TEXT_RULE +
+    ' Two or three sentences total. Reply with the message only.'
   )
 }
 
