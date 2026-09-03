@@ -96,7 +96,7 @@ describe('route', () => {
 
     expect(body).toEqual({ ok: true, sent: 2, failed: 0 });
     expect(sendPushNotification).toHaveBeenCalledWith('dev-a', {
-      title: 'MyHumbleFitness',
+      title: 'Roughly',
       body: 'how did you eat today?',
     });
     expect(sendPushNotification).toHaveBeenCalledWith('dev-b', expect.anything());
@@ -124,7 +124,7 @@ describe('route', () => {
     expect(body).toEqual({ ok: true, sent: 2, failed: 0 });
     expect(sendTelegramMessage).toHaveBeenCalledWith('101', 'same message');
     expect(sendPushNotification).toHaveBeenCalledWith('dev-a', {
-      title: 'MyHumbleFitness',
+      title: 'Roughly',
       body: 'same message',
     });
   });

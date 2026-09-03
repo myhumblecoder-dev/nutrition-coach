@@ -46,7 +46,7 @@ describe('Page', () => {
     
     render(await Page({ searchParams: Promise.resolve({}) }))
 
-    expect(screen.getByText('MyHumbleFitness')).toBeInTheDocument()
+    expect(screen.getByText('Roughly')).toBeInTheDocument()
     expect(screen.getByTestId('sign-in-buttons')).toBeInTheDocument()
   })
 

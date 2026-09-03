@@ -9,9 +9,9 @@ struct SignInView: View {
             Spacer()
 
             VStack(spacing: 8) {
-                Text("MyHumbleFitness")
+                Text("Roughly")
                     .font(.largeTitle.weight(.semibold))
-                Text("No counting. Just a weekly honest look at how you're doing.")
+                Text("Stop counting. The labels are guessing too.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

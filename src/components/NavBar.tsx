@@ -67,7 +67,7 @@ export default async function NavBar() {
                 />
               </svg>
             </div>
-            <span className="font-[600]">MyHumbleFitness</span>
+            <span className="font-[600]">Roughly</span>
           </div>
           <div className="hidden gap-6 text-sm sm:flex">
             <Link href="/">Today</Link>
