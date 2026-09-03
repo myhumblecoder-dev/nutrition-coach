@@ -9,6 +9,7 @@ import { caffeineStatus } from '@/lib/caffeine'
 // exercise the reply path rather than the limit.
 vi.mock('@/lib/limits', () => ({
   isOverLimit: vi.fn().mockResolvedValue(false),
+  recordUsage: vi.fn().mockResolvedValue(undefined),
   todaySuccesses: vi.fn().mockResolvedValue(null),
   limitMessage: vi.fn(() => 'limit reached'),
 }))
@@ -294,5 +295,8 @@ describe('chat', () => {
     expect(generate).not.toHaveBeenCalled()
     expect(prisma.chatMessage.create).not.toHaveBeenCalled()
     expect(extractHealthFacts).not.toHaveBeenCalled()
+
+    const { recordUsage } = await import('@/lib/limits')
+    expect(recordUsage).not.toHaveBeenCalled()
   })
 })

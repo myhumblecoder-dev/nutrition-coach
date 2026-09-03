@@ -4,7 +4,7 @@ import { extractHealthFacts } from "@/lib/extraction";
 import { caffeineStatus } from "@/lib/caffeine";
 import { startOfWeek, appTimeZone, nowLine } from "@/lib/time";
 import { COACH_PREAMBLE } from "@/lib/voice";
-import { isOverLimit, todaySuccesses, limitMessage } from "@/lib/limits";
+import { isOverLimit, recordUsage, todaySuccesses, limitMessage } from "@/lib/limits";
 import { z } from "zod";
 
 function startOfToday(now: Date): Date {
@@ -37,9 +37,13 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   // the Telegram webhook, the v1 API and any later surface all land on this
   // function. Nothing is persisted and no model is called once over the cap —
   // an abusive client must not be able to grow the table either.
-  if (await isOverLimit(userId)) {
+  if (await isOverLimit(userId, "chat")) {
     return { assistantReply: limitMessage(await todaySuccesses(userId)) };
   }
+
+  // Recorded before the call: a timeout still costs money, and counting only
+  // successes would let a failing loop run free.
+  await recordUsage(userId, "chat");
 
   const history = await prisma.chatMessage.findMany({
     where: { userId },

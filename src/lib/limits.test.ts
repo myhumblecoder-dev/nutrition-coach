@@ -1,10 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { dailyMessageLimit, isOverLimit, todaySuccesses, limitMessage } from './limits'
+import {
+  dailyMessageLimit,
+  dailyLimit,
+  isOverLimit,
+  recordUsage,
+  todaySuccesses,
+  limitMessage,
+  photoLimitMessage,
+  UsageLimitError,
+} from './limits'
 import { prisma } from '@/lib/db'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    chatMessage: { count: vi.fn() },
+    usageEvent: { count: vi.fn(), create: vi.fn() },
     mealEntry: { count: vi.fn() },
     trainingEntry: { findMany: vi.fn() },
     recoveryEntry: { findMany: vi.fn() },
@@ -60,28 +69,28 @@ describe('isOverLimit', () => {
   })
 
   it('counts only this user, only today, only their own messages', async () => {
-    mockPrisma.chatMessage.count.mockResolvedValue(0 as never)
+    mockPrisma.usageEvent.count.mockResolvedValue(0 as never)
 
-    await isOverLimit('u1', new Date())
+    await isOverLimit('u1', 'chat', new Date())
 
     // Prisma types every filter field as optional, so the captured argument
     // needs narrowing before it can be asserted on.
-    const where = mockPrisma.chatMessage.count.mock.calls[0][0]?.where as {
+    const where = mockPrisma.usageEvent.count.mock.calls[0][0]?.where as {
       userId: string
-      role: string
+      kind: string
       createdAt: { gte: Date }
     }
     expect(where.userId).toBe('u1')
-    expect(where.role).toBe('user')
+    expect(where.kind).toBe('chat')
     expect(where.createdAt.gte).toBeInstanceOf(Date)
   })
 
   it('is false below the limit and true at it', async () => {
-    mockPrisma.chatMessage.count.mockResolvedValue(2 as never)
-    await expect(isOverLimit('u1', new Date())).resolves.toBe(false)
+    mockPrisma.usageEvent.count.mockResolvedValue(2 as never)
+    await expect(isOverLimit('u1', 'chat', new Date())).resolves.toBe(false)
 
-    mockPrisma.chatMessage.count.mockResolvedValue(3 as never)
-    await expect(isOverLimit('u1', new Date())).resolves.toBe(true)
+    mockPrisma.usageEvent.count.mockResolvedValue(3 as never)
+    await expect(isOverLimit('u1', 'chat', new Date())).resolves.toBe(true)
   })
 })
 
@@ -137,5 +146,70 @@ describe('limitMessage', () => {
 
     expect(message).toMatch(/tomorrow/i)
     expect(message).not.toMatch(/nothing|didn't log|failed/i)
+  })
+})
+
+describe('the vision cap', () => {
+  const originalEnv = process.env
+  beforeEach(() => {
+    vi.resetAllMocks()
+    process.env = { ...originalEnv }
+  })
+
+  it('is tracked separately from chat', async () => {
+    mockPrisma.usageEvent.count.mockResolvedValue(0 as never)
+
+    await isOverLimit('u1', 'vision', new Date())
+
+    const where = mockPrisma.usageEvent.count.mock.calls[0][0]?.where as { kind: string }
+    expect(where.kind).toBe('vision')
+  })
+
+  it('is lower than the chat cap by default, being the pricier call', () => {
+    delete process.env.DAILY_MESSAGE_LIMIT
+    delete process.env.DAILY_PHOTO_LIMIT
+    expect(dailyLimit('vision')).toBeLessThan(dailyLimit('chat'))
+  })
+
+  it('has its own env var', () => {
+    process.env.DAILY_PHOTO_LIMIT = '7'
+    expect(dailyLimit('vision')).toBe(7)
+    expect(dailyMessageLimit()).not.toBe(7)
+  })
+
+  it('speaks in the coach voice', () => {
+    expect(photoLimitMessage(null)).toMatch(/camera/i)
+    expect(photoLimitMessage(null)).toMatch(/tomorrow/i)
+    expect(photoLimitMessage(null)).not.toMatch(/nothing|failed/i)
+  })
+})
+
+describe('recordUsage', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('writes one row per call', async () => {
+    await recordUsage('u1', 'vision')
+
+    expect(mockPrisma.usageEvent.create).toHaveBeenCalledWith({
+      data: { userId: 'u1', kind: 'vision' },
+    })
+  })
+
+  it('swallows a failed write rather than failing the user request', async () => {
+    // Bookkeeping must never break the thing the user actually asked for.
+    // Undercounting is the safe direction.
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockPrisma.usageEvent.create.mockRejectedValue(new Error('db down'))
+
+    await expect(recordUsage('u1', 'chat')).resolves.toBeUndefined()
+  })
+})
+
+describe('UsageLimitError', () => {
+  it('carries copy the caller can show verbatim', () => {
+    const error = new UsageLimitError('enough photos, hon')
+
+    expect(error).toBeInstanceOf(Error)
+    expect(error.userMessage).toBe('enough photos, hon')
   })
 })

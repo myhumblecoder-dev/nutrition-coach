@@ -1,24 +1,76 @@
 import { prisma } from '@/lib/db'
 import { startOfToday } from '@/lib/time'
 
-// Every coach reply costs two model calls — the reply and the extraction pass
-// — so an unbounded chat is an unbounded bill. The cap is per user per day,
-// generous enough that ordinary use never sees it.
+// Model calls are the app's only real marginal cost, so they are counted
+// directly rather than inferred from whatever rows they happen to leave
+// behind. A chat reply costs two calls and the vision path costs one, but
+// photo analysis writes no row at all unless the user confirms the meal — so
+// counting MealEntry would have missed the abuse that matters: analyse
+// repeatedly, never save.
 
-const DEFAULT_DAILY_MESSAGE_LIMIT = 40
+export type UsageKind = 'chat' | 'vision'
 
-export function dailyMessageLimit(): number {
-  const raw = Number(process.env.DAILY_MESSAGE_LIMIT)
-  // A malformed value must not read as "unlimited" — that is precisely the
-  // failure this limit exists to prevent.
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_DAILY_MESSAGE_LIMIT
+const DEFAULTS: Record<UsageKind, number> = {
+  chat: 40,
+  // Vision is the most expensive call in the app, and a real day of eating is
+  // a handful of photos.
+  vision: 25,
 }
 
-export async function isOverLimit(userId: string, now: Date = new Date()): Promise<boolean> {
-  const count = await prisma.chatMessage.count({
-    where: { userId, role: 'user', createdAt: { gte: startOfToday(now) } },
+const ENV_VARS: Record<UsageKind, string> = {
+  chat: 'DAILY_MESSAGE_LIMIT',
+  vision: 'DAILY_PHOTO_LIMIT',
+}
+
+/** Thrown by a gated path. Carries copy the caller can show the user as-is. */
+export class UsageLimitError extends Error {
+  readonly userMessage: string
+
+  constructor(userMessage: string) {
+    super('Usage limit reached')
+    this.name = 'UsageLimitError'
+    this.userMessage = userMessage
+  }
+}
+
+export function dailyLimit(kind: UsageKind): number {
+  const raw = Number(process.env[ENV_VARS[kind]])
+  // A malformed value must not read as "unlimited" — that is precisely the
+  // failure this limit exists to prevent.
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULTS[kind]
+}
+
+/** Kept for the message cap's original name. */
+export function dailyMessageLimit(): number {
+  return dailyLimit('chat')
+}
+
+export async function isOverLimit(
+  userId: string,
+  kind: UsageKind = 'chat',
+  now: Date = new Date()
+): Promise<boolean> {
+  const count = await prisma.usageEvent.count({
+    where: { userId, kind, createdAt: { gte: startOfToday(now) } },
   })
-  return count >= dailyMessageLimit()
+  return count >= dailyLimit(kind)
+}
+
+/**
+ * Records one billable call.
+ *
+ * Never throws: a failed bookkeeping write must not fail the request the user
+ * is actually making. The worst case is undercounting, which is the safe
+ * direction for the person and the visible one for us in the logs.
+ */
+export async function recordUsage(userId: string, kind: UsageKind): Promise<void> {
+  try {
+    await prisma.usageEvent.create({ data: { userId, kind } })
+  } catch (error) {
+    console.error(
+      'usage record failed: ' + (error instanceof Error ? error.message : 'Unknown error')
+    )
+  }
 }
 
 const TRAINING_WORDS: Record<string, string> = {
@@ -76,4 +128,9 @@ export function limitMessage(successes: string | null): string {
   // No successes means say nothing about it. Tacking "you logged nothing" onto
   // a refusal is the shaming this product exists to avoid.
   return successes ? `${opening} For what it's worth, you got down ${successes}.` : opening
+}
+
+export function photoLimitMessage(successes: string | null): string {
+  const opening = "Easy with the camera, hon. That's enough photos for today — bring me more tomorrow."
+  return successes ? `${opening} You got down ${successes}.` : opening
 }

@@ -10,6 +10,9 @@ import { prisma } from '@/lib/db'
 
 vi.mock('@/lib/telegram', () => ({ getTelegramFileUrl: vi.fn(), sendTelegramMessage: vi.fn(), answerCallbackQuery: vi.fn() }))
 vi.mock('@/lib/analyzeMeal', () => ({ analyzeMeal: vi.fn() }))
+vi.mock('@/lib/limits', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/limits')>()),
+}))
 vi.mock('@/lib/telegramLink', () => ({ consumeLinkToken: vi.fn(), resolveUserByChat: vi.fn(), disconnectUser: vi.fn() }))
 vi.mock('@/lib/meals', () => ({ logMealForUser: vi.fn() }))
 vi.mock('@/lib/chat', () => ({ coachReply: vi.fn() }))
@@ -179,7 +182,8 @@ describe('route', () => {
     }))
 
     expect(getTelegramFileUrl).toHaveBeenCalledWith('big')
-    expect(analyzeMeal).toHaveBeenCalledWith('https://blob/x.jpg', 'chicken and rice')
+    // The resolved user id gates the vision cap, so the webhook must pass it.
+    expect(analyzeMeal).toHaveBeenCalledWith('u1', 'https://blob/x.jpg', 'chicken and rice')
     const logArgs = vi.mocked(logMealForUser).mock.calls.at(-1)!
     expect(logArgs[0]).toBe('u1')
     expect(logArgs[2]).toBe('chicken and rice')

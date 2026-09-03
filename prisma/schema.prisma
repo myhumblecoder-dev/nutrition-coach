@@ -35,6 +35,24 @@ model User {
   telegramLinkToken TelegramLinkToken?
   deviceTokens  DeviceToken[]
   weeklyCheckIns WeeklyCheckIn[]
+  usageEvents   UsageEvent[]
+}
+
+// One row per billable model call, written after the gate passes.
+//
+// The chat cap previously counted ChatMessage rows, which undercounts: a reply
+// costs two model calls, and the vision path writes no chat row at all. Photo
+// analysis in particular left no trace unless the user confirmed the meal, so
+// the abuse that mattered — analyse repeatedly, never save — was invisible.
+model UsageEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // 'chat' | 'vision'. A bare string, like every other kind column here.
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@index([userId, kind, createdAt])
 }
 
 // The weekly review: am I fatter or thinner, stronger or weaker, how am I
