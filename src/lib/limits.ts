@@ -10,11 +10,20 @@ import { startOfToday } from '@/lib/time'
 
 export type UsageKind = 'chat' | 'vision'
 
+// Sized against real use, then costed. On Haiku 4.5 ($1/$5 per MTok) a chat
+// exchange is ~$0.0029 (it is two calls — the reply and the extraction pass)
+// and a photo ~$0.0038 (~2.5k image tokens after Anthropic's downsize). A
+// heavy real day is maybe 25 messages and 10 photos, so these sit at roughly
+// 2-4x genuine use and cap one saturated account near $10/month.
+//
+// The cap is not the cost control of last resort — it is there so a runaway
+// client or a curious stranger cannot run up a bill unnoticed. Someone using
+// the app hard should never meet it.
 const DEFAULTS: Record<UsageKind, number> = {
-  chat: 40,
-  // Vision is the most expensive call in the app, and a real day of eating is
-  // a handful of photos.
-  vision: 25,
+  chat: 60,
+  // Vision is the pricier call per unit, but a day of eating is a handful of
+  // photos, so the ceiling can still sit well above honest use.
+  vision: 40,
 }
 
 const ENV_VARS: Record<UsageKind, string> = {
