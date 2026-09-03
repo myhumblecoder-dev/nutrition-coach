@@ -1,26 +1,29 @@
 import { generate } from '@/lib/llm'
 import { prisma } from '@/lib/db'
-import { nowLine } from '@/lib/time'
-import { sendTelegramMessage } from '@/lib/telegram'
-import { sendPushNotification } from '@/lib/push'
+import { nowLine, startOfWeek } from '@/lib/time'
 import { COACH_PREAMBLE } from '@/lib/voice'
+import { deliverToChannels, hasChannel, pruneTokens, type Delivery } from '@/lib/deliver'
+import { nextUnansweredField } from '@/lib/checkin'
 
 // One LLM call per user: batches of 5 keep hundreds of users inside the
 // window where a sequential loop would die at a dozen.
 export const maxDuration = 300
 
 const BATCH_SIZE = 5
-const PUSH_TITLE = 'Roughly'
 
-type Delivery = { ok: boolean; prune?: string }
-
-async function deliverToUser(user: {
+type DailyUser = Parameters<typeof deliverToChannels>[0] & {
   name: string | null
-  telegramChat: { chatId: string } | null
-  deviceTokens: { token: string }[]
-}): Promise<Delivery[]> {
-  const hasChannel = Boolean(user.telegramChat) || user.deviceTokens.length > 0
-  if (!hasChannel) return []
+  weeklyCheckIns?: Parameters<typeof nextUnansweredField>[0][]
+}
+
+async function deliverToUser(user: DailyUser): Promise<Delivery[]> {
+  if (!hasChannel(user)) return []
+
+  // The weekly review outranks the daily nudge. Both crons fire on the same
+  // morning, and asking about breakfast while still waiting on the review is
+  // two notifications from one bot — this product asks one thing at a time.
+  const pending = user.weeklyCheckIns?.[0]
+  if (pending && nextUnansweredField(pending)) return []
 
   // Generated once per user, not once per channel: two calls would pay twice
   // to say the same thing, and could say two different things.
@@ -34,39 +37,7 @@ async function deliverToUser(user: {
     ' Reply with the message only.'
   const message = await generate(prompt)
 
-  const deliveries: Promise<Delivery>[] = []
-
-  if (user.telegramChat) {
-    const chatId = user.telegramChat.chatId
-    deliveries.push(
-      sendTelegramMessage(chatId, message).then(
-        () => ({ ok: true }),
-        (error: unknown) => {
-          console.error(error instanceof Error ? error.message : 'Unknown error')
-          return { ok: false }
-        }
-      )
-    )
-  }
-
-  for (const device of user.deviceTokens) {
-    deliveries.push(
-      sendPushNotification(device.token, { title: PUSH_TITLE, body: message }).then(
-        (result) => ({
-          ok: result.ok,
-          // 410 means the app was deleted. Anything else may be transient, and
-          // deleting on a 503 would silently unsubscribe a live device.
-          prune: result.unregistered ? device.token : undefined,
-        }),
-        (error: unknown) => {
-          console.error(error instanceof Error ? error.message : 'Unknown error')
-          return { ok: false }
-        }
-      )
-    )
-  }
-
-  return Promise.all(deliveries)
+  return deliverToChannels(user, message)
 }
 
 export async function GET(request: Request) {
@@ -79,7 +50,11 @@ export async function GET(request: Request) {
 
   const users = await prisma.user.findMany({
     where: { OR: [{ telegramChat: { isNot: null } }, { deviceTokens: { some: {} } }] },
-    include: { telegramChat: true, deviceTokens: true },
+    include: {
+      telegramChat: true,
+      deviceTokens: true,
+      weeklyCheckIns: { where: { weekOf: startOfWeek(new Date()) }, take: 1 },
+    },
   })
 
   let sent = 0
@@ -108,9 +83,7 @@ export async function GET(request: Request) {
     }
   }
 
-  for (const token of prunable) {
-    await prisma.deviceToken.deleteMany({ where: { token } })
-  }
+  await pruneTokens(prunable)
 
   return Response.json({ ok: failed === 0, sent, failed })
 }

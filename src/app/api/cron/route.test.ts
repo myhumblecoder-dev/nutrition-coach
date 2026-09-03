@@ -11,6 +11,8 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/llm', () => ({ generate: vi.fn() }));
 vi.mock('@/lib/telegram', () => ({ sendTelegramMessage: vi.fn() }));
 vi.mock('@/lib/push', () => ({ sendPushNotification: vi.fn() }));
+// deliver is exercised for real so the route keeps being tested against
+// actual telegram/push calls rather than a stub of its own delivery layer.
 
 type Row = {
   id: string;
@@ -212,5 +214,40 @@ describe('route', () => {
 
     expect(generate).not.toHaveBeenCalled();
     expect(body).toEqual({ ok: true, sent: 0, failed: 0 });
+  });
+
+  it('holds the daily nudge while a weekly check-in is unanswered', async () => {
+    // Both crons fire on the same morning. Asking about breakfast while the
+    // coach is still waiting on the weekly review is two notifications from
+    // one bot, and the product is supposed to ask one thing at a time.
+    vi.mocked(prisma.user.findMany).mockResolvedValue([
+      {
+        ...telegramUser('101', 'Alice'),
+        weeklyCheckIns: [{ bodyAnswer: null, strengthAnswer: null, sleepAnswer: null, moodAnswer: null }],
+      },
+    ] as never);
+
+    const body = await (await GET(makeRequest('Bearer test-secret'))).json();
+
+    expect(generate).not.toHaveBeenCalled();
+    expect(sendTelegramMessage).not.toHaveBeenCalled();
+    expect(body).toEqual({ ok: true, sent: 0, failed: 0 });
+  });
+
+  it('resumes the daily nudge once the week is answered', async () => {
+    vi.mocked(prisma.user.findMany).mockResolvedValue([
+      {
+        ...telegramUser('101', 'Alice'),
+        weeklyCheckIns: [
+          { bodyAnswer: 'a', strengthAnswer: 'b', sleepAnswer: 'c', moodAnswer: 'd' },
+        ],
+      },
+    ] as never);
+    vi.mocked(generate).mockResolvedValue('stay healthy');
+    vi.mocked(sendTelegramMessage).mockResolvedValue(undefined as never);
+
+    const body = await (await GET(makeRequest('Bearer test-secret'))).json();
+
+    expect(body).toEqual({ ok: true, sent: 1, failed: 0 });
   });
 });
