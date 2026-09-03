@@ -9,7 +9,7 @@ struct SignInView: View {
             Spacer()
 
             VStack(spacing: 8) {
-                Text("Nutrition Coach")
+                Text("MyHumbleFitness")
                     .font(.largeTitle.weight(.semibold))
                 Text("No counting. Just a weekly honest look at how you're doing.")
                     .font(.subheadline)

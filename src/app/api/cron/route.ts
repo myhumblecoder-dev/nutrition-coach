@@ -9,7 +9,7 @@ import { sendPushNotification } from '@/lib/push'
 export const maxDuration = 300
 
 const BATCH_SIZE = 5
-const PUSH_TITLE = 'Nutrition Coach'
+const PUSH_TITLE = 'MyHumbleFitness'
 
 type Delivery = { ok: boolean; prune?: string }
 

@@ -20,5 +20,6 @@
     "noThirdPartySignIn": [],
     "noBackgroundModes": true
   },
-  "gates": []
+  "gates": [],
+  "appName": "MyHumbleFitness"
 }

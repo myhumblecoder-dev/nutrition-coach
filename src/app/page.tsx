@@ -15,7 +15,7 @@ export default async function Home() {
   if (!session?.user?.id) {
     return (
       <main className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 p-16 text-center">
-        <h1 className="text-2xl font-semibold">Nutrition Coach</h1>
+        <h1 className="text-2xl font-semibold">MyHumbleFitness</h1>
         <p className="text-zinc-500">
           Sign in to start logging meals against your daily targets.
         </p>

@@ -13,8 +13,8 @@ describe('Layout', () => {
     vi.clearAllMocks()
   })
 
-  it('metadata title equals Nutrition Coach', async () => {
-    expect(metadata.title).toBe('Nutrition Coach')
+  it('metadata title equals MyHumbleFitness', async () => {
+    expect(metadata.title).toBe('MyHumbleFitness')
   })
 
   it('metadata description equals the full tagline', async () => {

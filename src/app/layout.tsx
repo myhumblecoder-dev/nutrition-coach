@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nutrition Coach",
+  title: "MyHumbleFitness",
   description: "Photo-first meal logging with AI vision analysis, daily targets, and coach check-ins",
 };
 
