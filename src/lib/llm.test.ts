@@ -126,4 +126,65 @@ describe('llm', () => {
       'Failed to fetch image'
     )
   })
+
+  it('generate uses OLLAMA_MODEL on the ollama path', async () => {
+    delete process.env.LLM_PROVIDER
+    process.env.OLLAMA_MODEL = 'qwen2.5:7b'
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ response: 'hi' }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await generate('hi')
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe('qwen2.5:7b')
+  })
+
+  it('generate does not send the cloud model to ollama', async () => {
+    // LLM_MODEL names the hosted model. Leaking it into the local branch would
+    // POST "claude-..." to Ollama, which has no such model.
+    delete process.env.LLM_PROVIDER
+    delete process.env.OLLAMA_MODEL
+    process.env.LLM_MODEL = 'claude-haiku-4-5'
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ response: 'hi' }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await generate('hi')
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).not.toMatch(/claude/)
+  })
+
+  it('analyzePhoto reads the same base url variable as generate', async () => {
+    // These read OLLAMA_BASE_URL and LLM_URL respectively, so setting one sent
+    // half the app to localhost while the other went to the configured host.
+    delete process.env.LLM_PROVIDER
+    process.env.OLLAMA_BASE_URL = 'http://ollama.internal:11434'
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'image/jpeg' }),
+        arrayBuffer: async () => new ArrayBuffer(4),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ response: 'a meal' }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await analyzePhoto('https://blob/x.jpg', 'describe')
+
+    expect(fetchMock.mock.calls[1][0]).toContain('ollama.internal')
+  })
+
+  it('analyzePhoto uses OLLAMA_MODEL on the ollama path', async () => {
+    delete process.env.LLM_PROVIDER
+    process.env.OLLAMA_MODEL = 'llava:13b'
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-type': 'image/jpeg' }),
+        arrayBuffer: async () => new ArrayBuffer(4),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ response: 'a meal' }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await analyzePhoto('https://blob/x.jpg', 'describe')
+
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).model).toBe('llava:13b')
+  })
 })
