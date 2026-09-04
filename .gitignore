@@ -49,5 +49,8 @@ next-env.d.ts
 # review. Run `xcodegen generate` in ios/ after cloning.
 ios/NutritionCoach.xcodeproj/
 ios/DerivedData/
+# Tools/screenshots.sh builds here with -derivedDataPath. The root /build rule
+# above is anchored to the repo root and does not cover it.
+ios/build/
 **/xcuserdata/
 *.xcuserstate

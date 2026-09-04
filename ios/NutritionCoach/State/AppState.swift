@@ -21,13 +21,24 @@ final class AppState {
     var signInError: String?
 
     init(client: APIClient? = nil) {
-        let resolved = client ?? APIClient(
+        #if DEBUG
+        // Screenshot fixtures, behind a launch argument and a compile-time
+        // fence. See DemoTransport.swift.
+        let fallback = DemoMode.isActive ? DemoMode.makeClient() : AppState.liveClient()
+        #else
+        let fallback = AppState.liveClient()
+        #endif
+        let resolved = client ?? fallback
+        self.client = resolved
+        self.isSignedIn = resolved.isSignedIn
+    }
+
+    private static func liveClient() -> APIClient {
+        APIClient(
             baseURL: AppState.productionURL,
             tokenStore: KeychainTokenStore(),
             attest: AppAttestService()
         )
-        self.client = resolved
-        self.isSignedIn = resolved.isSignedIn
     }
 
     /// Registers the device's App Attest key. A no-op after the first

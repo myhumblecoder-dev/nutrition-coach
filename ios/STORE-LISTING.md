@@ -14,20 +14,20 @@ Roughly
 ## Subtitle (30)
 
 ```
-Estimate meals, not calories
+A coach who asks, not counts
 ```
 
-`Roughly: Estimate Meals` was the alternative. Rejected — a subtitle that
-repeats the name spends half the budget saying nothing.
+`Roughly: Diet Coach` was the alternative. Rejected — a subtitle that repeats
+the name spends half the budget saying nothing.
 
 ## Promotional text (170)
 
 Editable without a new build, so this is where a change of emphasis goes.
 
 ```
-Photograph what you ate. Get an honest estimate and a coach who remembers what
-you said last week. No barcodes, no gram-by-gram data entry, no pretending the
-numbers are exact.
+Tell it what you ate. It logs the meal, remembers what you said last week, and
+asks how the week actually went. No forms, no gram-by-gram data entry, no
+pretending the numbers are exact.
 ```
 
 ## Description (4000)
@@ -38,28 +38,28 @@ nobody knows exactly how many calories are on their plate. The label is a legal
 tolerance, not a measurement. The database entry is somebody else's recipe. The
 gram-by-gram log you kept for three days was a guess with more decimal places.
 
-So Roughly does not ask you to count. Take a photo of your meal and it estimates
-what is in it — food by food, calories and protein — and says so plainly. You
-correct it in plain language when it is wrong, because you were there and it
-was not.
+So Roughly does not ask you to count. You tell it what you ate, the way you
+would tell a person, and it works the rest out — and it says plainly that the
+numbers are estimates, because they are.
 
 WHAT IT DOES
 
-• Photo-first logging. One photo, one estimate. No barcodes to scan, no serving
-  sizes to look up, no fourteen-field entry form.
+• Log by talking. "Chicken burrito bowl, no rice, and I lifted this morning" is
+  a complete entry. No forms, no barcodes, no serving sizes to look up. The
+  conversation is the log.
 
-• A coach that remembers. Talk to it the way you would talk to a person. It has
-  your history — what you ate, how you trained, what you weighed, how you slept
-  — and it answers in that context rather than reciting generic advice.
+• A coach that remembers. It has your history — what you ate, how you trained,
+  what you said last week — and answers in that context rather than reciting
+  generic advice. It is brisk and a little dry, and it is never on the side of
+  the food label.
 
-• Weekly check-ins. Once a week it asks how the week actually went, and adjusts
-  what it suggests based on your answer instead of a formula.
+• Weekly check-ins. Four questions, in your own words: body, strength, sleep,
+  mood. None of them ask for a number, because the point is what you noticed,
+  not what a scale says.
 
-• Training, sleep, mood and measurements. Log them if they are useful to you.
-  They change what the coach says. Skip them and nothing breaks.
-
-• Honest numbers. Estimates are presented as estimates. When the coach is
-  unsure, it says so.
+• A review that keeps the receipts. Every week is stored next to the words you
+  actually used, not just the app's summary of them. No charts, no trend lines
+  — a computed trend would be the app asserting a precision it does not have.
 
 WHAT IT DOES NOT DO
 
@@ -69,9 +69,9 @@ analytics SDK, no selling your data to anybody.
 PRIVACY
 
 Sign in with Apple only — Roughly never sees a password, and Hide My Email works
-normally. Your photos and entries are yours, and Settings has a Delete account
-button that erases all of it immediately. What is stored and who processes it is
-written out in full at the privacy policy link below.
+normally. Your entries are yours, and Settings has a Delete account button that
+erases all of it immediately. What is stored and who processes it is written out
+in full at the privacy policy link below.
 
 NOT MEDICAL ADVICE
 
@@ -84,11 +84,13 @@ have a health condition or any history of disordered eating.
 ## Keywords (100, comma-separated, no spaces)
 
 ```
-meal,photo,calories,protein,macros,diet,coach,nutrition,food,log,tracker,weight,fitness,check-in
+meal,calories,protein,macros,diet,coach,nutrition,food,log,tracker,weight,fitness,check-in,habit
 ```
 
-97 characters. "Roughly" is deliberately absent: the app name is already indexed
-and repeating it in keywords wastes the budget.
+95 characters. "photo" is deliberately absent: the iOS app has no camera feature,
+and a keyword the app cannot deliver on invites a 2.3.7 metadata rejection.
+"Roughly" is absent too — the app name is already indexed, so repeating it in
+keywords wastes the budget.
 
 ## Support URL
 
@@ -135,28 +137,44 @@ the web. All three disagreeing is a routine rejection.
 | Name | Yes | No | App functionality |
 | Health | Yes | No | App functionality |
 | Fitness | Yes | No | App functionality |
-| Photos or videos | Yes | No | App functionality |
 | Other user content | Yes | No | App functionality |
 | Device ID | Yes | No | App functionality |
 
 Nothing is used for tracking, and no data is shared with a data broker.
 
+**Photos or videos is deliberately not listed.** The service stores meal photos,
+but they are collected by the web app; the iOS binary has no camera and no photo
+picker. The privacy policy at `/privacy` covers the whole service and does
+mention photos — that is one policy describing more than one client, which is
+normal, and is not the mismatch Apple looks for. What must not happen is the
+reverse: the app collecting something the labels omit.
+
 ## Screenshots
 
-Required: 6.9" (1320 × 2868) and 6.5" (1242 × 2688). iPad is **not** required —
-`TARGETED_DEVICE_FAMILY` is `1`, so the app is iPhone-only and Apple asks for no
-iPad set.
+Generated by `Tools/screenshots.sh` into `ios/Screenshots/`, and committed. The
+script drives the app from fixtures (`DemoTransport.swift`, DEBUG-only) rather
+than a backend, so the set is reproducible and does not depend on an account
+having the right data in it on the day.
 
-Five, in this order, because the first two are all most people scroll:
+Required and captured: 6.9" (1320 × 2868) and 6.5" (1242 × 2688). iPad is **not**
+required — `TARGETED_DEVICE_FAMILY` is `1`, so Apple asks for no iPad set.
 
-1. **This week** — the check-in question, mid-conversation. The product's
-   argument in one screen.
-2. **A meal estimate** — a photo with its food-by-food breakdown, showing that
-   the numbers are approximate on purpose.
-3. **Coach chat** — a real exchange where the coach uses last week's context.
-4. **Review** — the week's entries at a glance.
-5. **Settings** — notifications and the delete-account row. Also the fastest way
-   for a reviewer to confirm 5.1.1(v) is satisfied.
+Four, in this order, because the first two are all most people scroll:
 
-Not yet automated: appstore-kit's `screenshots` command is unshipped, so the
-first submission captures these by hand from the simulator.
+1. **Coach** — a real exchange: a meal logged by talking, and the coach saying
+   out loud that 140g of protein is an estimate because the package number is a
+   legal tolerance. The product's whole argument, in the app's own voice.
+2. **This week** — the check-in question, verbatim from `QUESTIONS.body`.
+3. **Review** — two weeks of answers, each kept next to the words the user
+   actually used.
+4. **Settings** — notifications, the legal links, and the delete-account row.
+   Also the fastest way for a reviewer to confirm 5.1.1(v) is satisfied.
+
+The shots are of the four tabs the app actually has. There is deliberately no
+meal-photo screenshot: photo logging exists on the web, **not** in the iOS app,
+and a screenshot of a feature the binary does not contain is a 2.3.3 rejection.
+
+Coach leads rather than the check-in, even though the check-in is the product's
+core surface, because the check-in screen is mostly empty on load — one
+question, one field, and roughly two-thirds blank space. Worth fixing in the
+app; until then it is a weak first impression and a poor lead shot.

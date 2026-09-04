@@ -21,6 +21,13 @@
 	     with /privacy on the web. A mismatch between the three is a routine
 	     rejection. Everything is Linked (it hangs off an account) and
 	     nothing is used for Tracking. -->
+	<!-- NSPrivacyCollectedDataTypePhotosorVideos is deliberately absent. The
+	     service stores meal photos, but they are collected by the web app;
+	     this binary has no camera and no photo picker, and never transmits or
+	     displays an image. A manifest describes what the app collects, and
+	     declaring a type it cannot collect is the same false claim as
+	     declaring an unused required-reason API above. Add it back the day
+	     photo logging ships on iOS. -->
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
 		<dict>
@@ -68,19 +75,6 @@
 			     estimates derived from meal photos. -->
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeFitness</string>
-			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<true/>
-			<key>NSPrivacyCollectedDataTypeTracking</key>
-			<false/>
-			<key>NSPrivacyCollectedDataTypePurposes</key>
-			<array>
-				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-			</array>
-		</dict>
-		<dict>
-			<!-- Meal photos, stored so an entry can be revisited later. -->
-			<key>NSPrivacyCollectedDataType</key>
-			<string>NSPrivacyCollectedDataTypePhotosorVideos</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>

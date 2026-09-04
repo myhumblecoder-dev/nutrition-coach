@@ -6,9 +6,9 @@ headings below are for reading here; the field takes plain prose.
 ## Notes for the reviewer
 
 ```
-Roughly is a personal diet and training coach. You photograph a meal, it
-estimates what is in it, and a coach that remembers your history talks to you
-about it.
+Roughly is a personal diet and training coach. You tell it what you ate and how
+you trained in plain language, it works out the rest, and once a week it asks
+how the week actually went.
 
 SIGNING IN
 
@@ -25,9 +25,9 @@ WHERE TO LOOK
 • "This week" is the first tab and the core of the product: the coach asks how
   the week went and responds to what you actually say.
 • "Coach" is free-form chat.
-• Photo logging is on the meal entry screen and needs the camera. On the
-  simulator there is no camera; on device, the photo is sent to our backend and
-  analysed by a vision model.
+• Logging happens by talking: "chicken burrito bowl, no rice, and I lifted this
+  morning" in the Coach tab is a complete entry. There is no separate logging
+  form and no camera feature in this app.
 • Settings holds notifications, the privacy policy and support links, and
   "Delete account".
 
@@ -53,8 +53,8 @@ Settings, never at launch.
 
 THIRD-PARTY PROCESSING
 
-Meal photos and coach messages are processed by Anthropic's API to produce the
-estimates and replies. Nothing is used for advertising, there is no analytics
+Coach messages and check-in answers are processed by Anthropic's API to produce
+the estimates and replies. Nothing is used for advertising, there is no analytics
 SDK, and no data is shared with data brokers. The full list is at
 https://nutrition-coach-omega.vercel.app/privacy
 
@@ -80,6 +80,11 @@ claimed.
       the identity token's audience against the Bundle ID, so a mismatch between
       `PRODUCT_BUNDLE_IDENTIFIER` and `AUTH_APPLE_BUNDLE_ID` on the server fails
       only here, never in Debug against a local server.
+- [ ] `NSCameraUsageDescription` is removed from Info.plist, or a camera
+      feature has shipped. The string is currently declared and nothing in the
+      app uses the camera — see "Known inaccuracies" below.
+- [ ] Screenshots regenerated with `Tools/screenshots.sh` if any of the four
+      captured screens changed. Stale shots are a 2.3.3 problem.
 - [ ] Push arrives on a TestFlight build. Release now sets `aps-environment` to
       `production`; a token registered by a Debug build will not work against it.
 
@@ -100,3 +105,22 @@ something objectionable. There is currently no in-app report control — the
 coach only ever addresses the person who wrote to it, and there is no other
 user to be harmed. If this is challenged, the fix is a "Report this reply"
 action in the chat view.
+
+## Known inaccuracies to resolve before upload
+
+**`NSCameraUsageDescription` is declared but unused.** `Info.plist` carries
+"Take a photo of a meal so the coach can estimate what is in it." Nothing in the
+app opens a camera — photo meal logging exists on the web only. A purpose string
+for a capability the binary never exercises is metadata that is simply untrue,
+and Apple does ask about unused ones. Either delete the key or ship the feature;
+it was left in place here because which of those to do is a product decision.
+
+**The Review screen labels weeks in device-local time.** `ReviewView.weekFormatter`
+sets no `timeZone`, while the server sends `weekOf` as midnight in `APP_TIMEZONE`
+(America/New_York). A user in Los Angeles therefore sees "Week of August 23" for
+the week that began Monday August 24 — every user west of Eastern is off by one
+day. Two candidate fixes: pin the formatter's `timeZone` to the app timezone, or
+have the API send a date-only string and stop round-tripping a wall-clock date
+through an instant. The second is the real fix; the first is a one-line
+stopgap. Caught while generating screenshots, where the same sensitivity made
+the shot non-reproducible across machines.
