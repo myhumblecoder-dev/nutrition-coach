@@ -64,6 +64,19 @@ final class APIClient {
         _ = try? await sendIgnoringResponse("/api/v1/auth/signout", method: "POST", body: [:])
     }
 
+    /// Permanently deletes the account and everything in it.
+    ///
+    /// Unlike `signOut`, a failure is thrown rather than swallowed: telling
+    /// someone their data is gone when the server never heard the request
+    /// would be a lie. The token is cleared only once the server confirms —
+    /// the delete cascades the session rows, so it is already dead by then.
+    func deleteAccount() async throws {
+        try await sendIgnoringResponse(
+            "/api/v1/account", method: "DELETE", body: ["confirm": "DELETE"]
+        )
+        tokenStore.clear()
+    }
+
     // MARK: - App Attest
 
     /// Generates this device's App Attest key and registers it with the server.

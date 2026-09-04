@@ -2,8 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- APNs, like App Attest, signs against one of two Apple environments.
+	     Driven from APS_ENVIRONMENT rather than hardcoded: a Release build
+	     carrying "development" registers a sandbox token that production APNs
+	     rejects, and the only symptom is notifications that never arrive. -->
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>$(APS_ENVIRONMENT)</string>
 	<!-- App Attest. A "development" attestation carries a different aaguid,
 	     which the server rejects unless APP_ATTEST_ALLOW_DEV is set. Driven
 	     from APP_ATTEST_ENVIRONMENT rather than hardcoded so Debug and

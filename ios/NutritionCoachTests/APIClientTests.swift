@@ -254,4 +254,48 @@ extension APIClientTests {
         XCTAssertNil(result.reply)
         XCTAssertTrue(result.complete)
     }
+
+    // MARK: - Account deletion
+
+    func testDeleteAccountSendsTheConfirmationAndClearsTheToken() async throws {
+        respond(200, "{\"ok\":true}")
+
+        try await client.deleteAccount()
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        XCTAssertEqual(request.url?.path, "/api/v1/account")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer session-abc")
+
+        let body = try XCTUnwrap(request.httpBodyStream.map { stream -> Data in
+            stream.open()
+            defer { stream.close() }
+            var data = Data()
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let read = stream.read(&buffer, maxLength: buffer.count)
+                if read <= 0 { break }
+                data.append(buffer, count: read)
+            }
+            return data
+        } ?? request.httpBody)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        XCTAssertEqual(json["confirm"], "DELETE")
+
+        XCTAssertNil(store.read(), "a deleted account must not leave a usable token behind")
+    }
+
+    func testDeleteAccountKeepsTheTokenWhenTheServerRefuses() async {
+        // A 500 means the account may still exist. Throwing the token away
+        // would strand the user signed out with their data still on the
+        // server and no way to retry.
+        respond(500, "{}")
+
+        do {
+            try await client.deleteAccount()
+            XCTFail("expected a thrown error")
+        } catch {
+            XCTAssertEqual(store.read(), "session-abc")
+        }
+    }
 }

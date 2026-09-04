@@ -55,14 +55,24 @@ default and works for exactly one upload.
 The `.xcarchive` is kept as an artifact for 7 days on both success and failure, because a
 signing problem is far easier to diagnose from the archive than from the log.
 
+## Submission paperwork
+
+`ios/STORE-LISTING.md` holds the App Store Connect copy — name, description, keywords,
+the App Privacy answers and the screenshot plan. `ios/REVIEW-NOTES.md` holds the note to
+the reviewer, a pre-submission checklist, and the rejection risks worth knowing before
+they arrive rather than after. Both are in the repo so a change to what the app does and
+a change to what the listing claims land in the same diff.
+
 ## Known gaps
 
-- **The app icon is a placeholder** — `ios/NutritionCoach/Resources/Assets.xcassets/`
-  holds a generated emerald leaf on the web app's accent colour. It passes the alpha
-  check, but it is scaffolding, not branding.
-- **Screenshots and listing metadata are not automated.** appstore-kit's `screenshots`,
-  `archive` and `metadata` commands are on its roadmap but unshipped, so the first
-  submission uploads those by hand.
+- **Screenshots are not automated.** appstore-kit's `screenshots`,
+  `archive` and `metadata` commands are on its roadmap but unshipped, so the five shots
+  listed in `STORE-LISTING.md` are captured from the simulator by hand.
+- **`appstore check`'s third-party sign-in check is disabled** in `appstore.config.json`.
+  Its regex matches `Sign in with Apple` and `ASAuthorizationAppleID` — the things
+  guideline 4.8 *requires* — so pointing it at `SignInView.swift` fails the build for
+  being correct. Re-enable once the regex upstream tells a compliant implementation apart
+  from a violation.
 - **`appstore check` runs `--static` only.** The full check runs repo gates and network
   checks; there are no gates configured yet.
 - **appstore-kit is not published to npm**, so both workflows clone and build it from

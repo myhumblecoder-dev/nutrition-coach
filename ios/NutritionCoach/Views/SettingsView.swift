@@ -6,6 +6,9 @@ struct SettingsView: View {
     @Environment(AppState.self) private var state
 
     @State private var status: UNAuthorizationStatus = .notDetermined
+    @State private var confirmingDelete = false
+    @State private var deleting = false
+    @State private var deleteError: String?
 
     var body: some View {
         NavigationStack {
@@ -19,12 +22,51 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Link("Privacy policy", destination: AppState.privacyPolicyURL)
+                    Link("Support", destination: AppState.supportURL)
+                }
+
+                Section {
                     Button("Sign out", role: .destructive) {
                         Task { await state.signOut() }
                     }
                 }
+
+                // App Store Review Guideline 5.1.1(v): an account that can be
+                // created in the app must be deletable in the app. Its own
+                // section, below sign out, so the two are not adjacent taps.
+                Section {
+                    Button("Delete account", role: .destructive) {
+                        confirmingDelete = true
+                    }
+                    .disabled(deleting)
+                } footer: {
+                    if let deleteError {
+                        Text(deleteError).foregroundStyle(.red)
+                    } else {
+                        Text(
+                            """
+                            Permanently deletes your account and everything in it — \
+                            meals, chat history, check-ins and measurements. This cannot \
+                            be undone.
+                            """
+                        )
+                    }
+                }
             }
             .navigationTitle("Settings")
+            .alert("Delete your account?", isPresented: $confirmingDelete) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    Task {
+                        deleting = true
+                        deleteError = await state.deleteAccount()
+                        deleting = false
+                    }
+                }
+            } message: {
+                Text("Everything is erased and cannot be recovered.")
+            }
         }
         .task { status = await PushRegistrar.shared.currentAuthorizationStatus() }
     }

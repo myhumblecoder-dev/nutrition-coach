@@ -11,6 +11,11 @@ import Observation
 final class AppState {
     static let productionURL = URL(string: "https://nutrition-coach-omega.vercel.app")!
 
+    /// The same URLs given to App Store Connect. Both are required listing
+    /// fields, and a reviewer checks that the in-app links match them.
+    static let privacyPolicyURL = productionURL.appendingPathComponent("privacy")
+    static let supportURL = productionURL.appendingPathComponent("support")
+
     let client: APIClient
     private(set) var isSignedIn: Bool
     var signInError: String?
@@ -48,6 +53,19 @@ final class AppState {
     func signOut() async {
         await client.signOut()
         isSignedIn = false
+    }
+
+    /// Permanently deletes the account. Returns an error message on failure so
+    /// the caller can show it, rather than silently dropping the user back to
+    /// sign-in as though the delete had worked.
+    func deleteAccount() async -> String? {
+        do {
+            try await client.deleteAccount()
+            isSignedIn = false
+            return nil
+        } catch {
+            return "Couldn't delete your account. Please try again."
+        }
     }
 
     /// Called when any screen sees a 401: the session was revoked server-side,
