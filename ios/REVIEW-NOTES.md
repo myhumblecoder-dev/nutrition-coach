@@ -80,9 +80,6 @@ claimed.
       the identity token's audience against the Bundle ID, so a mismatch between
       `PRODUCT_BUNDLE_IDENTIFIER` and `AUTH_APPLE_BUNDLE_ID` on the server fails
       only here, never in Debug against a local server.
-- [ ] `NSCameraUsageDescription` is removed from Info.plist, or a camera
-      feature has shipped. The string is currently declared and nothing in the
-      app uses the camera — see "Known inaccuracies" below.
 - [ ] Screenshots regenerated with `Tools/screenshots.sh` if any of the four
       captured screens changed. Stale shots are a 2.3.3 problem.
 - [ ] Push arrives on a TestFlight build. Release now sets `aps-environment` to
@@ -105,22 +102,3 @@ something objectionable. There is currently no in-app report control — the
 coach only ever addresses the person who wrote to it, and there is no other
 user to be harmed. If this is challenged, the fix is a "Report this reply"
 action in the chat view.
-
-## Known inaccuracies to resolve before upload
-
-**`NSCameraUsageDescription` is declared but unused.** `Info.plist` carries
-"Take a photo of a meal so the coach can estimate what is in it." Nothing in the
-app opens a camera — photo meal logging exists on the web only. A purpose string
-for a capability the binary never exercises is metadata that is simply untrue,
-and Apple does ask about unused ones. Either delete the key or ship the feature;
-it was left in place here because which of those to do is a product decision.
-
-**The Review screen labels weeks in device-local time.** `ReviewView.weekFormatter`
-sets no `timeZone`, while the server sends `weekOf` as midnight in `APP_TIMEZONE`
-(America/New_York). A user in Los Angeles therefore sees "Week of August 23" for
-the week that began Monday August 24 — every user west of Eastern is off by one
-day. Two candidate fixes: pin the formatter's `timeZone` to the app timezone, or
-have the API send a date-only string and stop round-tripping a wall-clock date
-through an instant. The second is the real fix; the first is a one-line
-stopgap. Caught while generating screenshots, where the same sensitivity made
-the shot non-reproducible across machines.

@@ -24,8 +24,6 @@
 	     export-compliance question. The app uses only HTTPS, which is exempt. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSCameraUsageDescription</key>
-	<string>Take a photo of a meal so the coach can estimate what is in it.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIApplicationSceneManifest</key>

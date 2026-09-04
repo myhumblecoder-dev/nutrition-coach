@@ -198,9 +198,9 @@ final class APIClientTests: XCTestCase {
 extension APIClientTests {
     func testCheckInsDecodesCurrentQuestionAndHistory() async throws {
         respond(200, """
-        {"current":{"weekOf":"2026-08-31T04:00:00.000Z","complete":false,
+        {"current":{"weekOf":"2026-08-31","complete":false,
                     "nextField":"sleep","nextQuestion":"How have you been sleeping?"},
-         "history":[{"weekOf":"2026-08-24T04:00:00.000Z","complete":true,
+         "history":[{"weekOf":"2026-08-24","complete":true,
            "body":{"answer":"about the same","said":"jeans fit the same"},
            "strength":{"answer":"stronger","said":"lifts went up"},
            "sleep":{"answer":"worse","said":"kid was up a lot"},
@@ -214,13 +214,15 @@ extension APIClientTests {
         XCTAssertEqual(response.history.first?.strength.said, "lifts went up",
                        "the verbatim answer is the receipt and must survive decoding")
         XCTAssertTrue(response.history.first?.body.isAnswered ?? false)
+        XCTAssertEqual(response.current.weekOf, CalendarDate(year: 2026, month: 8, day: 31))
+        XCTAssertEqual(response.history.first?.weekOf, CalendarDate(year: 2026, month: 8, day: 24))
     }
 
     func testAnUnansweredFieldDecodesAsNulls() async throws {
         respond(200, """
-        {"current":{"weekOf":"2026-08-31T04:00:00.000Z","complete":false,
+        {"current":{"weekOf":"2026-08-31","complete":false,
                     "nextField":"body","nextQuestion":"Do you feel fatter, thinner, or about the same?"},
-         "history":[{"weekOf":"2026-08-31T04:00:00.000Z","complete":false,
+         "history":[{"weekOf":"2026-08-31","complete":false,
            "body":{"answer":null,"said":null},
            "strength":{"answer":null,"said":null},
            "sleep":{"answer":null,"said":null},
@@ -299,3 +301,70 @@ extension APIClientTests {
         }
     }
 }
+
+// MARK: - CalendarDate
+
+/// The regression these exist for: weekOf used to arrive as an ISO instant and
+/// be rendered by an un-pinned DateFormatter, so every device west of the
+/// server's timezone labelled the week a day early — "Week of August 23" for a
+/// week that began on the 24th.
+final class CalendarDateTests: XCTestCase {
+    private func decode(_ json: String) throws -> CalendarDate {
+        try JSONDecoder().decode(CalendarDate.self, from: Data(json.utf8))
+    }
+
+    func testDecodesAWireDate() throws {
+        XCTAssertEqual(try decode(#""2026-08-24""#), CalendarDate(year: 2026, month: 8, day: 24))
+    }
+
+    func testRendersTheSameDayInEveryTimeZone() {
+        let week = CalendarDate(year: 2026, month: 8, day: 24)
+
+        // The label is built from components through a UTC-pinned calendar, so
+        // there is no device timezone left in the path to shift it. Honolulu
+        // (UTC-10) and Auckland (UTC+12) are 22 hours apart and must agree.
+        XCTAssertEqual(week.monthAndDay, "August 24")
+
+        let original = NSTimeZone.default
+        defer { NSTimeZone.default = original }
+        for identifier in ["Pacific/Honolulu", "America/Los_Angeles", "UTC", "Pacific/Auckland"] {
+            // NSTimeZone.default is what TimeZone.current reads, so this
+            // genuinely moves the device out from under the formatter.
+            NSTimeZone.default = TimeZone(identifier: identifier)!
+            XCTAssertEqual(
+                CalendarDate(year: 2026, month: 8, day: 24).monthAndDay, "August 24",
+                "the week label must not depend on where the phone is (\(identifier))"
+            )
+        }
+    }
+
+    func testRoundTripsThroughTheWireFormat() throws {
+        let week = CalendarDate(year: 2026, month: 1, day: 5)
+
+        let encoded = try JSONEncoder().encode(week)
+
+        // Zero-padded, so the string sorts in the same order as the date.
+        XCTAssertEqual(String(data: encoded, encoding: .utf8), #""2026-01-05""#)
+        XCTAssertEqual(try decode(#""2026-01-05""#), week)
+    }
+
+    func testOrdersChronologically() {
+        XCTAssertLessThan(
+            CalendarDate(year: 2026, month: 8, day: 24),
+            CalendarDate(year: 2026, month: 9, day: 1)
+        )
+    }
+
+    func testRejectsAnInstantRatherThanSilentlyTruncatingIt() throws {
+        // The old wire format. Accepting it would let the server regress to
+        // sending an instant without anything failing.
+        XCTAssertThrowsError(try decode(#""2026-08-24T04:00:00.000Z""#))
+    }
+
+    func testRejectsMalformedDates() throws {
+        for bad in [#""2026-08""#, #""2026-13-01""#, #""2026-08-32""#, #""not-a-date""#, #""""#] {
+            XCTAssertThrowsError(try decode(bad), "should reject \(bad)")
+        }
+    }
+}
+

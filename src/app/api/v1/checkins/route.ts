@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { toCalendarDate } from '@/lib/time'
 import { authenticateBearer } from '@/lib/apiAuth'
 import { requireAttestation } from '@/lib/attest'
 import { generate } from '@/lib/llm'
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
 
   return Response.json({
     current: {
-      weekOf: current.weekOf.toISOString(),
+      weekOf: toCalendarDate(current.weekOf),
       complete: pending === null,
       nextField: pending,
       nextQuestion: pending ? QUESTIONS[pending] : null,
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
     // History carries the verbatim words, not just the summaries: the review
     // screen shows the user what they actually said, week over week.
     history: history.map((row) => ({
-      weekOf: row.weekOf.toISOString(),
+      weekOf: toCalendarDate(row.weekOf),
       complete: row.completedAt !== null,
       body: { answer: row.bodyAnswer, said: row.bodySourceText },
       strength: { answer: row.strengthAnswer, said: row.strengthSourceText },

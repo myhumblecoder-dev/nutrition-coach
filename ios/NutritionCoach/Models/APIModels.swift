@@ -76,6 +76,80 @@ enum APIError: Error, Equatable {
 
 // MARK: - Weekly check-in
 
+/// A calendar date with no time and no timezone — "the week of 24 August",
+/// not an instant.
+///
+/// `weekOf` is a wall-clock date the server computes in its own timezone. It
+/// used to arrive as an ISO instant and get rendered by a `DateFormatter` with
+/// no `timeZone` set, which meant every device west of the server's timezone
+/// labelled the week a day early: "Week of August 23" for a week that began on
+/// the 24th.
+///
+/// Decoding it into a type that cannot express a time of day is what stops
+/// that returning. There is no `Date` here to be re-interpreted, and no
+/// formatter a future caller could forget to pin.
+struct CalendarDate: Codable, Equatable, Hashable, Comparable, Sendable {
+    let year: Int
+    let month: Int
+    let day: Int
+
+    init(year: Int, month: Int, day: Int) {
+        self.year = year
+        self.month = month
+        self.day = day
+    }
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        let parts = raw.split(separator: "-")
+        guard parts.count == 3,
+              let year = Int(parts[0]), let month = Int(parts[1]), let day = Int(parts[2]),
+              (1...12).contains(month), (1...31).contains(day)
+        else {
+            throw DecodingError.dataCorruptedError(
+                in: try decoder.singleValueContainer(),
+                debugDescription: "Expected a YYYY-MM-DD calendar date, got: \(raw)"
+            )
+        }
+        self.init(year: year, month: month, day: day)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(description)
+    }
+
+    /// The wire format, and a representation that sorts correctly as a string.
+    var description: String {
+        String(format: "%04d-%02d-%02d", year, month, day)
+    }
+
+    static func < (lhs: CalendarDate, rhs: CalendarDate) -> Bool {
+        (lhs.year, lhs.month, lhs.day) < (rhs.year, rhs.month, rhs.day)
+    }
+
+    // A fixed UTC calendar and formatter, used only to turn the components
+    // into a localised month name. Both are pinned to UTC so the round trip
+    // cannot move the day — the whole point of the type.
+    private static let utc = TimeZone(secondsFromGMT: 0)!
+
+    private static let monthDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM d"
+        formatter.timeZone = utc
+        return formatter
+    }()
+
+    /// "August 24" — the same string on every device, in every timezone.
+    var monthAndDay: String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Self.utc
+        guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day))
+        else { return description }
+        return Self.monthDayFormatter.string(from: date)
+    }
+}
+
 /// One answer: the coach's short summary plus the words the user actually
 /// used. Both travel together so the review screen can show the receipt
 /// rather than only the app's interpretation.
@@ -87,18 +161,18 @@ struct CheckInAnswer: Codable, Equatable {
 }
 
 struct CheckInWeek: Codable, Equatable, Identifiable {
-    let weekOf: Date
+    let weekOf: CalendarDate
     let complete: Bool
     let body: CheckInAnswer
     let strength: CheckInAnswer
     let sleep: CheckInAnswer
     let mood: CheckInAnswer
 
-    var id: Date { weekOf }
+    var id: CalendarDate { weekOf }
 }
 
 struct CurrentCheckIn: Codable, Equatable {
-    let weekOf: Date
+    let weekOf: CalendarDate
     let complete: Bool
     let nextField: String?
     let nextQuestion: String?

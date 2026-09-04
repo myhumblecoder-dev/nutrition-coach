@@ -66,15 +66,13 @@ enum DemoFixtures {
     // months later, and "August 24" in the Review shot must not silently
     // become a different week on the next run.
     //
-    // Midday UTC rather than midnight, so the day renders the same from the
-    // Americas through Asia. ReviewView formats weekOf in device-local time,
-    // so a midnight-UTC fixture labels the week a day early on any machine
-    // west of Greenwich and the shot stops being reproducible. That the real
-    // app has the same sensitivity is a bug in its own right — see
-    // REVIEW-NOTES.md.
-    private static let thisWeek = "2026-08-31T12:00:00.000Z"
-    private static let lastWeek = "2026-08-24T12:00:00.000Z"
-    private static let weekBefore = "2026-08-17T12:00:00.000Z"
+    // Calendar dates, matching the wire format: weekOf is a date, not an
+    // instant. It used to be sent as an instant, which made this fixture — and
+    // the real app — render the week a day early anywhere west of the server's
+    // timezone.
+    private static let thisWeek = "2026-08-31"
+    private static let lastWeek = "2026-08-24"
+    private static let weekBefore = "2026-08-17"
 
     static func json(for path: String, method: String) -> String {
         switch path {

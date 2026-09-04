@@ -12,12 +12,6 @@ struct ReviewView: View {
     @State private var isLoading = true
     @State private var error: String?
 
-    private static let weekFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM d"
-        return formatter
-    }()
-
     var body: some View {
         NavigationStack {
             Group {
@@ -31,7 +25,10 @@ struct ReviewView: View {
                     )
                 } else {
                     List(history) { week in
-                        Section("Week of \(Self.weekFormatter.string(from: week.weekOf))") {
+                        // CalendarDate renders itself: no formatter here to
+                        // leave un-pinned, which is what shifted this label by
+                        // a day for everyone west of the server's timezone.
+                        Section("Week of \(week.weekOf.monthAndDay)") {
                             row("Body", week.body)
                             row("Strength", week.strength)
                             row("Sleep", week.sleep)
