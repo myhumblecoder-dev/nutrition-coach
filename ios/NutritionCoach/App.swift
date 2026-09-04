@@ -31,6 +31,10 @@ struct NutritionCoachApp: App {
             RootView()
                 .environment(state)
                 .task {
+                    // Before the sign-in check: the sign-in endpoint is itself
+                    // attested, so an unregistered device could never get past
+                    // it if this waited for a session.
+                    await state.prepareAttestation()
                     guard state.isSignedIn else { return }
                     await PushRegistrar.shared.registerIfAuthorized(with: state.client)
                 }

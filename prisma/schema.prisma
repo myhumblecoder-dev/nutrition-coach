@@ -36,6 +36,30 @@ model User {
   deviceTokens  DeviceToken[]
   weeklyCheckIns WeeklyCheckIn[]
   usageEvents   UsageEvent[]
+  attestedDevices AttestedDevice[]
+}
+
+// An App Attest key that Apple has vouched for: proof that a request came from
+// a genuine, unmodified instance of this app on real Apple hardware.
+//
+// A bearer token alone proves someone once signed in; it says nothing about
+// what is making the request now. Attestation is what stops a leaked token
+// being replayed from a script.
+model AttestedDevice {
+  id        String   @id @default(cuid())
+  keyId     String   @unique
+  // Base64 SPKI of the key Apple attested. Text because it exceeds the
+  // default varchar on some providers.
+  publicKey String   @db.Text
+  // Apple increments this per assertion. It must strictly increase, which is
+  // what makes a captured assertion useless a second time.
+  signCount Int      @default(0)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // One row per billable model call, written after the gate passes.

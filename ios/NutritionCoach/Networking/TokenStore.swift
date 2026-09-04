@@ -23,7 +23,14 @@ final class InMemoryTokenStore: TokenStoring {
 /// credential, so a device backup or a jailbroken read must not surrender it.
 final class KeychainTokenStore: TokenStoring {
     private let service = "dev.myhumblecoder.nutritioncoach"
-    private let account = "session-token"
+    private let account: String
+
+    /// The account name separates the items sharing this service: the session
+    /// token and the App Attest key identifier live in the same Keychain
+    /// service but must not overwrite each other.
+    init(account: String = "session-token") {
+        self.account = account
+    }
 
     private var baseQuery: [String: Any] {
         [

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { authenticateBearer } from '@/lib/apiAuth'
+import { requireAttestation } from '@/lib/attest'
 import { registerDeviceToken, unregisterDeviceToken } from '@/lib/devices'
 
 // APNs device tokens are 64 hex chars today. The shape is checked but the
@@ -11,12 +12,16 @@ const bodySchema = z.object({
 })
 
 export async function POST(request: Request) {
+  const raw = await request.text()
+  const { blocked } = await requireAttestation(request, raw)
+  if (blocked) return blocked
+
   const user = await authenticateBearer(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   let parsed
   try {
-    parsed = bodySchema.parse(await request.json())
+    parsed = bodySchema.parse(JSON.parse(raw))
   } catch {
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }
@@ -27,12 +32,16 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const raw = await request.text()
+  const { blocked } = await requireAttestation(request, raw)
+  if (blocked) return blocked
+
   const user = await authenticateBearer(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   let parsed
   try {
-    parsed = bodySchema.parse(await request.json())
+    parsed = bodySchema.parse(JSON.parse(raw))
   } catch {
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }

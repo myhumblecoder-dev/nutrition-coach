@@ -1,7 +1,11 @@
 import { authenticateBearer } from '@/lib/apiAuth'
+import { requireAttestation } from '@/lib/attest'
 import { getTodayForUser, parseFoodItems } from '@/lib/dashboard'
 
 export async function GET(request: Request) {
+  const { blocked } = await requireAttestation(request)
+  if (blocked) return blocked
+
   const user = await authenticateBearer(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { verifyAppleIdentityToken } from '@/lib/appleToken'
 import { createBearerSession } from '@/lib/apiAuth'
+import { requireAttestation, linkAttestedDevice } from '@/lib/attest'
 
 const bodySchema = z.object({ identityToken: z.string().min(1) })
 
@@ -12,9 +13,15 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Server misconfigured' }, { status: 500 })
   }
 
+  // Gated too, and deliberately: this is the account-creation path, so it is
+  // exactly where farmed accounts would come from.
+  const raw = await request.text()
+  const gate = await requireAttestation(request, raw)
+  if (gate.blocked) return gate.blocked
+
   let identityToken: string
   try {
-    identityToken = bodySchema.parse(await request.json()).identityToken
+    identityToken = bodySchema.parse(JSON.parse(raw)).identityToken
   } catch {
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }
@@ -64,6 +71,12 @@ export async function POST(request: Request) {
       },
     })
   }
+
+  // Record which attested device this account was created or signed in from.
+  // Nothing is refused on the strength of it yet; it is the signal a
+  // per-device account cap would be built on, and it is only collectable here,
+  // on the path that mints accounts.
+  if (gate.keyId) await linkAttestedDevice(gate.keyId, user.id)
 
   const { sessionToken, expires } = await createBearerSession(user.id)
 

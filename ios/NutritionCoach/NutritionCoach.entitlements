@@ -4,6 +4,14 @@
 <dict>
 	<key>aps-environment</key>
 	<string>development</string>
+	<!-- App Attest. A "development" attestation carries a different aaguid,
+	     which the server rejects unless APP_ATTEST_ALLOW_DEV is set. Driven
+	     from APP_ATTEST_ENVIRONMENT rather than hardcoded so Debug and
+	     Release differ explicitly: shipping "development" here would make a
+	     production build unable to attest against a correctly configured
+	     server. -->
+	<key>com.apple.developer.devicecheck.appattest-environment</key>
+	<string>$(APP_ATTEST_ENVIRONMENT)</string>
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>

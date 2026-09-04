@@ -29,12 +29,24 @@ targets:
         # choice: it makes iPad screenshots a required upload and puts the app
         # in front of a reviewer on a device it was never opened on.
         TARGETED_DEVICE_FAMILY: "1"
+      configs:
+        # App Attest signs against one of two Apple environments, and a
+        # development attestation carries a different aaguid that the server
+        # rejects unless APP_ATTEST_ALLOW_DEV is set. Split per configuration
+        # rather than hardcoded in the entitlement: a Release build shipping
+        # "development" could not attest against a correctly configured
+        # server, and the failure would only show up in production.
+        Debug:
+          APP_ATTEST_ENVIRONMENT: development
+        Release:
+          APP_ATTEST_ENVIRONMENT: production
     entitlements:
       path: NutritionCoach/NutritionCoach.entitlements
       properties:
         com.apple.developer.applesignin:
           - Default
         aps-environment: development
+        com.apple.developer.devicecheck.appattest-environment: $(APP_ATTEST_ENVIRONMENT)
 
   NutritionCoachTests:
     type: bundle.unit-test

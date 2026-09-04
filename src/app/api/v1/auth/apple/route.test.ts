@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from './route'
 import { verifyAppleIdentityToken } from '@/lib/appleToken'
 import { createBearerSession } from '@/lib/apiAuth'
+import { requireAttestation, linkAttestedDevice } from '@/lib/attest'
 import { prisma } from '@/lib/db'
 
 vi.mock('@/lib/appleToken', () => ({ verifyAppleIdentityToken: vi.fn() }))
 vi.mock('@/lib/apiAuth', () => ({ createBearerSession: vi.fn() }))
+vi.mock('@/lib/attest', () => ({ requireAttestation: vi.fn(), linkAttestedDevice: vi.fn() }))
 vi.mock('@/lib/db', () => ({
   prisma: {
     account: { findUnique: vi.fn(), create: vi.fn() },
@@ -16,6 +18,8 @@ vi.mock('@/lib/db', () => ({
 const mockPrisma = vi.mocked(prisma, true)
 const mockVerify = vi.mocked(verifyAppleIdentityToken)
 const mockCreateSession = vi.mocked(createBearerSession)
+const mockGate = vi.mocked(requireAttestation)
+const mockLink = vi.mocked(linkAttestedDevice)
 
 function makeRequest(body: unknown) {
   return new Request('http://test/api/v1/auth/apple', {
@@ -33,6 +37,8 @@ describe('POST /api/v1/auth/apple', () => {
     vi.resetAllMocks()
     process.env = { ...originalEnv, AUTH_APPLE_BUNDLE_ID: 'dev.myhumblecoder.nutritioncoach' }
     mockCreateSession.mockResolvedValue({ sessionToken: 'a'.repeat(64), expires: EXPIRES })
+    // The gate is open by default, matching enforcement being off.
+    mockGate.mockResolvedValue({ blocked: null, keyId: null })
   })
 
   it('returns 500 when the bundle id is not configured', async () => {
@@ -125,6 +131,45 @@ describe('POST /api/v1/auth/apple', () => {
     expect(res.status).toBe(200)
     expect(mockPrisma.user.create).toHaveBeenCalled()
     expect(mockCreateSession).toHaveBeenCalledWith('new-user')
+  })
+
+  it('records the attested device against the account it just created', async () => {
+    // This is the only path that mints accounts, so it is the only place the
+    // device-to-account signal can be collected.
+    mockGate.mockResolvedValue({ blocked: null, keyId: 'attested-key' })
+    mockVerify.mockResolvedValue({ sub: 'apple-sub', email: 'new@b.c', emailVerified: true })
+    mockPrisma.account.findUnique.mockResolvedValue(null as never)
+    mockPrisma.user.findUnique.mockResolvedValue(null as never)
+    mockPrisma.user.create.mockResolvedValue({ id: 'new-user', email: 'new@b.c', name: null } as never)
+
+    const res = await POST(makeRequest({ identityToken: 'tok' }))
+
+    expect(res.status).toBe(200)
+    expect(mockLink).toHaveBeenCalledWith('attested-key', 'new-user')
+  })
+
+  it('records nothing when the gate did not verify a device', async () => {
+    // keyId is null while enforcement is off, where the header is unverified
+    // client input. Linking on that basis would let anyone claim any device.
+    mockVerify.mockResolvedValue({ sub: 'apple-sub', email: 'a@b.c', emailVerified: true })
+    mockPrisma.account.findUnique.mockResolvedValue({ user: { id: 'u1' } } as never)
+
+    await POST(makeRequest({ identityToken: 'tok' }))
+
+    expect(mockLink).not.toHaveBeenCalled()
+  })
+
+  it('returns the gate response without minting an account', async () => {
+    mockGate.mockResolvedValue({
+      blocked: Response.json({ error: 'Attestation required' }, { status: 401 }),
+      keyId: null,
+    })
+
+    const res = await POST(makeRequest({ identityToken: 'tok' }))
+
+    expect(res.status).toBe(401)
+    expect(mockVerify).not.toHaveBeenCalled()
+    expect(mockPrisma.user.create).not.toHaveBeenCalled()
   })
 
   it('refuses to create an account from an unverified email', async () => {

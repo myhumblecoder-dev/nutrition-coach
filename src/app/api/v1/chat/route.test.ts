@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { GET, POST, maxDuration } from './route'
 import { authenticateBearer } from '@/lib/apiAuth'
 import { getChatHistoryForUser } from '@/lib/dashboard'
@@ -83,5 +83,42 @@ describe('POST /api/v1/chat', () => {
 
     expect(mockCoach).toHaveBeenCalledWith('user-1', 'had eggs for breakfast')
     await expect(res.json()).resolves.toEqual({ assistantReply: 'Sounds good.' })
+  })
+})
+
+describe('attestation gate', () => {
+  const originalEnv = process.env
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    process.env = { ...originalEnv, AUTH_SECRET: 's', AUTH_APPLE_BUNDLE_ID: 'b', APPLE_TEAM_ID: 't' }
+  })
+
+  afterEach(() => {
+    process.env = originalEnv
+  })
+
+  it('is transparent while enforcement is off', async () => {
+    // The flag exists so the server can ship before the client sends
+    // assertions; with it off nothing changes for anyone.
+    delete process.env.APP_ATTEST_REQUIRED
+    mockAuth.mockResolvedValue({ id: 'u1' } as never)
+    mockHistory.mockResolvedValue([])
+
+    expect((await GET(new Request('http://test/api/v1/chat'))).status).toBe(200)
+  })
+
+  it('401s an unattested request once enforced, before the LLM', async () => {
+    process.env.APP_ATTEST_REQUIRED = 'true'
+    mockAuth.mockResolvedValue({ id: 'u1' } as never)
+
+    const res = await POST(postRequest({ message: 'hi' }))
+
+    expect(res.status).toBe(401)
+    expect(mockCoach).not.toHaveBeenCalled()
+    // A valid bearer must not be enough on its own — that is the entire point
+    // of attestation: the token says someone signed in once, not that this
+    // request came from the app.
+    expect(mockAuth).not.toHaveBeenCalled()
   })
 })

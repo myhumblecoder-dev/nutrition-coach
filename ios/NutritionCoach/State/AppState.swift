@@ -18,10 +18,18 @@ final class AppState {
     init(client: APIClient? = nil) {
         let resolved = client ?? APIClient(
             baseURL: AppState.productionURL,
-            tokenStore: KeychainTokenStore()
+            tokenStore: KeychainTokenStore(),
+            attest: AppAttestService()
         )
         self.client = resolved
         self.isSignedIn = resolved.isSignedIn
+    }
+
+    /// Registers the device's App Attest key. A no-op after the first
+    /// successful run, and before sign-in on purpose: attestation gates the
+    /// sign-in call itself, so it has to happen first.
+    func prepareAttestation() async {
+        await client.prepareAttestation()
     }
 
     func signIn(identityToken: String) async {

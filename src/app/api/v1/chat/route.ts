@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { authenticateBearer } from '@/lib/apiAuth'
+import { requireAttestation } from '@/lib/attest'
 import { getChatHistoryForUser } from '@/lib/dashboard'
 import { coachReply } from '@/lib/chat'
 
@@ -10,6 +11,9 @@ export const maxDuration = 60
 const bodySchema = z.object({ message: z.string().trim().min(1).max(4000) })
 
 export async function GET(request: Request) {
+  const { blocked } = await requireAttestation(request)
+  if (blocked) return blocked
+
   const user = await authenticateBearer(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -26,12 +30,18 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Read the body once: the assertion is signed over exactly these bytes, and
+  // a Request stream cannot be consumed twice.
+  const raw = await request.text()
+  const { blocked } = await requireAttestation(request, raw)
+  if (blocked) return blocked
+
   const user = await authenticateBearer(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   let message: string
   try {
-    message = bodySchema.parse(await request.json()).message
+    message = bodySchema.parse(JSON.parse(raw)).message
   } catch {
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }

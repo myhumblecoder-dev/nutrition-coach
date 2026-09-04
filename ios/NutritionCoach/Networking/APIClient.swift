@@ -9,6 +9,7 @@ final class APIClient {
     private let baseURL: URL
     private let session: URLSession
     private let tokenStore: TokenStoring
+    private let attest: AttestProviding?
 
     private let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
@@ -29,10 +30,16 @@ final class APIClient {
         return decoder
     }()
 
-    init(baseURL: URL, session: URLSession = .shared, tokenStore: TokenStoring) {
+    init(
+        baseURL: URL,
+        session: URLSession = .shared,
+        tokenStore: TokenStoring,
+        attest: AttestProviding? = nil
+    ) {
         self.baseURL = baseURL
         self.session = session
         self.tokenStore = tokenStore
+        self.attest = attest
     }
 
     var isSignedIn: Bool { tokenStore.read() != nil }
@@ -55,6 +62,57 @@ final class APIClient {
         // who taps sign out must end up signed out even offline.
         defer { tokenStore.clear() }
         _ = try? await sendIgnoringResponse("/api/v1/auth/signout", method: "POST", body: [:])
+    }
+
+    // MARK: - App Attest
+
+    /// Generates this device's App Attest key and registers it with the server.
+    ///
+    /// A no-op once a key is registered, because Apple allows `attestKey` only
+    /// once per key. The identifier is persisted only after the server accepts
+    /// the attestation, so a failure part-way through simply retries with a
+    /// fresh key next launch rather than stranding an unusable one.
+    ///
+    /// Errors are deliberately swallowed. While APP_ATTEST_REQUIRED is off
+    /// server-side, a device that cannot attest — the Simulator, a failed
+    /// round trip — must still be able to use the app. Once enforcement is on,
+    /// those requests get a 401 from the server, which is the right place for
+    /// that decision to be made.
+    func prepareAttestation() async {
+        guard let attest, attest.isSupported, attest.keyId == nil else { return }
+
+        do {
+            let keyId = try await attest.generateKey()
+            let challenge = try await attestChallenge()
+            let attestation = try await attest.attest(keyId: keyId, challenge: challenge)
+            try await registerAttestation(
+                keyId: keyId, attestation: attestation, challenge: challenge
+            )
+            attest.persist(keyId: keyId)
+        } catch {
+            print("App Attest registration failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func attestChallenge() async throws -> String {
+        let response: AttestChallengeResponse = try await send(
+            "/api/v1/attest/challenge", method: "POST", body: nil,
+            authenticated: false, attested: false
+        )
+        return response.challenge
+    }
+
+    private func registerAttestation(
+        keyId: String, attestation: String, challenge: String
+    ) async throws {
+        // Unauthenticated on purpose: a device attests at first launch, which
+        // may be before the user has an account. The server links it to the
+        // session when there is one.
+        try await sendIgnoringResponse(
+            "/api/v1/attest", method: "POST",
+            body: ["keyId": keyId, "attestation": attestation, "challenge": challenge],
+            authenticated: tokenStore.read() != nil, attested: false
+        )
     }
 
     // MARK: - Data
@@ -94,8 +152,9 @@ final class APIClient {
     // MARK: - Transport
 
     private func makeRequest(
-        _ path: String, method: String, body: [String: String]?, authenticated: Bool
-    ) throws -> URLRequest {
+        _ path: String, method: String, body: [String: String]?,
+        authenticated: Bool, attested: Bool
+    ) async throws -> URLRequest {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = method
 
@@ -109,7 +168,34 @@ final class APIClient {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
 
+        // After the body is set: the assertion is signed over the bytes that
+        // actually go on the wire.
+        if attested { await attachAssertion(to: &request) }
+
         return request
+    }
+
+    /// Signs the request with the device's attested key, if there is one.
+    ///
+    /// Silent when attestation is unavailable or fails. Sending an unattested
+    /// request and letting the server decide is what keeps the app working
+    /// before enforcement is switched on; refusing locally would only move the
+    /// same 401 earlier and break the Simulator.
+    private func attachAssertion(to request: inout URLRequest) async {
+        guard let attest, attest.isSupported, let keyId = attest.keyId else { return }
+
+        // The server hashes the request body, or the path when there is no
+        // body. Signing `httpBody` rather than re-serialising the dictionary
+        // matters: a different key order would produce different bytes and an
+        // assertion that cannot verify.
+        let clientData = request.httpBody ?? Data((request.url?.path ?? "").utf8)
+
+        guard let assertion = try? await attest.assertion(keyId: keyId, over: clientData) else {
+            return
+        }
+
+        request.setValue(keyId, forHTTPHeaderField: "x-attest-key-id")
+        request.setValue(assertion, forHTTPHeaderField: "x-attest-assertion")
     }
 
     private func validate(_ response: URLResponse) throws {
@@ -124,9 +210,12 @@ final class APIClient {
     }
 
     private func send<T: Decodable>(
-        _ path: String, method: String, body: [String: String]?, authenticated: Bool = true
+        _ path: String, method: String, body: [String: String]?,
+        authenticated: Bool = true, attested: Bool = true
     ) async throws -> T {
-        let request = try makeRequest(path, method: method, body: body, authenticated: authenticated)
+        let request = try await makeRequest(
+            path, method: method, body: body, authenticated: authenticated, attested: attested
+        )
         let (data, response) = try await session.data(for: request)
         try validate(response)
         return try decoder.decode(T.self, from: data)
@@ -134,9 +223,12 @@ final class APIClient {
 
     @discardableResult
     private func sendIgnoringResponse(
-        _ path: String, method: String, body: [String: String]?
+        _ path: String, method: String, body: [String: String]?,
+        authenticated: Bool = true, attested: Bool = true
     ) async throws -> Data {
-        let request = try makeRequest(path, method: method, body: body, authenticated: true)
+        let request = try await makeRequest(
+            path, method: method, body: body, authenticated: authenticated, attested: attested
+        )
         let (data, response) = try await session.data(for: request)
         try validate(response)
         return data

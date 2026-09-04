@@ -62,6 +62,12 @@ struct AuthResponse: Codable, Equatable {
     let user: AuthUser
 }
 
+/// A short-lived, server-signed nonce. Opaque to the client: it is hashed
+/// into the attestation and never inspected here.
+struct AttestChallengeResponse: Codable, Equatable {
+    let challenge: String
+}
+
 enum APIError: Error, Equatable {
     case unauthorized
     case badStatus(Int)

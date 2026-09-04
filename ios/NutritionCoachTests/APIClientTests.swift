@@ -6,12 +6,16 @@ import XCTest
 final class StubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var handler: ((URLRequest) -> (Int, Data))?
     nonisolated(unsafe) static var lastRequest: URLRequest?
+    /// Every request in order. `lastRequest` is enough for a single call, but
+    /// App Attest registration makes two.
+    nonisolated(unsafe) static var recorded: [URLRequest] = []
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         Self.lastRequest = request
+        Self.recorded.append(request)
         let (status, data) = Self.handler?(request) ?? (200, Data())
         let response = HTTPURLResponse(
             url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil
@@ -43,6 +47,7 @@ final class APIClientTests: XCTestCase {
     override func tearDown() {
         StubURLProtocol.handler = nil
         StubURLProtocol.lastRequest = nil
+        StubURLProtocol.recorded = []
         super.tearDown()
     }
 
