@@ -1,7 +1,14 @@
 # App Review notes — Roughly
 
-Pasted into the **Notes** field of the App Review Information section. The
-headings below are for reading here; the field takes plain prose.
+> **Do not paste this file into App Store Connect.** Only the fenced block under
+> "Notes for the reviewer" goes to Apple, and `ios/listing/review-notes.md` holds
+> exactly that, already extracted. Everything after it — the checklist and the
+> rejection risks — is internal. Sending it would hand a reviewer an unticked
+> list of things you have not verified and a written argument for why the app
+> might warrant rejection.
+>
+> The whole file is 4,858 characters; the field caps at 4,000, so pasting it
+> fails on length before it can do that damage. That is luck, not a safeguard.
 
 ## Notes for the reviewer
 

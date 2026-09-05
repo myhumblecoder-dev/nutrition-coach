@@ -40,10 +40,15 @@ export const REVIEW_NOTES = {
  * missing field pass a length check.
  */
 export function extract(source, heading) {
-  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const section = source.match(new RegExp(`^## ${escaped}\\n([\\s\\S]*?)(?=^## |\\Z)`, 'm'))
-  if (!section) return null
-  const fence = section[1].match(/```\n([\s\S]*?)\n```/)
+  // Split on headings rather than bounding the section with a lookahead. The
+  // previous form ended `(?=^## |\Z)`, and JavaScript has no \Z assertion — it
+  // matched a literal "Z". It worked only because every heading happened to be
+  // followed by another one, and would have returned null for the last field
+  // in a file.
+  const sections = source.split(/^## /m)
+  const section = sections.find((s) => s.startsWith(`${heading}\n`))
+  if (section === undefined) return null
+  const fence = section.match(/```\n([\s\S]*?)\n```/)
   return fence ? fence[1] : null
 }
 
