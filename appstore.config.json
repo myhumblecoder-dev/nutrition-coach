@@ -20,6 +20,8 @@
     "noThirdPartySignIn": [],
     "noBackgroundModes": true
   },
-  "gates": [],
+  "gates": [
+    "node scripts/check-listing-lengths.mjs"
+  ],
   "appName": "Roughly Fitness Coach"
 }

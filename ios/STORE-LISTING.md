@@ -32,10 +32,13 @@ budget saying nothing. This one says what the app actually does instead.
 Editable without a new build, so this is where a change of emphasis goes.
 
 ```
-Tell it what you ate. It logs the meal, remembers what you said last week, and
-asks how the week actually went. No forms, no gram-by-gram data entry, no
-pretending the numbers are exact.
+Tell it what you ate. It logs the meal, remembers last week, and asks how this one actually went. No forms, no gram-by-gram entry, no pretending the numbers are exact.
 ```
+
+167 characters, on one line. Kept unwrapped because the hard line breaks in the
+earlier draft would have pasted into App Store Connect as literal breaks, and
+because wrapping is what hid the fact that it was 186 characters — sixteen over
+the limit — in a field whose whole constraint is its length.
 
 ## Description (4000)
 
