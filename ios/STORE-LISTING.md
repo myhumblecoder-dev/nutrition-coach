@@ -1,9 +1,23 @@
-# App Store listing — Roughly
+# App Store listing — Roughly Fitness Coach
 
 The copy that goes into App Store Connect. Kept in the repo so a change to what
 the app does and a change to what the listing claims land in the same diff.
 
-Field lengths are Apple's hard limits; the counts below are the current text.
+**This file is the source.** Each fenced block below is the field verbatim —
+paste it without reflowing. `ios/listing/` holds the same values split one per
+file for open-and-copy during a manual submission; those are generated, never
+hand-edited:
+
+```
+node scripts/generate-listing-files.mjs           # write them
+node scripts/generate-listing-files.mjs --check   # verify they match this file
+node scripts/check-listing-lengths.mjs            # verify every field fits
+```
+
+Both checks are `appstore.config.json` gates, so a full `appstore check` runs
+them. Field lengths are Apple's hard limits and are measured, not asserted — the
+promotional text once sat at 186 characters in a 170-character field under a
+note claiming it fit.
 
 ## Name (30)
 

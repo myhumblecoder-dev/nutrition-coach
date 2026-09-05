@@ -21,7 +21,8 @@
     "noBackgroundModes": true
   },
   "gates": [
-    "node scripts/check-listing-lengths.mjs"
+    "node scripts/check-listing-lengths.mjs",
+    "node scripts/generate-listing-files.mjs --check"
   ],
   "appName": "Roughly Fitness Coach"
 }
