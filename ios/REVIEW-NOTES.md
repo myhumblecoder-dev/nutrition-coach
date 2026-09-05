@@ -10,6 +10,10 @@ Roughly is a personal diet and training coach. You tell it what you ate and how
 you trained in plain language, it works out the rest, and once a week it asks
 how the week actually went.
 
+The App Store listing is "Roughly Fitness Coach"; the app itself is "Roughly" on
+the home screen and throughout the interface. The shorter name is the product
+name and avoids truncating under the icon.
+
 SIGNING IN
 
 Sign in with Apple is the only sign-in method, so no demo account is needed —

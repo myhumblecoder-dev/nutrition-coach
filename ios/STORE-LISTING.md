@@ -8,17 +8,24 @@ Field lengths are Apple's hard limits; the counts below are the current text.
 ## Name (30)
 
 ```
-Roughly
+Roughly Fitness Coach
 ```
+
+21 characters. The App Store name, which is **not** the home-screen name:
+`CFBundleDisplayName` stays "Roughly" so the icon caption does not truncate.
+Two names is deliberate, not drift — the store needs to be findable, the home
+screen needs to be short.
 
 ## Subtitle (30)
 
 ```
-A coach who asks, not counts
+Stop counting. Start talking.
 ```
 
-`Roughly: Diet Coach` was the alternative. Rejected — a subtitle that repeats
-the name spends half the budget saying nothing.
+29 characters. "A coach who asks, not counts" was the earlier draft, written when
+the app was called just "Roughly". It stopped working the moment the name ended
+in "Coach": a subtitle that repeats a word already in the name spends half the
+budget saying nothing. This one says what the app actually does instead.
 
 ## Promotional text (170)
 
@@ -84,13 +91,16 @@ have a health condition or any history of disordered eating.
 ## Keywords (100, comma-separated, no spaces)
 
 ```
-meal,calories,protein,macros,diet,coach,nutrition,food,log,tracker,weight,fitness,check-in,habit
+meal,calories,protein,macros,diet,nutrition,food,log,tracker,weight,check-in,habit,training,journal
 ```
 
-95 characters. "photo" is deliberately absent: the iOS app has no camera feature,
-and a keyword the app cannot deliver on invites a 2.3.7 metadata rejection.
-"Roughly" is absent too — the app name is already indexed, so repeating it in
-keywords wastes the budget.
+99 characters. Nothing here repeats the app name: Apple indexes "Roughly",
+"Fitness" and "Coach" from the name itself, so `coach` and `fitness` were
+removed once the name grew — that recovered 14 characters, spent on `training`
+and `journal`.
+
+"photo" is deliberately absent: the iOS app has no camera feature, and a keyword
+the app cannot deliver on invites a 2.3.7 metadata rejection.
 
 ## Support URL
 
