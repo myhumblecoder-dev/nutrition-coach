@@ -125,12 +125,22 @@ Primary: **Health & Fitness**. Secondary: **Food & Drink**.
 
 ## Age rating
 
-17+ is not required. Expect these answers:
+The questionnaire is seven steps. Every answer is None/No **except one**.
 
-- Unrestricted web access: **No** — the app has no in-app browser.
-- Medical/treatment information: **No** — it gives no diagnosis or treatment,
-  and the disclaimer says so in the app, the description and the policy.
-- Simulated gambling, contests, horror, violence, sexual content: **No**.
+| Question | Answer | Why |
+|---|---|---|
+| Unrestricted web access | No | No in-app browser; `appstore check` confirms 0 hits across the Swift sources. |
+| User-generated content | No | The flag is about *broad distribution*. Meals and check-in answers are a private journal and never leave the account. |
+| Messaging and chat | No | The definition is users communicating **with one another**. The Coach tab is a user talking to a model; there are no other users. |
+| Social media, advertising | No | No feed, no ads. |
+| Medical or treatment information | None | No diagnoses, no management of conditions. Consistent with the "not medical advice" disclaimer in the description, the policy and the review notes. |
+| **Health or wellness topics** | **Yes** | *"Self-care or lifestyle recommendations"* — that is the whole product. The coach tells you to go to bed and whether your protein is fine. |
+| Violence, sexual content, horror, gambling, contests, profanity, drugs and alcohol | None | The alcohol entry kind was retired from the extraction code. |
+
+That single **Yes** raises the rating above 4+, which is the correct outcome for
+a diet and calorie app rather than a problem to route around. The row that
+invites a wrong answer is "Messaging and Chat": the app has a chat screen, but
+the question is about user-to-user communication.
 
 ## App Privacy answers
 
