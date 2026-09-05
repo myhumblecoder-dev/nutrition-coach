@@ -35,7 +35,17 @@ describe('analyzeMeal (action wrapper)', () => {
 
     const result = await analyzeMeal('https://example.com/p.jpg', 'a caption')
 
-    expect(analyzeMealCore).toHaveBeenCalledWith('https://example.com/p.jpg', 'a caption')
+    // The session's user id is what gates the cap, so it must be threaded
+    // through rather than left to the caller to supply.
+    expect(analyzeMealCore).toHaveBeenCalledWith('u1', 'https://example.com/p.jpg', 'a caption')
     expect(result).toBe(analysis)
+  })
+
+  it('surfaces the cap copy rather than a generic failure', async () => {
+    const { UsageLimitError } = await import('@/lib/limits')
+    vi.mocked(auth).mockResolvedValue({ user: { id: 'u1' } } as never)
+    vi.mocked(analyzeMealCore).mockRejectedValue(new UsageLimitError('enough photos, hon'))
+
+    await expect(analyzeMeal('https://example.com/p.jpg')).rejects.toThrow('enough photos, hon')
   })
 })

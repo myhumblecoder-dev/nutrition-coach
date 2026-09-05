@@ -33,6 +33,96 @@ model User {
   profile        UserProfile?
   telegramChat  TelegramChat?
   telegramLinkToken TelegramLinkToken?
+  deviceTokens  DeviceToken[]
+  weeklyCheckIns WeeklyCheckIn[]
+  usageEvents   UsageEvent[]
+  attestedDevices AttestedDevice[]
+}
+
+// An App Attest key that Apple has vouched for: proof that a request came from
+// a genuine, unmodified instance of this app on real Apple hardware.
+//
+// A bearer token alone proves someone once signed in; it says nothing about
+// what is making the request now. Attestation is what stops a leaked token
+// being replayed from a script.
+model AttestedDevice {
+  id        String   @id @default(cuid())
+  keyId     String   @unique
+  // Base64 SPKI of the key Apple attested. Text because it exceeds the
+  // default varchar on some providers.
+  publicKey String   @db.Text
+  // Apple increments this per assertion. It must strictly increase, which is
+  // what makes a captured assertion useless a second time.
+  signCount Int      @default(0)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// One row per billable model call, written after the gate passes.
+//
+// The chat cap previously counted ChatMessage rows, which undercounts: a reply
+// costs two model calls, and the vision path writes no chat row at all. Photo
+// analysis in particular left no trace unless the user confirmed the meal, so
+// the abuse that mattered — analyse repeatedly, never save — was invisible.
+model UsageEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // 'chat' | 'vision'. A bare string, like every other kind column here.
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@index([userId, kind, createdAt])
+}
+
+// The weekly review: am I fatter or thinner, stronger or weaker, how am I
+// sleeping, how am I feeling. Four questions the user answers in their own
+// words — the app never substitutes a computed number for a judgement the
+// person can make directly.
+//
+// Every answer stores the verbatim text beside it, the same receipts rule the
+// pillar tables follow: a summary the user never said is a fabrication.
+model WeeklyCheckIn {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Monday-anchored, from startOfWeek() — one review per person per week.
+  weekOf   DateTime
+
+  bodyAnswer         String?
+  bodySourceText     String?
+  strengthAnswer     String?
+  strengthSourceText String?
+  sleepAnswer        String?
+  sleepSourceText    String?
+  moodAnswer         String?
+  moodSourceText     String?
+
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, weekOf])
+  @@index([userId])
+}
+
+// One row per installed app instance. Registering a token IS the opt-in:
+// the iOS toggle registers on grant and deletes on revoke, so a user with no
+// rows receives nothing. A user may have several (phone, iPad, reinstall).
+model DeviceToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform  String   @default("ios")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Account {

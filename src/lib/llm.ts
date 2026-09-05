@@ -1,3 +1,9 @@
+// The local model. Overridden with OLLAMA_MODEL, which is deliberately
+// separate from LLM_MODEL: one names the hosted model, the other the local
+// one, and sharing a single variable meant flipping providers sent a Claude
+// model name to Ollama.
+const OLLAMA_DEFAULT_MODEL = 'gemma4:26b';
+
 export async function generate(prompt: string): Promise<string> {
   const provider = process.env.LLM_PROVIDER;
 
@@ -31,7 +37,9 @@ export async function generate(prompt: string): Promise<string> {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gemma4:26b',
+      // OLLAMA_MODEL, not LLM_MODEL: the latter names the hosted model, and
+      // sending "claude-..." to Ollama asks it for a model it cannot have.
+      model: process.env.OLLAMA_MODEL ?? OLLAMA_DEFAULT_MODEL,
       prompt,
       stream: false,
     }),
@@ -101,12 +109,12 @@ export async function analyzePhoto(
     return data.content[0].text;
   }
 
-  const baseUrl = process.env.LLM_URL ?? 'http://localhost:11434';
+  const baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
   const res = await fetch(`${baseUrl}/api/generate`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      model: process.env.LLM_MODEL ?? 'gemma4:26b',
+      model: process.env.OLLAMA_MODEL ?? OLLAMA_DEFAULT_MODEL,
       prompt: systemPrompt,
       images: [base64],
       stream: false,

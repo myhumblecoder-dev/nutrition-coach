@@ -38,7 +38,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 p-4">
       <Card className="w-full max-w-sm border-[#e4e4e7] bg-white p-8 shadow-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Nutrition Coach</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Roughly</h1>
         </div>
 
         {errorMessage && (

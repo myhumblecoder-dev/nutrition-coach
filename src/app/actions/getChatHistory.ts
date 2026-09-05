@@ -1,7 +1,7 @@
 'use server';
 
 import { auth } from '@/auth';
-import { prisma } from '@/lib/db';
+import { getChatHistoryForUser } from '@/lib/dashboard';
 
 export async function getChatHistory() {
   const session = await auth();
@@ -10,17 +10,7 @@ export async function getChatHistory() {
     throw new Error('Unauthorized');
   }
 
-  const messages = await prisma.chatMessage.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-  });
+  const messages = await getChatHistoryForUser(session.user.id);
 
-  return messages
-    .reverse()
-    .map((m) => ({
-      id: m.id,
-      role: m.role,
-      content: m.content,
-    }));
+  return messages.map((m) => ({ id: m.id, role: m.role, content: m.content }));
 }

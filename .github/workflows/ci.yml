@@ -1,10 +1,19 @@
 name: CI
 
 on:
+  # ios/** is Swift only — running install/lint/build/typecheck/test against a
+  # change no JavaScript can see is pure cost. The iOS workflow mirrors this
+  # with the inverse filter.
   pull_request:
     branches: [main, develop, dispatch/integration]
+    paths-ignore:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
   push:
     branches: [main, develop]
+    paths-ignore:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
 
 # A newer push to the same branch/PR makes the in-flight run obsolete; cancel it
 # rather than paying for a result nobody reads.

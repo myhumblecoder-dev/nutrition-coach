@@ -42,3 +42,15 @@ next-env.d.ts
 
 /src/generated/prisma
 !.env.example
+
+# Xcode / iOS
+# NutritionCoach.xcodeproj is generated from ios/project.yml by XcodeGen —
+# the spec is the source of truth, so the 3000-line pbxproj stays out of
+# review. Run `xcodegen generate` in ios/ after cloning.
+ios/NutritionCoach.xcodeproj/
+ios/DerivedData/
+# Tools/screenshots.sh builds here with -derivedDataPath. The root /build rule
+# above is anchored to the repo root and does not cover it.
+ios/build/
+**/xcuserdata/
+*.xcuserstate

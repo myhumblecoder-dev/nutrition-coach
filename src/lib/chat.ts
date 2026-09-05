@@ -3,6 +3,8 @@ import { generate } from "@/lib/llm";
 import { extractHealthFacts } from "@/lib/extraction";
 import { caffeineStatus } from "@/lib/caffeine";
 import { startOfWeek, appTimeZone, nowLine } from "@/lib/time";
+import { COACH_PREAMBLE } from "@/lib/voice";
+import { isOverLimit, recordUsage, todaySuccesses, limitMessage } from "@/lib/limits";
 import { z } from "zod";
 
 function startOfToday(now: Date): Date {
@@ -31,6 +33,18 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
 
   const cleanText = validation.data;
 
+  // Enforced here rather than in the routes so no future caller can bypass it:
+  // the Telegram webhook, the v1 API and any later surface all land on this
+  // function. Nothing is persisted and no model is called once over the cap —
+  // an abusive client must not be able to grow the table either.
+  if (await isOverLimit(userId, "chat")) {
+    return { assistantReply: limitMessage(await todaySuccesses(userId)) };
+  }
+
+  // Recorded before the call: a timeout still costs money, and counting only
+  // successes would let a failing loop run free.
+  await recordUsage(userId, "chat");
+
   const history = await prisma.chatMessage.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
@@ -41,8 +55,7 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     .reverse()
     .map((m) => `${m.role}: ${m.content}`);
 
-  // Both the web ChatClient and Telegram render raw text, so markdown litters both.
-  let coachPersona = nowLine() + " You are a friendly daily nutrition and fitness coach... Reply in plain conversational text — no markdown, no #, no *, no bullet lists. ";
+  let coachPersona = nowLine() + " " + COACH_PREAMBLE + " ";
 
   const target = await prisma.dailyTarget.findUnique({
     where: { userId },
