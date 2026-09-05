@@ -21,9 +21,6 @@ please use your own Apple ID. Hide My Email works normally; the app only ever
 receives the relay address. A brand-new account starts empty, which is the
 intended first-run experience.
 
-If you would prefer an account with history already in it rather than an empty
-one, email <SUPPORT EMAIL> and we will provision one within a few hours.
-
 WHERE TO LOOK
 
 • "This week" is the first tab and the core of the product: the coach asks how
@@ -38,8 +35,9 @@ WHERE TO LOOK
 ACCOUNT DELETION (Guideline 5.1.1(v))
 
 Settings → Delete account. It asks once to confirm and then permanently erases
-the account and everything attached to it — meals, photos, chat history,
-check-ins, measurements and notification tokens. It is immediate and is not a
+the account and everything attached to it — meals, chat history, check-ins,
+measurements, notification tokens, and any meal photos logged through the web
+app. It is immediate and is not a
 support request or an email flow.
 
 HEALTH CLAIMS (Guideline 1.4.1)
@@ -47,7 +45,8 @@ HEALTH CLAIMS (Guideline 1.4.1)
 Roughly makes no medical claims. It does not diagnose, treat or offer medical
 advice, and it says so in the app, in the App Store description and in the
 privacy policy. Its calorie and protein figures are explicitly presented as
-estimates from a photograph — the app is named for that.
+estimates from what you tell it, never as measurements — the app is named for
+that.
 
 PUSH NOTIFICATIONS
 

@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs'
 
 export const SOURCE = 'ios/STORE-LISTING.md'
+export const REVIEW_SOURCE = 'ios/REVIEW-NOTES.md'
 
 // Heading in STORE-LISTING.md → output basename and Apple's character limit.
 // A limit of null means Apple does not cap the field.
@@ -17,6 +18,15 @@ export const FIELDS = [
   { heading: 'Marketing URL', file: 'marketing-url', limit: null },
   { heading: 'Privacy policy URL', file: 'privacy-policy-url', limit: null },
 ]
+
+// The App Review Information "Notes" box, from a different file: it is written
+// for a reviewer, not a customer, and lives with the submission checklist.
+export const REVIEW_NOTES = {
+  heading: 'Notes for the reviewer',
+  file: 'review-notes',
+  limit: 4000,
+  source: REVIEW_SOURCE,
+}
 
 /**
  * The first fenced block under a `## ` heading, verbatim.
@@ -39,5 +49,10 @@ export function extract(source, heading) {
 
 export function readFields() {
   const source = readFileSync(SOURCE, 'utf8')
-  return FIELDS.map((field) => ({ ...field, value: extract(source, field.heading) }))
+  const fields = FIELDS.map((f) => ({ ...f, value: extract(source, f.heading), source: SOURCE }))
+
+  const reviewSource = readFileSync(REVIEW_SOURCE, 'utf8')
+  fields.push({ ...REVIEW_NOTES, value: extract(reviewSource, REVIEW_NOTES.heading) })
+
+  return fields
 }
