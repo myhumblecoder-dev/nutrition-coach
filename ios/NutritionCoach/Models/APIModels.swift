@@ -74,6 +74,96 @@ enum APIError: Error, Equatable {
     case notSignedIn
 }
 
+// MARK: - Dashboard
+
+/// Everything the Today screen renders, from a single request.
+///
+/// The web assembles the same four pieces in a server component, where the
+/// round trips are free. On a phone they are not, and a dashboard arriving in
+/// four parts shows four loading states.
+struct DashboardResponse: Codable, Equatable {
+    let today: TodayResponse
+    let week: WeekResponse
+    let activity: [ActivityItem]
+    /// The coach's most recent line. Null before the coach has ever spoken,
+    /// in which case the strip is not shown at all.
+    let coachMessage: String?
+}
+
+struct TrainingWeek: Codable, Equatable {
+    let resistance: Int
+    let hiit: Int
+    let core: Int
+    let stepsToday: Int
+    let days: TrainingDays
+}
+
+/// Seven booleans per discipline, Monday-first, matching the M T W T F S S
+/// dot grid on the web.
+struct TrainingDays: Codable, Equatable {
+    let resistance: [Bool]
+    let hiit: [Bool]
+    let core: [Bool]
+}
+
+struct CaffeineStatus: Codable, Equatable {
+    let totalMg: Double
+    let currentMg: Double
+    let hoursUntilEffectsFade: Double
+    let hoursUntilNegligible: Double
+}
+
+struct RecoveryToday: Codable, Equatable {
+    let sleepHours: Double?
+    let waterLiters: Double?
+    let caffeine: CaffeineStatus?
+}
+
+struct MoodToday: Codable, Equatable {
+    let score: Int
+    let note: String?
+}
+
+struct MeasurementLatest: Codable, Equatable {
+    let weightLb: Double?
+    let waistIn: Double?
+}
+
+struct WeightPoint: Codable, Equatable, Identifiable {
+    let at: Date
+    let weightLb: Double
+
+    var id: Date { at }
+}
+
+struct WeekResponse: Codable, Equatable {
+    let training: TrainingWeek
+    let recovery: RecoveryToday
+    /// Seven days ending today: the logging streak dots.
+    let streak: [Bool]
+    let weights: [WeightPoint]
+    let mood: MoodToday?
+    let measurement: MeasurementLatest?
+}
+
+/// One receipt: what the user said, and what the coach logged from it.
+///
+/// `sourceText` is the evidence for the product's central claim — that every
+/// number on the dashboard traces back to something you told the coach. It is
+/// empty for a row the user created directly rather than through conversation.
+struct ActivityItem: Codable, Equatable, Identifiable {
+    let id: String
+    let at: Date
+    let sourceText: String
+    let source: String
+    let kind: String
+    let label: String
+    let photoUrl: String?
+
+    /// The web shows a "via chat" badge for these.
+    var isFromConversation: Bool { source == "extracted" }
+}
+
 // MARK: - Weekly check-in
 
 /// A calendar date with no time and no timezone — "the week of 24 August",

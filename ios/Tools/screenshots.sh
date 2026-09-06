@@ -14,9 +14,16 @@ cd "$(dirname "$0")/.."
 BUNDLE=dev.myhumblecoder.nutritioncoach
 OUT=Screenshots
 
-# name:tab — Coach leads because it is the strongest shot and the first two
-# are all most people see in search results.
-SHOTS=("1-coach:1" "2-checkin:0" "3-review:2" "4-settings:3")
+# name:tab:extra-args — Today leads twice: the rings, then the receipts feed
+# below the fold. The feed is the product's argument (every number came from
+# something you said), and the first two shots are all most people see in
+# search results.
+SHOTS=(
+  "1-today:0:"
+  "2-receipts:0:-demo-scroll-feed"
+  "3-chat:1:"
+  "4-settings:2:"
+)
 
 device_udid() { # $1 = device name, exactly as simctl lists it
   xcrun simctl list devices available \
@@ -46,12 +53,15 @@ capture() { # $1 = device name, $2 = output subdirectory
   xcrun simctl ui "$udid" appearance light
 
   for spec in "${SHOTS[@]}"; do
+    IFS=':' read -r name tab extra <<< "$spec"
     xcrun simctl terminate "$udid" "$BUNDLE" >/dev/null 2>&1 || true
-    xcrun simctl launch "$udid" "$BUNDLE" -demo-data -demo-tab "${spec##*:}" >/dev/null
+    # shellcheck disable=SC2086 — $extra is a deliberate word-split of flags.
+    xcrun simctl launch "$udid" "$BUNDLE" -demo-data -demo-tab "$tab" $extra >/dev/null
     # The views load through the (stubbed) network layer, so give the real
-    # async task time to land rather than shooting a ProgressView.
-    sleep 4
-    xcrun simctl io "$udid" screenshot "$OUT/$2/${spec%%:*}.png" >/dev/null 2>&1
+    # async task time to land rather than shooting a ProgressView. The feed
+    # shot also waits out its scroll animation.
+    sleep 6
+    xcrun simctl io "$udid" screenshot "$OUT/$2/$name.png" >/dev/null 2>&1
   done
 }
 

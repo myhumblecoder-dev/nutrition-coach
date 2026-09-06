@@ -8,9 +8,11 @@ WHAT IT DOES
 
 • A coach that remembers. It has your history — what you ate, how you trained, what you said last week — and answers in that context rather than reciting generic advice. It is brisk and a little dry, and it is never on the side of the food label.
 
-• Weekly check-ins. Four questions, in your own words: body, strength, sleep, mood. None of them ask for a number, because the point is what you noticed, not what a scale says.
+• Today is a mirror, not a form. Rings for calories and protein, bars for training, a weight trend, a seven-day streak. You never fill any of it in — every number arrived because you mentioned something.
 
-• A review that keeps the receipts. Every week is stored next to the words you actually used, not just the app's summary of them. No charts, no trend lines — a computed trend would be the app asserting a precision it does not have.
+• Receipts under every number. Below the graphs sits what you actually said, next to what was logged from it: "went for a 45 minute walk in the park" and, under it, the session it created. Nothing is inferred without showing its source.
+
+• The coach checks in once a week — as a message, not a questionnaire. Four things it wants to know, asked in conversation, answered however you like.
 
 WHAT IT DOES NOT DO
 

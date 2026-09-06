@@ -67,9 +67,11 @@ WHAT IT DOES
 
 • A coach that remembers. It has your history — what you ate, how you trained, what you said last week — and answers in that context rather than reciting generic advice. It is brisk and a little dry, and it is never on the side of the food label.
 
-• Weekly check-ins. Four questions, in your own words: body, strength, sleep, mood. None of them ask for a number, because the point is what you noticed, not what a scale says.
+• Today is a mirror, not a form. Rings for calories and protein, bars for training, a weight trend, a seven-day streak. You never fill any of it in — every number arrived because you mentioned something.
 
-• A review that keeps the receipts. Every week is stored next to the words you actually used, not just the app's summary of them. No charts, no trend lines — a computed trend would be the app asserting a precision it does not have.
+• Receipts under every number. Below the graphs sits what you actually said, next to what was logged from it: "went for a 45 minute walk in the park" and, under it, the session it created. Nothing is inferred without showing its source.
+
+• The coach checks in once a week — as a message, not a questionnaire. Four things it wants to know, asked in conversation, answered however you like.
 
 WHAT IT DOES NOT DO
 
@@ -178,20 +180,16 @@ required — `TARGETED_DEVICE_FAMILY` is `1`, so Apple asks for no iPad set.
 
 Four, in this order, because the first two are all most people scroll:
 
-1. **Coach** — a real exchange: a meal logged by talking, and the coach saying
-   out loud that 140g of protein is an estimate because the package number is a
-   legal tolerance. The product's whole argument, in the app's own voice.
-2. **This week** — the check-in question, verbatim from `QUESTIONS.body`.
-3. **Review** — two weeks of answers, each kept next to the words the user
-   actually used.
+1. **Today** — the rings, the readiness bars and the streak dots. Reads at a
+   glance and shows the product is a dashboard, not a data-entry app.
+2. **Today, scrolled to the receipts** — "From your conversation": the quoted
+   words above the thing that got logged from them. The strongest shot in the
+   set, because it is the only one that shows *why* the numbers are there.
+3. **Chat** — a real exchange, with the coach saying out loud that 140g of
+   protein is an estimate because the package number is a legal tolerance.
 4. **Settings** — notifications, the legal links, and the delete-account row.
    Also the fastest way for a reviewer to confirm 5.1.1(v) is satisfied.
 
-The shots are of the four tabs the app actually has. There is deliberately no
-meal-photo screenshot: photo logging exists on the web, **not** in the iOS app,
-and a screenshot of a feature the binary does not contain is a 2.3.3 rejection.
-
-Coach leads rather than the check-in, even though the check-in is the product's
-core surface, because the check-in screen is mostly empty on load — one
-question, one field, and roughly two-thirds blank space. Worth fixing in the
-app; until then it is a weak first impression and a poor lead shot.
+There is deliberately no meal-photo screenshot: photo logging exists on the web,
+**not** in the iOS app, and a screenshot of a feature the binary does not
+contain is a 2.3.3 rejection.

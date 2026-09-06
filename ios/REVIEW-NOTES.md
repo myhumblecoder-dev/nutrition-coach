@@ -30,14 +30,19 @@ intended first-run experience.
 
 WHERE TO LOOK
 
-• "This week" is the first tab and the core of the product: the coach asks how
-  the week went and responds to what you actually say.
-• "Coach" is free-form chat.
-• Logging happens by talking: "chicken burrito bowl, no rice, and I lifted this
-  morning" in the Coach tab is a complete entry. There is no separate logging
+• "Today" is the first tab: calorie and protein rings, training bars, a weight
+  trend, and — below them — "From your conversation", which shows the words the
+  user typed next to what the coach logged from them. Nothing on this screen is
+  an input.
+• "Chat" is the coach. Logging happens by talking: "chicken burrito bowl, no
+  rice, and I lifted this morning" is a complete entry. There is no logging
   form and no camera feature in this app.
 • Settings holds notifications, the privacy policy and support links, and
   "Delete account".
+
+A brand-new account has an empty Today screen, because there is nothing to
+mirror yet. Send the coach a message describing a meal and it will appear on
+Today with the sentence that produced it.
 
 ACCOUNT DELETION (Guideline 5.1.1(v))
 
