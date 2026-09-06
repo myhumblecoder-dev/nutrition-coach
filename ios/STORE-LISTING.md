@@ -67,7 +67,7 @@ WHAT IT DOES
 
 • A coach that remembers. It has your history — what you ate, how you trained, what you said last week — and answers in that context rather than reciting generic advice. It is brisk and a little dry, and it is never on the side of the food label.
 
-• Today is a mirror, not a form. Rings for calories and protein, bars for training, a weight trend, a seven-day streak. You never fill any of it in — every number arrived because you mentioned something.
+• Today is a mirror, not a form. Rings for calories and protein, bars for training, a weight trend, the last seven days at a glance. You never fill any of it in — every number arrived because you mentioned something.
 
 • Receipts under every number. Below the graphs sits what you actually said, next to what was logged from it: "went for a 45 minute walk in the park" and, under it, the session it created. Nothing is inferred without showing its source.
 
@@ -85,6 +85,12 @@ NOT MEDICAL ADVICE
 
 Roughly is a coach, not a clinician. Its estimates are approximations and nothing it says is medical advice, diagnosis or treatment. Talk to a doctor or a registered dietitian before changing how you eat or train — particularly if you have a health condition or any history of disordered eating.
 ```
+
+The word "streak" is deliberately avoided in the Today bullet even though the
+web component is named `streak`: the description also promises "No streaks",
+meaning no gamified pressure. The dots are a record of which days were logged,
+not a run to protect, and calling them a streak made the description contradict
+itself two paragraphs later.
 
 ## Keywords (100, comma-separated, no spaces)
 
