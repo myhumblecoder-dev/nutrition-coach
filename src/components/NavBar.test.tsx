@@ -38,7 +38,7 @@ describe('NavBar', () => {
 
   it('renders the wordmark', async () => {
     render(await NavBar())
-    expect(screen.getByText('Nutrition Coach')).toBeInTheDocument()
+    expect(screen.getByText('Roughly')).toBeInTheDocument()
   })
 
   it('signed out shows a sign-in icon link to /sign-in', async () => {

@@ -1,5 +1,12 @@
 import { analyzePhoto } from '@/lib/llm'
 import { z } from 'zod'
+import {
+  isOverLimit,
+  recordUsage,
+  todaySuccesses,
+  photoLimitMessage,
+  UsageLimitError,
+} from '@/lib/limits'
 
 // Vision models return fractional estimates despite integer instructions;
 // round rather than reject.
@@ -29,7 +36,21 @@ function extractJson(response: string): string {
   return response.slice(start, end + 1)
 }
 
-export async function analyzeMeal(photoUrl: string, hint?: string) {
+/**
+ * Vision is the most expensive call in the app, so the cap is enforced here
+ * rather than at the call sites: the server action, the Telegram webhook and
+ * any later surface all land on this function, and a gate in the routes could
+ * be forgotten by the next one.
+ */
+export async function analyzeMeal(userId: string, photoUrl: string, hint?: string) {
+  if (await isOverLimit(userId, 'vision')) {
+    throw new UsageLimitError(photoLimitMessage(await todaySuccesses(userId)))
+  }
+
+  // Recorded before the call, not after: a timeout or a 500 still cost money,
+  // and counting only successes would let a failing loop run free.
+  await recordUsage(userId, 'vision')
+
   const hintBlock = hint
     ? `The user says this meal is: "${hint}". Trust their description of what the food IS; use the photo to judge portions; any numbers the user states win.\n`
     : ''

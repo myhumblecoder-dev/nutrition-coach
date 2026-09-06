@@ -6,6 +6,18 @@ vi.mock('@/lib/llm', () => ({
   analyzePhoto: vi.fn()
 }))
 
+// The cap has its own tests; stubbed off here so these exercise parsing.
+vi.mock('@/lib/limits', () => ({
+  isOverLimit: vi.fn().mockResolvedValue(false),
+  recordUsage: vi.fn().mockResolvedValue(undefined),
+  todaySuccesses: vi.fn().mockResolvedValue(null),
+  photoLimitMessage: vi.fn(() => 'enough photos'),
+  UsageLimitError: class UsageLimitError extends Error {
+    userMessage: string
+    constructor(m: string) { super(m); this.userMessage = m }
+  },
+}))
+
 describe('analyzeMeal (lib)', () => {
   it('returns parsed food items and threads the caption hint', async () => {
     vi.mocked(analyzePhoto).mockResolvedValue(
@@ -16,7 +28,7 @@ describe('analyzeMeal (lib)', () => {
       })
     )
 
-    const result = await analyzeMeal('https://example.com/p.jpg', 'two fried eggs')
+    const result = await analyzeMeal('u1', 'https://example.com/p.jpg', 'two fried eggs')
 
     expect(result.foodItems[0].name).toBe('Egg')
     expect(result.totalCalories).toBe(70)
@@ -36,7 +48,7 @@ describe('analyzeMeal (lib)', () => {
       '\n```'
     vi.mocked(analyzePhoto).mockResolvedValue(fenced)
 
-    const result = await analyzeMeal('https://example.com/photo.jpg')
+    const result = await analyzeMeal('u1', 'https://example.com/photo.jpg')
 
     expect(result.totalCalories).toBe(150)
     expect(result.foodItems[0].protein).toBe(8)
@@ -44,14 +56,14 @@ describe('analyzeMeal (lib)', () => {
 
   it('rejects non-JSON and schema-invalid responses', async () => {
     vi.mocked(analyzePhoto).mockResolvedValue('Not a JSON string')
-    await expect(analyzeMeal('https://example/bad.jpg')).rejects.toThrow(
+    await expect(analyzeMeal('u1', 'https://example/bad.jpg')).rejects.toThrow(
       'Vision API returned invalid JSON structure'
     )
 
     vi.mocked(analyzePhoto).mockResolvedValue(
       JSON.stringify({ foodItems: [{ name: 'Egg', portion: '1', calories: 70, protein: 6 }], totalProtein: 6 })
     )
-    await expect(analyzeMeal('https://example/bad-schema.jpg')).rejects.toThrow(
+    await expect(analyzeMeal('u1', 'https://example/bad-schema.jpg')).rejects.toThrow(
       'Vision API returned invalid JSON structure'
     )
   })

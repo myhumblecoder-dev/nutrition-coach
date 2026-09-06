@@ -5,6 +5,15 @@ import { generate } from '@/lib/llm'
 import { extractHealthFacts } from '@/lib/extraction'
 import { caffeineStatus } from '@/lib/caffeine'
 
+// The cap has its own tests; here it is stubbed off so the existing cases
+// exercise the reply path rather than the limit.
+vi.mock('@/lib/limits', () => ({
+  isOverLimit: vi.fn().mockResolvedValue(false),
+  recordUsage: vi.fn().mockResolvedValue(undefined),
+  todaySuccesses: vi.fn().mockResolvedValue(null),
+  limitMessage: vi.fn(() => 'limit reached'),
+}))
+
 vi.mock('@/lib/db', () => ({
   prisma: {
     chatMessage: {
@@ -271,5 +280,23 @@ describe('chat', () => {
 
     const prompt = vi.mocked(generate).mock.calls.at(-1)![0]
     expect(prompt).not.toContain('Caffeine:')
+  })
+
+  it('returns the limit message without calling the model or writing a row', async () => {
+    // The cap exists to stop spending. Persisting the exchange would let an
+    // abusive client keep growing the table for free.
+    const { isOverLimit, todaySuccesses } = await import('@/lib/limits')
+    vi.mocked(isOverLimit).mockResolvedValue(true)
+    vi.mocked(todaySuccesses).mockResolvedValue('3 meals and a lift')
+
+    const result = await coachReply('u1', 'hello again')
+
+    expect(result.assistantReply).toBe('limit reached')
+    expect(generate).not.toHaveBeenCalled()
+    expect(prisma.chatMessage.create).not.toHaveBeenCalled()
+    expect(extractHealthFacts).not.toHaveBeenCalled()
+
+    const { recordUsage } = await import('@/lib/limits')
+    expect(recordUsage).not.toHaveBeenCalled()
   })
 })

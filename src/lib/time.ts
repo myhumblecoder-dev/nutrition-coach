@@ -31,6 +31,33 @@ export function startOfToday(now: Date): Date {
   return new Date(now.getTime() - elapsedMs);
 }
 
+/**
+ * A wall-clock calendar date as YYYY-MM-DD, in the app's timezone.
+ *
+ * `weekOf` is a date, not an instant: "the week of 24 August". Storing it as
+ * midnight in APP_TIMEZONE is fine; serialising that with toISOString() is not,
+ * because it hands the client an instant that a device-local formatter renders
+ * a day early for anyone west of APP_TIMEZONE — "Week of August 23" for a week
+ * that began on the 24th.
+ *
+ * Sending the date itself removes the ambiguity at the source, rather than
+ * asking every client to remember to undo it.
+ */
+export function toCalendarDate(date: Date): string {
+  // formatToParts rather than a locale that happens to emit YYYY-MM-DD:
+  // assembling the parts explicitly is not at the mercy of ICU changing what
+  // en-CA formats like.
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: appTimeZone(),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
 export function startOfWeek(now: Date): Date {
   const dayName = new Intl.DateTimeFormat('en-US', {
     timeZone: appTimeZone(),

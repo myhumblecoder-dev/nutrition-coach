@@ -4,6 +4,7 @@ import { logMealForUser } from '@/lib/meals';
 export const maxDuration = 60;
 import { coachReply } from '@/lib/chat';
 import { analyzeMeal } from '@/lib/analyzeMeal';
+import { UsageLimitError } from '@/lib/limits';
 import { consumeLinkToken, resolveUserByChat, disconnectUser } from '@/lib/telegramLink';
 import { put } from '@vercel/blob';
 import { prisma } from '@/lib/db';
@@ -147,10 +148,18 @@ export async function POST(request: Request) {
 
       let analysis;
       try {
-        analysis = await analyzeMeal(blob.url, caption);
+        analysis = await analyzeMeal(user.id, blob.url, caption);
       } catch (err) {
         console.error(err);
-        await sendTelegramMessage(chatId, "I couldn't read that as a meal photo — try a clearer, closer shot of the food.");
+        // A cap is not a bad photo. Telling someone to take a clearer shot
+        // when the real answer is "that's enough for today" sends them round
+        // a loop retaking a picture that was fine.
+        await sendTelegramMessage(
+          chatId,
+          err instanceof UsageLimitError
+            ? err.userMessage
+            : "I couldn't read that as a meal photo — try a clearer, closer shot of the food."
+        );
         return Response.json({ ok: false }, { status: 200 });
       }
 
