@@ -368,3 +368,106 @@ final class CalendarDateTests: XCTestCase {
     }
 }
 
+// MARK: - Dashboard
+
+extension APIClientTests {
+    private var dashboardJSON: String {
+        """
+        {"today":{"meals":[{"id":"m1","foodItems":[{"name":"Baozi","portion":"5","calories":600,"protein":25}],
+          "totalCalories":600,"totalProtein":25,"photoUrl":null,
+          "loggedAt":"2026-09-06T13:17:00.000Z","source":"extracted"}],
+          "target":{"calories":2000,"protein":150},"consumed":{"calories":1085,"protein":62}},
+         "week":{"training":{"resistance":3,"hiit":1,"core":2,"stepsToday":6540,
+           "days":{"resistance":[true,false,true,false,true,false,false],
+                   "hiit":[false,true,false,false,false,false,false],
+                   "core":[true,false,false,true,false,false,false]}},
+          "recovery":{"sleepHours":7.5,"waterLiters":2.5,"caffeine":null},
+          "streak":[true,true,false,true,true,true,true],
+          "weights":[{"at":"2026-08-29T08:00:00.000Z","weightLb":172.8},
+                     {"at":"2026-09-06T08:00:00.000Z","weightLb":172.0}],
+          "mood":{"score":4,"note":"good energy"},
+          "measurement":{"weightLb":172.0,"waistIn":null}},
+         "activity":[{"id":"a1","at":"2026-09-06T20:32:00.000Z",
+           "sourceText":"went for a 45 minute walk in the park","source":"extracted",
+           "kind":"training","label":"NEAT · 45 min walk","photoUrl":null}],
+         "coachMessage":"Protein is the lever today."}
+        """
+    }
+
+    func testDashboardArrivesInOneRequest() async throws {
+        respond(200, dashboardJSON)
+
+        let data = try await client.dashboard()
+
+        XCTAssertEqual(StubURLProtocol.recorded.count, 1,
+                       "the whole screen is one round trip; a phone should not pay four")
+        XCTAssertEqual(StubURLProtocol.lastRequest?.url?.path, "/api/v1/dashboard")
+        XCTAssertEqual(data.today.consumed.calories, 1085)
+        XCTAssertEqual(data.today.target?.protein, 150)
+    }
+
+    func testReceiptsCarryTheWordsThatProducedThem() async throws {
+        // The feed is the evidence that a number came from the conversation.
+        // Losing sourceText would leave the claim unsupported.
+        respond(200, dashboardJSON)
+
+        let data = try await client.dashboard()
+        let receipt = try XCTUnwrap(data.activity.first)
+
+        XCTAssertEqual(receipt.sourceText, "went for a 45 minute walk in the park")
+        XCTAssertEqual(receipt.label, "NEAT · 45 min walk")
+        XCTAssertTrue(receipt.isFromConversation, "source 'extracted' is the via-chat badge")
+    }
+
+    func testTheViaChatBadgeTracksTheSourceField() throws {
+        // Decoded directly rather than by patching the big fixture: the first
+        // version of this test did a string replacement that silently failed
+        // to match, so it asserted nothing while passing for the wrong reason.
+        func item(source: String) throws -> ActivityItem {
+            let json = """
+            {"id":"a1","at":"2026-09-06T20:32:00.000Z","sourceText":"a walk",
+             "source":"\(source)","kind":"training","label":"NEAT","photoUrl":null}
+            """
+            return try JSONDecoder.api.decode(ActivityItem.self, from: Data(json.utf8))
+        }
+
+        XCTAssertTrue(try item(source: "extracted").isFromConversation)
+        XCTAssertFalse(try item(source: "manual").isFromConversation,
+                       "a row the user created directly is not a conversation receipt")
+    }
+
+    func testWeekDecodesTheGraphSeries() async throws {
+        respond(200, dashboardJSON)
+
+        let week = try await client.dashboard().week
+
+        XCTAssertEqual(week.training.resistance, 3)
+        XCTAssertEqual(week.training.stepsToday, 6540)
+        XCTAssertEqual(week.streak.filter { $0 }.count, 6, "six of seven days logged")
+        XCTAssertEqual(week.weights.map(\.weightLb), [172.8, 172.0])
+        XCTAssertEqual(week.mood?.score, 4)
+        XCTAssertEqual(week.measurement?.weightLb, 172.0)
+    }
+
+    func testAbsentRecoveryReadingsDecodeAsNilRatherThanZero() async throws {
+        // Nothing logged and zero hours' sleep are different facts, and the UI
+        // renders the first as an em dash.
+        respond(200, dashboardJSON.replacingOccurrences(
+            of: "\"sleepHours\":7.5,\"waterLiters\":2.5",
+            with: "\"sleepHours\":null,\"waterLiters\":null"))
+
+        let week = try await client.dashboard().week
+
+        XCTAssertNil(week.recovery.sleepHours)
+        XCTAssertNil(week.recovery.waterLiters)
+    }
+
+    func testTheCoachLineSurvivesForTheStrip() async throws {
+        respond(200, dashboardJSON)
+
+        let data = try await client.dashboard()
+
+        XCTAssertEqual(data.coachMessage, "Protein is the lever today.")
+    }
+}
+

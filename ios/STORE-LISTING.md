@@ -1,96 +1,110 @@
-# App Store listing — Roughly
+# App Store listing — Roughly Fitness Coach
 
 The copy that goes into App Store Connect. Kept in the repo so a change to what
 the app does and a change to what the listing claims land in the same diff.
 
-Field lengths are Apple's hard limits; the counts below are the current text.
+**This file is the source.** Each fenced block below is the field verbatim —
+paste it without reflowing. `ios/listing/` holds the same values split one per
+file for open-and-copy during a manual submission; those are generated, never
+hand-edited:
+
+```
+node scripts/generate-listing-files.mjs           # write them
+node scripts/generate-listing-files.mjs --check   # verify they match this file
+node scripts/check-listing-lengths.mjs            # verify every field fits
+```
+
+Both checks are `appstore.config.json` gates, so a full `appstore check` runs
+them. Field lengths are Apple's hard limits and are measured, not asserted — the
+promotional text once sat at 186 characters in a 170-character field under a
+note claiming it fit.
 
 ## Name (30)
 
 ```
-Roughly
+Roughly Fitness Coach
 ```
+
+21 characters. The App Store name, which is **not** the home-screen name:
+`CFBundleDisplayName` stays "Roughly" so the icon caption does not truncate.
+Two names is deliberate, not drift — the store needs to be findable, the home
+screen needs to be short.
 
 ## Subtitle (30)
 
 ```
-A coach who asks, not counts
+Stop counting. Start talking.
 ```
 
-`Roughly: Diet Coach` was the alternative. Rejected — a subtitle that repeats
-the name spends half the budget saying nothing.
+29 characters. "A coach who asks, not counts" was the earlier draft, written when
+the app was called just "Roughly". It stopped working the moment the name ended
+in "Coach": a subtitle that repeats a word already in the name spends half the
+budget saying nothing. This one says what the app actually does instead.
 
 ## Promotional text (170)
 
 Editable without a new build, so this is where a change of emphasis goes.
 
 ```
-Tell it what you ate. It logs the meal, remembers what you said last week, and
-asks how the week actually went. No forms, no gram-by-gram data entry, no
-pretending the numbers are exact.
+Tell it what you ate. It logs the meal, remembers last week, and asks how this one actually went. No forms, no gram-by-gram entry, no pretending the numbers are exact.
 ```
+
+167 characters, on one line. Kept unwrapped because the hard line breaks in the
+earlier draft would have pasted into App Store Connect as literal breaks, and
+because wrapping is what hid the fact that it was 186 characters — sixteen over
+the limit — in a field whose whole constraint is its length.
 
 ## Description (4000)
 
 ```
-Roughly is a diet and training coach that starts from an uncomfortable fact:
-nobody knows exactly how many calories are on their plate. The label is a legal
-tolerance, not a measurement. The database entry is somebody else's recipe. The
-gram-by-gram log you kept for three days was a guess with more decimal places.
+Roughly is a diet and training coach that starts from an uncomfortable fact: nobody knows exactly how many calories are on their plate. The label is a legal tolerance, not a measurement. The database entry is somebody else's recipe. The gram-by-gram log you kept for three days was a guess with more decimal places.
 
-So Roughly does not ask you to count. You tell it what you ate, the way you
-would tell a person, and it works the rest out — and it says plainly that the
-numbers are estimates, because they are.
+So Roughly does not ask you to count. You tell it what you ate, the way you would tell a person, and it works the rest out — and it says plainly that the numbers are estimates, because they are.
 
 WHAT IT DOES
 
-• Log by talking. "Chicken burrito bowl, no rice, and I lifted this morning" is
-  a complete entry. No forms, no barcodes, no serving sizes to look up. The
-  conversation is the log.
+• Log by talking. "Chicken burrito bowl, no rice, and I lifted this morning" is a complete entry. No forms, no barcodes, no serving sizes to look up. The conversation is the log.
 
-• A coach that remembers. It has your history — what you ate, how you trained,
-  what you said last week — and answers in that context rather than reciting
-  generic advice. It is brisk and a little dry, and it is never on the side of
-  the food label.
+• A coach that remembers. It has your history — what you ate, how you trained, what you said last week — and answers in that context rather than reciting generic advice. It is brisk and a little dry, and it is never on the side of the food label.
 
-• Weekly check-ins. Four questions, in your own words: body, strength, sleep,
-  mood. None of them ask for a number, because the point is what you noticed,
-  not what a scale says.
+• Today is a mirror, not a form. Rings for calories and protein, bars for training, a weight trend, the last seven days at a glance. You never fill any of it in — every number arrived because you mentioned something.
 
-• A review that keeps the receipts. Every week is stored next to the words you
-  actually used, not just the app's summary of them. No charts, no trend lines
-  — a computed trend would be the app asserting a precision it does not have.
+• Receipts under every number. Below the graphs sits what you actually said, next to what was logged from it: "went for a 45 minute walk in the park" and, under it, the session it created. Nothing is inferred without showing its source.
+
+• The coach checks in once a week — as a message, not a questionnaire. Four things it wants to know, asked in conversation, answered however you like.
 
 WHAT IT DOES NOT DO
 
-No streaks. No badges. No shaming you for a Tuesday. No advertising, no
-analytics SDK, no selling your data to anybody.
+No streaks. No badges. No shaming you for a Tuesday. No advertising, no analytics SDK, no selling your data to anybody.
 
 PRIVACY
 
-Sign in with Apple only — Roughly never sees a password, and Hide My Email works
-normally. Your entries are yours, and Settings has a Delete account button that
-erases all of it immediately. What is stored and who processes it is written out
-in full at the privacy policy link below.
+Sign in with Apple only — Roughly never sees a password, and Hide My Email works normally. Your entries are yours, and Settings has a Delete account button that erases all of it immediately. What is stored and who processes it is written out in full at the privacy policy link below.
 
 NOT MEDICAL ADVICE
 
-Roughly is a coach, not a clinician. Its estimates are approximations and
-nothing it says is medical advice, diagnosis or treatment. Talk to a doctor or a
-registered dietitian before changing how you eat or train — particularly if you
-have a health condition or any history of disordered eating.
+Roughly is a coach, not a clinician. Its estimates are approximations and nothing it says is medical advice, diagnosis or treatment. Talk to a doctor or a registered dietitian before changing how you eat or train — particularly if you have a health condition or any history of disordered eating.
 ```
+
+The word "streak" is deliberately avoided in the Today bullet even though the
+web component is named `streak`: the description also promises "No streaks",
+meaning no gamified pressure. The dots are a record of which days were logged,
+not a run to protect, and calling them a streak made the description contradict
+itself two paragraphs later.
 
 ## Keywords (100, comma-separated, no spaces)
 
 ```
-meal,calories,protein,macros,diet,coach,nutrition,food,log,tracker,weight,fitness,check-in,habit
+meal,calories,protein,macros,diet,nutrition,food,log,tracker,weight,check-in,habit,training,journal
 ```
 
-95 characters. "photo" is deliberately absent: the iOS app has no camera feature,
-and a keyword the app cannot deliver on invites a 2.3.7 metadata rejection.
-"Roughly" is absent too — the app name is already indexed, so repeating it in
-keywords wastes the budget.
+99 characters. Nothing here repeats the app name: Apple indexes "Roughly",
+"Fitness" and "Coach" from the name itself, so `coach` and `fitness` were
+removed once the name grew — that recovered 14 characters, spent on `training`
+and `journal`.
+
+"photo" is deliberately absent: the iOS app has no camera feature, and a keyword
+the app cannot deliver on invites a 2.3.7 metadata rejection.
 
 ## Support URL
 
@@ -119,12 +133,22 @@ Primary: **Health & Fitness**. Secondary: **Food & Drink**.
 
 ## Age rating
 
-17+ is not required. Expect these answers:
+The questionnaire is seven steps. Every answer is None/No **except one**.
 
-- Unrestricted web access: **No** — the app has no in-app browser.
-- Medical/treatment information: **No** — it gives no diagnosis or treatment,
-  and the disclaimer says so in the app, the description and the policy.
-- Simulated gambling, contests, horror, violence, sexual content: **No**.
+| Question | Answer | Why |
+|---|---|---|
+| Unrestricted web access | No | No in-app browser; `appstore check` confirms 0 hits across the Swift sources. |
+| User-generated content | No | The flag is about *broad distribution*. Meals and check-in answers are a private journal and never leave the account. |
+| Messaging and chat | No | The definition is users communicating **with one another**. The Coach tab is a user talking to a model; there are no other users. |
+| Social media, advertising | No | No feed, no ads. |
+| Medical or treatment information | None | No diagnoses, no management of conditions. Consistent with the "not medical advice" disclaimer in the description, the policy and the review notes. |
+| **Health or wellness topics** | **Yes** | *"Self-care or lifestyle recommendations"* — that is the whole product. The coach tells you to go to bed and whether your protein is fine. |
+| Violence, sexual content, horror, gambling, contests, profanity, drugs and alcohol | None | The alcohol entry kind was retired from the extraction code. |
+
+That single **Yes** raises the rating above 4+, which is the correct outcome for
+a diet and calorie app rather than a problem to route around. The row that
+invites a wrong answer is "Messaging and Chat": the app has a chat screen, but
+the question is about user-to-user communication.
 
 ## App Privacy answers
 
@@ -162,20 +186,16 @@ required — `TARGETED_DEVICE_FAMILY` is `1`, so Apple asks for no iPad set.
 
 Four, in this order, because the first two are all most people scroll:
 
-1. **Coach** — a real exchange: a meal logged by talking, and the coach saying
-   out loud that 140g of protein is an estimate because the package number is a
-   legal tolerance. The product's whole argument, in the app's own voice.
-2. **This week** — the check-in question, verbatim from `QUESTIONS.body`.
-3. **Review** — two weeks of answers, each kept next to the words the user
-   actually used.
+1. **Today** — the rings, the readiness bars and the streak dots. Reads at a
+   glance and shows the product is a dashboard, not a data-entry app.
+2. **Today, scrolled to the receipts** — "From your conversation": the quoted
+   words above the thing that got logged from them. The strongest shot in the
+   set, because it is the only one that shows *why* the numbers are there.
+3. **Chat** — a real exchange, with the coach saying out loud that 140g of
+   protein is an estimate because the package number is a legal tolerance.
 4. **Settings** — notifications, the legal links, and the delete-account row.
    Also the fastest way for a reviewer to confirm 5.1.1(v) is satisfied.
 
-The shots are of the four tabs the app actually has. There is deliberately no
-meal-photo screenshot: photo logging exists on the web, **not** in the iOS app,
-and a screenshot of a feature the binary does not contain is a 2.3.3 rejection.
-
-Coach leads rather than the check-in, even though the check-in is the product's
-core surface, because the check-in screen is mostly empty on load — one
-question, one field, and roughly two-thirds blank space. Worth fixing in the
-app; until then it is a weak first impression and a poor lead shot.
+There is deliberately no meal-photo screenshot: photo logging exists on the web,
+**not** in the iOS app, and a screenshot of a feature the binary does not
+contain is a 2.3.3 rejection.

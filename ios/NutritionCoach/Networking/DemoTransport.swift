@@ -27,6 +27,12 @@ enum DemoMode {
         return tab
     }
 
+    /// Scrolls Today to the receipts feed on load, so a screenshot can show
+    /// the part of the screen that makes the product's argument.
+    static var scrollsToFeed: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demo-scroll-feed")
+    }
+
     static func makeClient() -> APIClient {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [DemoURLProtocol.self]
@@ -76,6 +82,7 @@ enum DemoFixtures {
 
     static func json(for path: String, method: String) -> String {
         switch path {
+        case "/api/v1/dashboard" where method == "GET": return dashboard
         case "/api/v1/chat" where method == "GET": return chat
         case "/api/v1/checkins" where method == "GET": return checkIns
         default: return #"{"ok":true}"#
@@ -94,6 +101,55 @@ enum DemoFixtures {
       {"id":"m5","role":"user","content":"Fair. Am I getting enough protein?","createdAt":"2026-09-04T16:14:22.000Z"},
       {"id":"m6","role":"assistant","content":"Roughly, yeah — somewhere near 140 grams most days. And I do mean roughly. That number on the chicken package is a legal tolerance, not a measurement. Keep doing what you're doing.","createdAt":"2026-09-04T16:14:31.000Z"}
     ]}
+    """
+
+    /// The numbers are the ones on the approved "Phone — conversation mirror"
+    /// artboard in docs/design: 1,085 of 2,000 kcal, 62 of 150g protein, the
+    /// 45-minute walk and the baozi. A screenshot and the design canvas
+    /// disagreeing about what the product looks like is its own small lie.
+    private static let dashboard = """
+    {
+      "today": {
+        "meals": [
+          {"id":"m1","foodItems":[{"name":"Grilled salmon salad","portion":"1 bowl","calories":485,"protein":37}],
+           "totalCalories":485,"totalProtein":37,"photoUrl":null,
+           "loggedAt":"2026-09-06T16:20:00.000Z","source":"manual"},
+          {"id":"m2","foodItems":[{"name":"Baozi, beef","portion":"5","calories":600,"protein":25}],
+           "totalCalories":600,"totalProtein":25,"photoUrl":null,
+           "loggedAt":"2026-09-06T13:17:00.000Z","source":"extracted"}
+        ],
+        "target": {"calories":2000,"protein":150},
+        "consumed": {"calories":1085,"protein":62}
+      },
+      "week": {
+        "training": {"resistance":3,"hiit":1,"core":2,"stepsToday":6540,
+          "days":{"resistance":[true,false,true,false,true,false,false],
+                  "hiit":[false,true,false,false,false,false,false],
+                  "core":[true,false,false,true,false,false,false]}},
+        "recovery": {"sleepHours":7.5,"waterLiters":2.5,"caffeine":null},
+        "streak": [true,true,false,true,true,true,true],
+        "weights": [
+          {"at":"2026-08-08T08:00:00.000Z","weightLb":173.4},
+          {"at":"2026-08-15T08:00:00.000Z","weightLb":173.0},
+          {"at":"2026-08-22T08:00:00.000Z","weightLb":172.6},
+          {"at":"2026-08-29T08:00:00.000Z","weightLb":172.8},
+          {"at":"2026-09-06T08:00:00.000Z","weightLb":172.0}
+        ],
+        "mood": {"score":4,"note":"good energy"},
+        "measurement": {"weightLb":172.0,"waistIn":null}
+      },
+      "activity": [
+        {"id":"a1","at":"2026-09-06T20:32:00.000Z","sourceText":"went for a 45 minute walk in the park",
+         "source":"extracted","kind":"training","label":"NEAT · 45 min walk","photoUrl":null},
+        {"id":"a2","at":"2026-09-06T16:20:00.000Z","sourceText":"",
+         "source":"manual","kind":"meal","label":"salmon salad · 485 kcal · 37g","photoUrl":null},
+        {"id":"a3","at":"2026-09-06T13:17:00.000Z","sourceText":"this morning I had 5 homemade baozi with beef",
+         "source":"extracted","kind":"meal","label":"baozi · 600 kcal · 25g","photoUrl":null},
+        {"id":"a4","at":"2026-09-06T12:04:00.000Z","sourceText":"slept about 7 and a half hours, feeling good, 172 on the scale",
+         "source":"extracted","kind":"recovery","label":"sleep 7.5h · mood 4/5 · 172 lb","photoUrl":null}
+      ],
+      "coachMessage": "Protein is the lever today — a palm-sized chicken breast at dinner puts you at 105g. How was the walk?"
+    }
     """
 
     /// `nextQuestion` is the verbatim string from QUESTIONS.body in

@@ -11,24 +11,7 @@ final class APIClient {
     private let tokenStore: TokenStoring
     private let attest: AttestProviding?
 
-    private let decoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        // The API sends ISO-8601 with milliseconds (Date#toISOString), which
-        // .iso8601 alone rejects.
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        decoder.dateDecodingStrategy = .custom { decoder in
-            let raw = try decoder.singleValueContainer().decode(String.self)
-            guard let date = formatter.date(from: raw) else {
-                throw DecodingError.dataCorruptedError(
-                    in: try decoder.singleValueContainer(),
-                    debugDescription: "Unrecognised date: \(raw)"
-                )
-            }
-            return date
-        }
-        return decoder
-    }()
+    private let decoder = JSONDecoder.api
 
     init(
         baseURL: URL,
@@ -132,6 +115,11 @@ final class APIClient {
 
     func today() async throws -> TodayResponse {
         try await send("/api/v1/today", method: "GET", body: nil)
+    }
+
+    /// The whole Today screen in one request. See DashboardResponse.
+    func dashboard() async throws -> DashboardResponse {
+        try await send("/api/v1/dashboard", method: "GET", body: nil)
     }
 
     func chatHistory() async throws -> [ChatMessage] {
@@ -246,4 +234,31 @@ final class APIClient {
         try validate(response)
         return data
     }
+}
+
+
+extension JSONDecoder {
+    /// The decoder every API response is read with.
+    ///
+    /// Shared rather than private so a test can decode a single model without
+    /// standing up a request — and so it cannot drift from what the client
+    /// actually uses, which would make such a test worthless.
+    static let api: JSONDecoder = {
+        let decoder = JSONDecoder()
+        // The API sends ISO-8601 with milliseconds (Date#toISOString), which
+        // .iso8601 alone rejects.
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            guard let date = formatter.date(from: raw) else {
+                throw DecodingError.dataCorruptedError(
+                    in: try decoder.singleValueContainer(),
+                    debugDescription: "Unrecognised date: \(raw)"
+                )
+            }
+            return date
+        }
+        return decoder
+    }()
 }

@@ -1,7 +1,14 @@
 # App Review notes — Roughly
 
-Pasted into the **Notes** field of the App Review Information section. The
-headings below are for reading here; the field takes plain prose.
+> **Do not paste this file into App Store Connect.** Only the fenced block under
+> "Notes for the reviewer" goes to Apple, and `ios/listing/review-notes.md` holds
+> exactly that, already extracted. Everything after it — the checklist and the
+> rejection risks — is internal. Sending it would hand a reviewer an unticked
+> list of things you have not verified and a written argument for why the app
+> might warrant rejection.
+>
+> The whole file is 4,858 characters; the field caps at 4,000, so pasting it
+> fails on length before it can do that damage. That is luck, not a safeguard.
 
 ## Notes for the reviewer
 
@@ -10,6 +17,10 @@ Roughly is a personal diet and training coach. You tell it what you ate and how
 you trained in plain language, it works out the rest, and once a week it asks
 how the week actually went.
 
+The App Store listing is "Roughly Fitness Coach"; the app itself is "Roughly" on
+the home screen and throughout the interface. The shorter name is the product
+name and avoids truncating under the icon.
+
 SIGNING IN
 
 Sign in with Apple is the only sign-in method, so no demo account is needed —
@@ -17,25 +28,28 @@ please use your own Apple ID. Hide My Email works normally; the app only ever
 receives the relay address. A brand-new account starts empty, which is the
 intended first-run experience.
 
-If you would prefer an account with history already in it rather than an empty
-one, email <SUPPORT EMAIL> and we will provision one within a few hours.
-
 WHERE TO LOOK
 
-• "This week" is the first tab and the core of the product: the coach asks how
-  the week went and responds to what you actually say.
-• "Coach" is free-form chat.
-• Logging happens by talking: "chicken burrito bowl, no rice, and I lifted this
-  morning" in the Coach tab is a complete entry. There is no separate logging
+• "Today" is the first tab: calorie and protein rings, training bars, a weight
+  trend, and — below them — "From your conversation", which shows the words the
+  user typed next to what the coach logged from them. Nothing on this screen is
+  an input.
+• "Chat" is the coach. Logging happens by talking: "chicken burrito bowl, no
+  rice, and I lifted this morning" is a complete entry. There is no logging
   form and no camera feature in this app.
 • Settings holds notifications, the privacy policy and support links, and
   "Delete account".
 
+A brand-new account has an empty Today screen, because there is nothing to
+mirror yet. Send the coach a message describing a meal and it will appear on
+Today with the sentence that produced it.
+
 ACCOUNT DELETION (Guideline 5.1.1(v))
 
 Settings → Delete account. It asks once to confirm and then permanently erases
-the account and everything attached to it — meals, photos, chat history,
-check-ins, measurements and notification tokens. It is immediate and is not a
+the account and everything attached to it — meals, chat history, check-ins,
+measurements, notification tokens, and any meal photos logged through the web
+app. It is immediate and is not a
 support request or an email flow.
 
 HEALTH CLAIMS (Guideline 1.4.1)
@@ -43,7 +57,8 @@ HEALTH CLAIMS (Guideline 1.4.1)
 Roughly makes no medical claims. It does not diagnose, treat or offer medical
 advice, and it says so in the app, in the App Store description and in the
 privacy policy. Its calorie and protein figures are explicitly presented as
-estimates from a photograph — the app is named for that.
+estimates from what you tell it, never as measurements — the app is named for
+that.
 
 PUSH NOTIFICATIONS
 
