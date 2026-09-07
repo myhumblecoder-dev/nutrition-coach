@@ -155,6 +155,23 @@ Screenshots: everything in `ios/Screenshots/6.5-inch/`, in filename order. Only
 the first three appear on install sheets, and `2-receipts` is the shot that
 explains the product, so the order is not cosmetic.
 
+Rather than pasting the long fields, push them and verify with one command:
+
+```bash
+node scripts/asc-listing.mjs           # audit: what does Apple actually hold?
+node scripts/asc-listing.mjs --push    # write description + reviewer notes
+```
+
+Do this even if you pasted by hand. Twice in one week a re-paste silently did
+not take, leaving Apple describing screens the app no longer had — a 2.3.1
+problem that looks fine from inside the browser. The audit exits non-zero on
+any drift and always reads the fields back, because a 200 on a write is not
+evidence the field holds what you sent.
+
+It needs `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_ISSUER_ID` in the
+environment; see §5. It writes exactly two fields and never touches
+`appStoreVersionSubmissions`.
+
 Then, in the sidebar:
 
 - **App Information** — category Health & Fitness, secondary Food & Drink
