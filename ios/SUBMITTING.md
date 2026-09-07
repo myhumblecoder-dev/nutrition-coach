@@ -95,6 +95,21 @@ base64 -i ~/Downloads/AuthKey_XXXXXXXXXX.p8 | gh secret set APP_STORE_CONNECT_PR
 
 **Verify:** `gh secret list` shows all five.
 
+## 7b. Check the version matches App Store Connect
+
+`MARKETING_VERSION` in `ios/project.yml` must equal the version created in App
+Store Connect:
+
+```bash
+grep MARKETING_VERSION ios/project.yml
+```
+
+Builds are matched to a version by `CFBundleShortVersionString`. Upload `0.1.0`
+against a `1.0` submission and the build simply does not appear in the picker —
+no error, no explanation, and the build number is already spent.
+
+`CURRENT_PROJECT_VERSION` needs no attention: CD passes `github.run_number`.
+
 ## 8. Build to TestFlight
 
 Actions → **iOS CD** → Run workflow, against `main`.

@@ -8,7 +8,12 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.0"
+    # Must equal the version created in App Store Connect. Builds are matched
+    # to a version by CFBundleShortVersionString, so a 0.1.0 build simply does
+    # not appear in the list when submitting 1.0 — with no error saying why.
+    MARKETING_VERSION: "1.0"
+    # Local default only: CD passes github.run_number, because App Store
+    # Connect rejects a build number it has already seen.
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
