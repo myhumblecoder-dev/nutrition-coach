@@ -61,7 +61,10 @@ describe('getChatHistory', () => {
 
     expect(prisma.chatMessage.findMany).toHaveBeenCalledWith({
       where: { userId: 'u1' },
-      orderBy: { createdAt: 'desc' },
+      // id is a tiebreak, not decoration: rows written before exchanges
+      // carried explicit timestamps can share a millisecond, and without it
+      // the coach's reply sometimes sorted above the message it answered.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 20,
     });
   });

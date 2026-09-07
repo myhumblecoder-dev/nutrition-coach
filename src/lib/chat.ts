@@ -148,14 +148,7 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
 
   const reply = await generate(prompt);
 
-  await Promise.all([
-    prisma.chatMessage.create({
-      data: { userId, role: "user", content: cleanText },
-    }),
-    prisma.chatMessage.create({
-      data: { userId, role: "assistant", content: reply },
-    }),
-  ]);
+  await persistExchange(userId, cleanText, reply);
 
   // Belt and braces on top of the orchestrator's own guard: extraction must
   // never break a reply.
@@ -197,10 +190,7 @@ async function answerCheckInInConversation(
       : "That's the whole check-in. I'll ask again next week.";
   }
 
-  await Promise.all([
-    prisma.chatMessage.create({ data: { userId, role: "user", content: userText } }),
-    prisma.chatMessage.create({ data: { userId, role: "assistant", content: reply } }),
-  ]);
+  await persistExchange(userId, userText, reply);
 
   // A check-in answer is still something the user said — "172 on the scale"
   // belongs on Today whether it arrived as an answer or as small talk.
@@ -211,4 +201,33 @@ async function answerCheckInInConversation(
   }
 
   return { assistantReply: reply };
+}
+
+/**
+ * Writes a question and its answer in an order the reader can rely on.
+ *
+ * Both rows used to be created inside a `Promise.all`, each defaulting
+ * createdAt to now(). Concurrent inserts tie or invert at millisecond
+ * resolution, so ordering by createdAt was a coin flip and the coach's reply
+ * rendered above the message it was answering — on the web as well as iOS,
+ * because both clients read the same history.
+ *
+ * The timestamps are explicit and one millisecond apart. Writing sequentially
+ * is not enough on its own: two inserts inside the same millisecond still tie,
+ * and the bug returns only sometimes, which is worse than always.
+ */
+async function persistExchange(userId: string, userText: string, reply: string): Promise<void> {
+  const askedAt = new Date();
+
+  await prisma.chatMessage.create({
+    data: { userId, role: "user", content: userText, createdAt: askedAt },
+  });
+  await prisma.chatMessage.create({
+    data: {
+      userId,
+      role: "assistant",
+      content: reply,
+      createdAt: new Date(askedAt.getTime() + 1),
+    },
+  });
 }
