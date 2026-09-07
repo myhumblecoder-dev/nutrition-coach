@@ -21,7 +21,9 @@ concurrency:
 
 jobs:
   build-and-test:
-    runs-on: macos-15
+    # Matches ios-cd.yml. Testing on a different toolchain from the one that
+    # ships is how a build passes CI and fails at upload.
+    runs-on: macos-26
     # A clean run is a few minutes; anything past 30 is hung, not slow.
     timeout-minutes: 30
     defaults:

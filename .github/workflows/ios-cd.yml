@@ -17,7 +17,13 @@ concurrency:
 
 jobs:
   testflight:
-    runs-on: macos-15
+    # macos-26, not macos-15: Apple rejects any upload built with an SDK older
+    # than iOS 26, and macos-15 ships Xcode 16 / iOS 18.5. The failure arrives
+    # at the very last step, after a successful archive and export —
+    #   "This app was built with the iOS 18.5 SDK. All iOS and iPadOS apps must
+    #    be built with the iOS 26 SDK or later"
+    # — so it costs a full run to discover. macos-26 defaults to Xcode 26.6.
+    runs-on: macos-26
     timeout-minutes: 45
     defaults:
       run:
@@ -26,6 +32,11 @@ jobs:
       APPSTORE_KIT_REF: e11b6afce895f631b1a0b659d86670493e177ecd
     steps:
       - uses: actions/checkout@v4
+
+      # Recorded in the log, because the SDK an upload was built against is
+      # only visible in App Store Connect's rejection message otherwise.
+      - name: Toolchain
+        run: xcodebuild -version && xcodebuild -showsdks | grep -i "iOS .* -sdk iphoneos"
 
       # Fail here, with a list, rather than 20 minutes later inside xcodebuild
       # with a signing error that blames the wrong thing.
