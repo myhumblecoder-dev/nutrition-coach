@@ -15,6 +15,16 @@ settings:
     # Local default only: CD passes github.run_number, because App Store
     # Connect rejects a build number it has already seen.
     CURRENT_PROJECT_VERSION: "1"
+    # Required to archive. Without it xcodebuild stops with "Signing for
+    # NutritionCoach requires a development team" — advice aimed at someone
+    # sitting in front of the Signing & Capabilities editor, which is nobody on
+    # a CI runner. CD's ExportOptions.plist already pins the same team for the
+    # export step; the archive needs it as a build setting.
+    DEVELOPMENT_TEAM: S84D3BXRYL
+    # Explicit, because -allowProvisioningUpdates only fetches a profile when
+    # signing is automatic. Simulator tests pass CODE_SIGNING_ALLOWED=NO and
+    # are unaffected.
+    CODE_SIGN_STYLE: Automatic
 
 targets:
   NutritionCoach:
