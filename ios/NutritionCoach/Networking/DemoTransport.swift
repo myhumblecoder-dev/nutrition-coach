@@ -83,6 +83,7 @@ enum DemoFixtures {
     static func json(for path: String, method: String) -> String {
         switch path {
         case "/api/v1/dashboard" where method == "GET": return dashboard
+        case "/api/v1/targets" where method == "GET": return #"{"target":{"calories":2000,"protein":150}}"#
         case "/api/v1/chat" where method == "GET": return chat
         case "/api/v1/checkins" where method == "GET": return checkIns
         default: return #"{"ok":true}"#

@@ -197,7 +197,7 @@ describe('extraction', () => {
     expect(arg.data.source).toBe('extracted')
     expect(arg.data.sourceText).toBe('had baozi')
     expect(arg.data.totalCalories).toBe(600)
-    expect(counts).toEqual({ meals: 1, training: 1, recovery: 0, mood: 0, measurement: 0 })
+    expect(counts).toEqual({ meals: 1, training: 1, recovery: 0, mood: 0, measurement: 0, targets: 0 })
   })
 
   it('empty facts touch nothing', async () => {
@@ -207,7 +207,7 @@ describe('extraction', () => {
 
     expect(prisma.mealEntry.create).not.toHaveBeenCalled()
     expect(prisma.trainingEntry.create).not.toHaveBeenCalled()
-    expect(counts).toEqual({ meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 })
+    expect(counts).toEqual({ meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0, targets: 0 })
   })
 
   it('the orchestrator passes the user text through', async () => {
@@ -226,7 +226,7 @@ describe('extraction', () => {
     // Verify that the recovery entry creation received the sourceText
     const recoveryArg = vi.mocked(prisma.recoveryEntry.create).mock.calls[0][0]
     expect(recoveryArg.data.sourceText).toBe(userText)
-    expect(counts).toEqual({ meals: 0, training: 0, recovery: 1, mood: 0, measurement: 0 })
+    expect(counts).toEqual({ meals: 0, training: 0, recovery: 1, mood: 0, measurement: 0, targets: 0 })
   })
 
   it('an llm failure resolves to zero counts', async () => {
