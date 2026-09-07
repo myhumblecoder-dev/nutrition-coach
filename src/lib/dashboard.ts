@@ -45,7 +45,10 @@ export async function getTodayForUser(userId: string) {
 export async function getChatHistoryForUser(userId: string, take = 20) {
   const messages = await prisma.chatMessage.findMany({
     where: { userId },
-    orderBy: { createdAt: 'desc' },
+    // id as a tiebreak: rows written before exchanges carried explicit
+    // timestamps can still share a millisecond, and cuid is time-prefixed, so
+    // it orders those consistently instead of arbitrarily.
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take,
   })
 

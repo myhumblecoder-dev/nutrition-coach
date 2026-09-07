@@ -140,4 +140,36 @@ describe('answering the weekly check-in in the conversation', () => {
 
     expect(vi.mocked(extractHealthFacts)).toHaveBeenCalledWith('u1', 'leaner, 172 on the scale')
   })
+
+  it('stamps the question before the answer, not alongside it', async () => {
+    // The reply used to render above the message it answered, on web and iOS
+    // alike: both rows were created in a Promise.all with createdAt defaulting
+    // to now(), so at millisecond resolution the pair could tie or invert and
+    // the ordering was a coin flip.
+    mockAwaiting.mockResolvedValue('body')
+    mockRecord.mockResolvedValue(answered({ bodyAnswer: 'About the same' }) as never)
+
+    await coachReply('u1', 'about the same honestly')
+
+    const calls = vi.mocked(prisma.chatMessage.create).mock.calls.map((c) => c[0].data)
+    const user = calls.find((d) => d.role === 'user')
+    const assistant = calls.find((d) => d.role === 'assistant')
+
+    expect(user?.createdAt).toBeInstanceOf(Date)
+    expect(assistant?.createdAt).toBeInstanceOf(Date)
+    expect((assistant!.createdAt as Date).getTime()).toBeGreaterThan(
+      (user!.createdAt as Date).getTime()
+    )
+  })
+
+  it('writes the user message first, so a partial failure loses the reply not the question', async () => {
+    mockAwaiting.mockResolvedValue(null)
+    vi.mocked(generate).mockResolvedValue('Sure thing.')
+
+    await coachReply('u1', 'what should I eat tonight?')
+
+    const roles = vi.mocked(prisma.chatMessage.create).mock.calls.map((c) => c[0].data.role)
+    expect(roles).toEqual(['user', 'assistant'])
+  })
 })
+

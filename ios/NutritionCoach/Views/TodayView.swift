@@ -21,6 +21,16 @@ struct TodayView: View {
     /// Scroll target for the screenshot run.
     fileprivate static let feedAnchor = "activity-feed"
 
+    /// Always the real date in a Release build; pinned during a screenshot run
+    /// so the captured image does not change every day.
+    private static var displayDate: Date {
+        #if DEBUG
+        DemoMode.fixedToday ?? Date()
+        #else
+        Date()
+        #endif
+    }
+
     private static let heading: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE, MMM d"
@@ -79,7 +89,7 @@ struct TodayView: View {
     /// "Sunday, Aug 31 · 1,085 kcal in, 88g protein to go" — the same line the
     /// web prints under its heading.
     private func subheading(_ data: DashboardResponse) -> some View {
-        var line = Self.heading.string(from: Date())
+        var line = Self.heading.string(from: Self.displayDate)
         line += " · \(data.today.consumed.calories.formatted()) kcal in"
         if let target = data.today.target {
             let toGo = Swift.max(0, target.protein - data.today.consumed.protein)
