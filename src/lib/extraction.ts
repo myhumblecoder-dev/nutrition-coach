@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { generate } from '@/lib/llm';
 import { startOfToday } from '@/lib/time';
+import { setTargetForUser } from '@/lib/targets';
 
 // Round rather than reject fractional model estimates (same policy as analyzeMeal).
 const roundedInt = z.number().nonnegative().transform(Math.round);
@@ -71,6 +72,18 @@ const factsSchema = z.object({
     }),
     3
   ),
+  // A target is a standing instruction, not an event, so it is a single
+  // optional object rather than an array — and it is the one field here that
+  // overwrites rather than appends. That is why the prompt requires an
+  // explicit instruction: mistaking "I'm aiming for 2,000 calories today" for
+  // a permanent target would silently change every ring on Today.
+  targets: z
+    .object({
+      calories: z.number().int().min(500).max(10000),
+      protein: z.number().int().min(20).max(500),
+    })
+    .nullish()
+    .catch(null),
   measurement: lenientArray(
     z.object({
       weightLb: z.number().nonnegative().optional(),
@@ -108,7 +121,13 @@ export function buildExtractionPrompt(
     'with integer calories/protein), "training" (array of {"kind": "resistance"|"hiit"|"core"|"neat", ' +
     '"minutes"?, "steps"?, "note"?}), "recovery" (array of {"kind": "sleep"|"water"|"caffeine", ' +
     '"value": number} — sleep in hours, water in liters, caffeine in milligrams), "mood" (array of ' +
-    '{"score": 1-5, "note"?}), "measurement" (array of {"weightLb"?, "waistIn"?}).\n' +
+    '{"score": 1-5, "note"?}), "measurement" (array of {"weightLb"?, "waistIn"?}), ' +
+    '"targets" ({"calories": int, "protein": int} or null).\n' +
+    'TARGETS: set this ONLY when the user explicitly asks to set, change or ' +
+    'correct their daily goal — "set my target to 2000 calories and 150g protein", ' +
+    '"make my protein goal 160". It overwrites a standing setting, so a passing ' +
+    'remark about what they plan to eat today is NOT a target. Both numbers are ' +
+    'required; if the user gives only one, return null and the coach will ask.\n' +
     'Already logged today — do not repeat: meals: ' + list(seeds.meals) + '\n' +
     'Already logged today — do not repeat: training: ' + list(seeds.training) + '\n' +
     'Already logged today — do not repeat: recovery: ' + list(seeds.recovery) + '\n' +
@@ -166,6 +185,12 @@ export async function recordHealthFacts(
       data: { userId, weightLb: m.weightLb, waistIn: m.waistIn, source: 'extracted', sourceText: sourceText ?? null },
     });
   }
+  // Last, and upserted rather than appended: unlike everything above, a target
+  // replaces a standing setting instead of adding an event.
+  if (facts.targets) {
+    await setTargetForUser(userId, facts.targets);
+  }
+
   return {
     meals: facts.meals.length,
     training: facts.training.length,
@@ -174,6 +199,7 @@ export async function recordHealthFacts(
     measurement: facts.measurement.filter(
       (m) => m.weightLb !== undefined || m.waistIn !== undefined
     ).length,
+    targets: facts.targets ? 1 : 0,
   };
 }
 

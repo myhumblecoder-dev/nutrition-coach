@@ -10,6 +10,7 @@ struct ChatView: View {
     @State private var draft = ""
     @State private var isSending = false
     @State private var error: String?
+    @FocusState private var composerFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -23,6 +24,7 @@ struct ChatView: View {
                         }
                         .padding()
                     }
+                    .scrollDismissesKeyboard(.interactively)
                     .onChange(of: messages.count) {
                         guard let last = messages.last else { return }
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
@@ -59,6 +61,7 @@ struct ChatView: View {
                 .lineLimit(1...4)
                 .textFieldStyle(.roundedBorder)
                 .disabled(isSending)
+                .focused($composerFocused)
 
             Button {
                 Task { await send() }
@@ -88,6 +91,9 @@ struct ChatView: View {
         defer { isSending = false }
         error = nil
         draft = ""
+        // Sending ends the turn. Holding focus here kept the keyboard up over
+        // the tab bar, with no way back to Today or Settings.
+        composerFocused = false
 
         // Shown immediately so the conversation does not appear to stall
         // during the LLM round trip; the id is replaced when history reloads.

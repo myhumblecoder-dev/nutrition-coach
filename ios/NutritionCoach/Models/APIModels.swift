@@ -74,6 +74,12 @@ enum APIError: Error, Equatable {
     case notSignedIn
 }
 
+struct TargetResponse: Codable, Equatable {
+    /// Null until the user sets one. Distinct from a zero target: Today shows
+    /// no rings at all rather than rings reading 0.
+    let target: MacroPair?
+}
+
 // MARK: - Dashboard
 
 /// Everything the Today screen renders, from a single request.
