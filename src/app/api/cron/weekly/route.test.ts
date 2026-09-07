@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET, maxDuration } from './route'
 import { prisma } from '@/lib/db'
 import { deliverToChannels, pruneTokens } from '@/lib/deliver'
-import { getOrCreateCheckIn } from '@/lib/checkin'
-import { QUESTIONS } from '@/lib/checkin'
+import { getOrCreateCheckIn, QUESTIONS } from '@/lib/checkin'
 
-vi.mock('@/lib/db', () => ({ prisma: { user: { findMany: vi.fn() } } }))
+vi.mock('@/lib/db', () => ({
+  prisma: { user: { findMany: vi.fn() }, chatMessage: { create: vi.fn() } },
+}))
 vi.mock('@/lib/deliver', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/deliver')>()),
   deliverToChannels: vi.fn(),
@@ -141,4 +142,44 @@ describe('GET /api/cron/weekly', () => {
     expect(body.sent).toBe(1)
     expect(body.failed).toBe(1)
   })
+
+  it('writes the question into the conversation, not only into a push', async () => {
+    // Without this row the check-in is unanswerable: the push is a reminder
+    // that disappears, and awaitingCheckInAnswer matches on the coach having
+    // asked in the chat.
+    mockPrisma.user.findMany.mockResolvedValue([userRow()] as never)
+    mockGetOrCreate.mockResolvedValue(checkIn() as never)
+    await GET(request('Bearer test-secret'))
+
+    expect(mockPrisma.chatMessage.create).toHaveBeenCalledWith({
+      data: { userId: 'u1', role: 'assistant', content: QUESTIONS.body },
+    })
+  })
+
+  it('sends the same words it wrote to the chat', async () => {
+    // The two must match exactly: awaitingCheckInAnswer looks for the question
+    // in the conversation, so a push that said something else would leave the
+    // user answering a question the record does not know was asked.
+    mockPrisma.user.findMany.mockResolvedValue([userRow()] as never)
+    mockGetOrCreate.mockResolvedValue(checkIn() as never)
+    await GET(request('Bearer test-secret'))
+
+    const written = mockPrisma.chatMessage.create.mock.calls[0][0].data.content
+    const pushed = mockDeliver.mock.calls[0][1]
+    expect(pushed).toBe(written)
+  })
+
+  it('does not deliver a push it could not write to the chat', async () => {
+    // Order matters. A ping with no question in the app is worse than no ping,
+    // so the chat write comes first and its failure fails the whole delivery.
+    mockPrisma.user.findMany.mockResolvedValue([userRow()] as never)
+    mockGetOrCreate.mockResolvedValue(checkIn() as never)
+    mockPrisma.chatMessage.create.mockRejectedValue(new Error('db down'))
+
+    const res = await GET(request('Bearer test-secret'))
+
+    expect(mockDeliver).not.toHaveBeenCalled()
+    await expect(res.json()).resolves.toMatchObject({ ok: false, failed: 1 })
+  })
 })
+
