@@ -120,6 +120,16 @@ that blames the wrong thing. Build numbers come from `github.run_number`, so
 they cannot collide. The `.xcarchive` is kept for 7 days on success and failure
 alike — a signing problem is far easier to read from the archive than the log.
 
+### If the upload is rejected on SDK version
+
+> This app was built with the iOS 18.5 SDK. All iOS and iPadOS apps must be
+> built with the iOS 26 SDK or later.
+
+Apple enforces a minimum SDK, and it is checked at upload — after a successful
+archive and export, so a stale runner image costs a whole run to discover. Both
+iOS workflows pin `runs-on: macos-26`, which defaults to Xcode 26.6. When Apple
+raises the floor again, that label is what moves.
+
 ## 9. Verify on a real device
 
 Three things fail only on hardware, and all three are rejections:
