@@ -7,6 +7,7 @@ import {
   getOrCreateCheckIn,
   recordAnswer,
   listCheckIns,
+  awaitingCheckInAnswer,
 } from './checkin'
 import { prisma } from '@/lib/db'
 import { generate } from '@/lib/llm'
@@ -223,4 +224,72 @@ describe('listCheckIns', () => {
       })
     )
   })
+
+  describe('awaitingCheckInAnswer', () => {
+    // Decides whether a chat message is a check-in answer or ordinary talk.
+    // Recording the wrong thing here writes a permanent, wrong record, so the
+    // rule is deliberately narrow: the coach must demonstrably have just asked.
+    const openWeek = {
+      weekOf: new Date('2026-08-31T04:00:00.000Z'),
+      bodyAnswer: null, strengthAnswer: null, sleepAnswer: null, moodAnswer: null,
+      completedAt: null,
+    }
+
+    it('matches when the coach asked the pending question verbatim', async () => {
+      vi.mocked(prisma.weeklyCheckIn.findUnique).mockResolvedValue(openWeek as never)
+
+      await expect(awaitingCheckInAnswer('u1', QUESTIONS.body)).resolves.toBe('body')
+    })
+
+    it('matches when the question is embedded in a longer coach reply', async () => {
+      // The probe acknowledges the last answer and asks the next one in the
+      // same message, so an exact-equality rule would break after question one.
+      vi.mocked(prisma.weeklyCheckIn.findUnique).mockResolvedValue(
+        { ...openWeek, bodyAnswer: 'About the same' } as never
+      )
+
+      const reply = `Fair enough. ${QUESTIONS.strength}`
+
+      await expect(awaitingCheckInAnswer('u1', reply)).resolves.toBe('strength')
+    })
+
+    it('does not match ordinary coach chatter', async () => {
+      vi.mocked(prisma.weeklyCheckIn.findUnique).mockResolvedValue(openWeek as never)
+
+      await expect(
+        awaitingCheckInAnswer('u1', 'Chicken and beans, no rice. That will do, hon.')
+      ).resolves.toBeNull()
+    })
+
+    it('does not match when there is no check-in open this week', async () => {
+      vi.mocked(prisma.weeklyCheckIn.findUnique).mockResolvedValue(null as never)
+
+      await expect(awaitingCheckInAnswer('u1', QUESTIONS.body)).resolves.toBeNull()
+    })
+
+    it('does not match once every field is answered', async () => {
+      vi.mocked(prisma.weeklyCheckIn.findUnique).mockResolvedValue({
+        ...openWeek,
+        bodyAnswer: 'a', strengthAnswer: 'b', sleepAnswer: 'c', moodAnswer: 'd',
+      } as never)
+
+      await expect(awaitingCheckInAnswer('u1', QUESTIONS.body)).resolves.toBeNull()
+    })
+
+    it('does not match with no previous coach message at all', async () => {
+      await expect(awaitingCheckInAnswer('u1', null)).resolves.toBeNull()
+      expect(prisma.weeklyCheckIn.findUnique).not.toHaveBeenCalled()
+    })
+
+    it('never opens a check-in just because someone chatted', async () => {
+      // It runs on every message. Upserting here would open a week for every
+      // user who talks to the coach and then have the cron chase them for it.
+      vi.mocked(prisma.weeklyCheckIn.findUnique).mockResolvedValue(null as never)
+
+      await awaitingCheckInAnswer('u1', QUESTIONS.body)
+
+      expect(prisma.weeklyCheckIn.upsert).not.toHaveBeenCalled()
+    })
+  })
 })
+

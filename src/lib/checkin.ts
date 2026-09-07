@@ -91,6 +91,47 @@ export async function getOrCreateCheckIn(userId: string, now: Date = new Date())
   })
 }
 
+/**
+ * The field this week's check-in is waiting on — but only if the coach has
+ * actually just asked for it.
+ *
+ * This is what lets the check-in be answered in the conversation instead of on
+ * a screen of its own. The weekly cron writes its question into the chat
+ * verbatim, so a last coach message containing that question means the user's
+ * next message is the answer to it.
+ *
+ * Deliberately not an LLM classification: "about the same" is an answer to the
+ * body question and a meaningless chat message, and deciding between those with
+ * a model would be unpredictable in exactly the case that matters. Matching the
+ * question the coach demonstrably just asked is decidable from the record.
+ *
+ * The limitation is that a probe reply which paraphrases the next question
+ * instead of quoting it will not match, and the user's answer becomes an
+ * ordinary chat message. That degrades to normal conversation rather than
+ * recording the wrong thing, which is the right direction to fail.
+ *
+ * `findUnique`, not `getOrCreateCheckIn`: this runs on every chat message, and
+ * upserting here would open a check-in for every user who ever talks to the
+ * coach and then have the cron chase them for answers.
+ */
+export async function awaitingCheckInAnswer(
+  userId: string,
+  lastAssistantMessage: string | null | undefined,
+  now: Date = new Date()
+): Promise<CheckInField | null> {
+  if (!lastAssistantMessage) return null
+
+  const checkIn = await prisma.weeklyCheckIn.findUnique({
+    where: { userId_weekOf: { userId, weekOf: startOfWeek(now) } },
+  })
+  if (!checkIn) return null
+
+  const field = nextUnansweredField(checkIn)
+  if (!field) return null
+
+  return lastAssistantMessage.includes(QUESTIONS[field]) ? field : null
+}
+
 export async function recordAnswer(
   userId: string,
   field: CheckInField,

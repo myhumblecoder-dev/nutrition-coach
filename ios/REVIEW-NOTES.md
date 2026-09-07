@@ -40,6 +40,11 @@ WHERE TO LOOK
 • Settings holds notifications, the privacy policy and support links, and
   "Delete account".
 
+The weekly check-in also happens in Chat. Once a week the coach asks four short
+questions — how the body feels, strength, sleep, mood — one at a time, and the
+user answers in their own words like any other message. There is no check-in
+screen and no form; it is a conversation.
+
 A brand-new account has an empty Today screen, because there is nothing to
 mirror yet. Send the coach a message describing a meal and it will appear on
 Today with the sentence that produced it.
@@ -49,8 +54,7 @@ ACCOUNT DELETION (Guideline 5.1.1(v))
 Settings → Delete account. It asks once to confirm and then permanently erases
 the account and everything attached to it — meals, chat history, check-ins,
 measurements, notification tokens, and any meal photos logged through the web
-app. It is immediate and is not a
-support request or an email flow.
+app. It is immediate and is not a support request or an email flow.
 
 HEALTH CLAIMS (Guideline 1.4.1)
 
@@ -62,9 +66,9 @@ that.
 
 PUSH NOTIFICATIONS
 
-Used for one thing: reminding the user that their weekly check-in is due.
-Permission is requested only when the user taps "Turn on notifications" in
-Settings, never at launch.
+Used for one thing: telling the user the coach has asked this week's check-in
+question, which is waiting for them in Chat. Permission is requested only when
+the user taps "Turn on notifications" in Settings, never at launch.
 
 THIRD-PARTY PROCESSING
 

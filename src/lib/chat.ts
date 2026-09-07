@@ -5,6 +5,13 @@ import { caffeineStatus } from "@/lib/caffeine";
 import { startOfWeek, appTimeZone, nowLine } from "@/lib/time";
 import { COACH_PREAMBLE } from "@/lib/voice";
 import { isOverLimit, recordUsage, todaySuccesses, limitMessage } from "@/lib/limits";
+import {
+  awaitingCheckInAnswer,
+  buildProbePrompt,
+  nextUnansweredField,
+  recordAnswer,
+  QUESTIONS,
+} from "@/lib/checkin";
 import { z } from "zod";
 
 function startOfToday(now: Date): Date {
@@ -50,6 +57,21 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     orderBy: { createdAt: "desc" },
     take: 10,
   });
+
+  // Captured before the reverse below, which mutates the array.
+  const lastMessage = history[0];
+
+  // The weekly check-in is answered here, in the conversation, rather than on
+  // a screen of its own — which is what makes it a coach that asks rather than
+  // a form that waits. If the coach's last message was this week's question,
+  // this message is the answer to it.
+  const checkInField = await awaitingCheckInAnswer(
+    userId,
+    lastMessage?.role === "assistant" ? lastMessage.content : null
+  );
+  if (checkInField) {
+    return answerCheckInInConversation(userId, checkInField, cleanText);
+  }
 
   const historyLines = history
     .reverse()
@@ -139,6 +161,51 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   // never break a reply.
   try {
     await extractHealthFacts(userId, cleanText);
+  } catch {
+    // ignore
+  }
+
+  return { assistantReply: reply };
+}
+/**
+ * Records a check-in answer given conversationally, and replies in the coach's
+ * voice with the next question.
+ *
+ * Both sides are written to the chat like any other exchange, so the check-in
+ * reads as part of the conversation rather than as a separate mode the user
+ * has been put into without being told.
+ */
+async function answerCheckInInConversation(
+  userId: string,
+  field: Awaited<ReturnType<typeof awaitingCheckInAnswer>> & string,
+  userText: string
+): Promise<{ assistantReply: string }> {
+  // recordAnswer keeps the verbatim words even when its summariser fails, so
+  // the answer is never lost to a model error.
+  const updated = await recordAnswer(userId, field, userText);
+  const nextField = nextUnansweredField(updated);
+
+  let reply: string;
+  try {
+    reply = (await generate(buildProbePrompt(field, userText, nextField))).trim();
+  } catch (error) {
+    // The answer is already saved. A failed reply must degrade the
+    // conversation, not lose the record — the same rule the v1 route follows.
+    console.error(error instanceof Error ? error.message : "Unknown error");
+    reply = nextField
+      ? QUESTIONS[nextField]
+      : "That's the whole check-in. I'll ask again next week.";
+  }
+
+  await Promise.all([
+    prisma.chatMessage.create({ data: { userId, role: "user", content: userText } }),
+    prisma.chatMessage.create({ data: { userId, role: "assistant", content: reply } }),
+  ]);
+
+  // A check-in answer is still something the user said — "172 on the scale"
+  // belongs on Today whether it arrived as an answer or as small talk.
+  try {
+    await extractHealthFacts(userId, userText);
   } catch {
     // ignore
   }
