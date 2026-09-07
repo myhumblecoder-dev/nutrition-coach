@@ -33,7 +33,7 @@ final class APIClient {
         let auth: AuthResponse = try await send(
             "/api/v1/auth/apple",
             method: "POST",
-            body: ["identityToken": identityToken],
+            body: ["identityToken": .string(identityToken)],
             authenticated: false
         )
         tokenStore.write(auth.token)
@@ -106,7 +106,7 @@ final class APIClient {
         // session when there is one.
         try await sendIgnoringResponse(
             "/api/v1/attest", method: "POST",
-            body: ["keyId": keyId, "attestation": attestation, "challenge": challenge],
+            body: ["keyId": .string(keyId), "attestation": .string(attestation), "challenge": .string(challenge)],
             authenticated: tokenStore.read() != nil, attested: false
         )
     }
@@ -122,6 +122,21 @@ final class APIClient {
         try await send("/api/v1/dashboard", method: "GET", body: nil)
     }
 
+    func targets() async throws -> MacroPair? {
+        let response: TargetResponse = try await send("/api/v1/targets", method: "GET", body: nil)
+        return response.target
+    }
+
+    /// The server bounds these, so a rejection is a 400 rather than a silently
+    /// stored nonsense denominator under every ring on Today.
+    func setTargets(calories: Int, protein: Int) async throws -> MacroPair? {
+        let response: TargetResponse = try await send(
+            "/api/v1/targets", method: "PUT",
+            body: ["calories": .int(calories), "protein": .int(protein)]
+        )
+        return response.target
+    }
+
     func chatHistory() async throws -> [ChatMessage] {
         let response: ChatHistoryResponse = try await send("/api/v1/chat", method: "GET", body: nil)
         return response.messages
@@ -129,7 +144,7 @@ final class APIClient {
 
     func sendMessage(_ text: String) async throws -> String {
         let response: ChatReplyResponse = try await send(
-            "/api/v1/chat", method: "POST", body: ["message": text]
+            "/api/v1/chat", method: "POST", body: ["message": .string(text)]
         )
         return response.assistantReply
     }
@@ -139,21 +154,21 @@ final class APIClient {
     }
 
     func answerCheckIn(_ text: String) async throws -> CheckInReplyResponse {
-        try await send("/api/v1/checkins", method: "POST", body: ["message": text])
+        try await send("/api/v1/checkins", method: "POST", body: ["message": .string(text)])
     }
 
     func registerDevice(token: String) async throws {
-        try await sendIgnoringResponse("/api/v1/devices", method: "POST", body: ["token": token])
+        try await sendIgnoringResponse("/api/v1/devices", method: "POST", body: ["token": .string(token)])
     }
 
     func unregisterDevice(token: String) async throws {
-        try await sendIgnoringResponse("/api/v1/devices", method: "DELETE", body: ["token": token])
+        try await sendIgnoringResponse("/api/v1/devices", method: "DELETE", body: ["token": .string(token)])
     }
 
     // MARK: - Transport
 
     private func makeRequest(
-        _ path: String, method: String, body: [String: String]?,
+        _ path: String, method: String, body: [String: JSONValue]?,
         authenticated: Bool, attested: Bool
     ) async throws -> URLRequest {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
@@ -166,7 +181,7 @@ final class APIClient {
 
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            request.httpBody = try JSONEncoder().encode(body)
         }
 
         // After the body is set: the assertion is signed over the bytes that
@@ -211,7 +226,7 @@ final class APIClient {
     }
 
     private func send<T: Decodable>(
-        _ path: String, method: String, body: [String: String]?,
+        _ path: String, method: String, body: [String: JSONValue]?,
         authenticated: Bool = true, attested: Bool = true
     ) async throws -> T {
         let request = try await makeRequest(
@@ -224,7 +239,7 @@ final class APIClient {
 
     @discardableResult
     private func sendIgnoringResponse(
-        _ path: String, method: String, body: [String: String]?,
+        _ path: String, method: String, body: [String: JSONValue]?,
         authenticated: Bool = true, attested: Bool = true
     ) async throws -> Data {
         let request = try await makeRequest(
@@ -261,4 +276,30 @@ extension JSONDecoder {
         }
         return decoder
     }()
+}
+
+
+/// The value types a request body can hold.
+///
+/// The body used to be `[String: String]`, which was fine while every field
+/// was text and wrong the moment one was not: the daily target is validated
+/// server-side as an integer, and `"2000"` is a 400. An enum keeps the call
+/// sites honest without widening to `Any`, which would lose Sendable and move
+/// the failure to runtime.
+enum JSONValue: Encodable, Equatable, Sendable {
+    case string(String)
+    case int(Int)
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let value): try container.encode(value)
+        case .int(let value): try container.encode(value)
+        }
+    }
+}
+
+extension JSONValue: ExpressibleByStringLiteral {
+    /// So existing call sites keep reading as `["message": text]`.
+    init(stringLiteral value: String) { self = .string(value) }
 }
