@@ -36,7 +36,12 @@ jobs:
       # Recorded in the log, because the SDK an upload was built against is
       # only visible in App Store Connect's rejection message otherwise.
       - name: Toolchain
-        run: xcodebuild -version && xcodebuild -showsdks | grep -i "iOS .* -sdk iphoneos"
+        # Diagnostic only. `|| true` because a grep that matches nothing exits
+        # 1, and under `bash -e` that failed the whole build on the first run —
+        # a step that reports the toolchain must never be able to stop it.
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks 2>/dev/null | grep -i iphoneos || true
 
       # Fail here, with a list, rather than 20 minutes later inside xcodebuild
       # with a signing error that blames the wrong thing.
