@@ -49,7 +49,18 @@ export async function GET(request: Request) {
         // No LLM call here on purpose: the questions are fixed, and a
         // generated opener would risk rewording the thing the whole record is
         // keyed on. The coach's voice comes in on the reply.
-        const deliveries = await deliverToChannels(user, QUESTIONS[field], PUSH_TITLE)
+        const question = QUESTIONS[field]
+
+        // Written into the conversation, not only pushed. A notification is a
+        // reminder that disappears; the chat is where the user answers, and
+        // `awaitingCheckInAnswer` matches on the coach having asked there.
+        // Without this row the question is unanswerable — the push leads to an
+        // app with no question in it.
+        await prisma.chatMessage.create({
+          data: { userId: user.id, role: 'assistant', content: question },
+        })
+
+        const deliveries = await deliverToChannels(user, question, PUSH_TITLE)
 
         return {
           sent: deliveries.filter((d) => d.ok).length,
