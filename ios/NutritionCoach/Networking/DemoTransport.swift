@@ -33,6 +33,23 @@ enum DemoMode {
         ProcessInfo.processInfo.arguments.contains("-demo-scroll-feed")
     }
 
+    /// The date Today's header shows in a screenshot run.
+    ///
+    /// The fixtures are pinned to fixed dates so a screenshot set is
+    /// reproducible months later — and then the header called `Date()` and
+    /// undid it, changing the image every day and disagreeing with the
+    /// timestamps in the receipts feed below it.
+    static var fixedToday: Date? {
+        guard isActive else { return nil }
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 9
+        components.day = 6
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar.date(from: components)
+    }
+
     static func makeClient() -> APIClient {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [DemoURLProtocol.self]
