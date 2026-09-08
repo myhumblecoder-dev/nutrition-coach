@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { hasChannel, deliverToChannels, pruneTokens, PUSH_TITLE } from './deliver'
+import { hasChannel, deliverToChannels, pruneTokens, logDeliverySummary, PUSH_TITLE } from './deliver'
 import { sendTelegramMessage } from '@/lib/telegram'
 import { sendPushNotification } from '@/lib/push'
 import { prisma } from '@/lib/db'
@@ -76,7 +76,10 @@ describe('deliverToChannels', () => {
 
     const results = await deliverToChannels(user({ telegramChat: { chatId: '101' } }), 'hi')
 
-    expect(results).toEqual([{ ok: false, prune: undefined }])
+    // The reason travels with the failure now: without it, "push is not
+    // configured at all" looked identical to one stale token, which is how a
+    // fortnight of total push failure went unnoticed.
+    expect(results).toEqual([{ ok: false, prune: undefined, reason: 'Forbidden' }])
   })
 
   it('accepts a custom notification title', async () => {
@@ -104,4 +107,66 @@ describe('pruneTokens', () => {
 
     expect(mockPrisma.deviceToken.deleteMany).not.toHaveBeenCalled()
   })
+
+  describe('logDeliverySummary', () => {
+    // The counts already existed — in an HTTP response to a scheduled
+    // invocation that nothing reads. This is the line a person notices.
+    beforeEach(() => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+    })
+
+    it('says nothing alarming when everything sent', () => {
+      logDeliverySummary('daily nudge', { sent: 3, failed: 0, reasons: [] })
+
+      expect(console.error).not.toHaveBeenCalled()
+      expect(console.log).toHaveBeenCalledWith('daily nudge: sent 3')
+    })
+
+    it('reports failures at error level, with the reason', () => {
+      logDeliverySummary('daily nudge', {
+        sent: 0,
+        failed: 1,
+        reasons: ['Push not configured'],
+      })
+
+      expect(console.error).toHaveBeenCalledWith(
+        'daily nudge FAILED for 1 of 1: Push not configured'
+      )
+    })
+
+    it('collapses one cause repeated across every user', () => {
+      // A broken deployment fails identically for everyone. Printing the same
+      // sentence forty times buries the one fact worth reading.
+      logDeliverySummary('weekly check-in', {
+        sent: 0,
+        failed: 3,
+        reasons: ['Push not configured', 'Push not configured', 'Push not configured'],
+      })
+
+      expect(console.error).toHaveBeenCalledWith(
+        'weekly check-in FAILED for 3 of 3: Push not configured'
+      )
+    })
+
+    it('keeps distinct causes apart', () => {
+      logDeliverySummary('daily nudge', {
+        sent: 1,
+        failed: 2,
+        reasons: ['APNs returned 410', 'Forbidden'],
+      })
+
+      expect(console.error).toHaveBeenCalledWith(
+        'daily nudge FAILED for 2 of 3: APNs returned 410; Forbidden'
+      )
+    })
+
+    it('still shouts when a failure arrived without a reason', () => {
+      // Silence about the cause must not become silence about the failure.
+      logDeliverySummary('daily nudge', { sent: 0, failed: 1, reasons: [] })
+
+      expect(console.error).toHaveBeenCalledWith('daily nudge FAILED for 1 of 1: no reason reported')
+    })
+  })
 })
+

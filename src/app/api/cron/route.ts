@@ -2,7 +2,7 @@ import { generate } from '@/lib/llm'
 import { prisma } from '@/lib/db'
 import { nowLine, startOfWeek } from '@/lib/time'
 import { COACH_PREAMBLE } from '@/lib/voice'
-import { deliverToChannels, hasChannel, pruneTokens, type Delivery } from '@/lib/deliver'
+import { deliverToChannels, hasChannel, pruneTokens, type Delivery, logDeliverySummary } from '@/lib/deliver'
 import { nextUnansweredField } from '@/lib/checkin'
 
 // One LLM call per user: batches of 5 keep hundreds of users inside the
@@ -59,6 +59,7 @@ export async function GET(request: Request) {
 
   let sent = 0
   let failed = 0
+  const reasons: string[] = []
   const prunable: string[] = []
 
   for (let i = 0; i < users.length; i += BATCH_SIZE) {
@@ -69,15 +70,18 @@ export async function GET(request: Request) {
       if (result.status === 'rejected') {
         // The LLM call threw: this user gets nothing, but the batch continues.
         failed++
-        console.error(
-          result.reason instanceof Error ? result.reason.message : 'Unknown error'
-        )
+        const why = result.reason instanceof Error ? result.reason.message : 'Unknown error'
+        reasons.push(why)
+        console.error(why)
         continue
       }
 
       for (const delivery of result.value) {
         if (delivery.ok) sent++
-        else failed++
+        else {
+          failed++
+          if (delivery.reason) reasons.push(delivery.reason)
+        }
         if (delivery.prune) prunable.push(delivery.prune)
       }
     }
@@ -85,5 +89,10 @@ export async function GET(request: Request) {
 
   await pruneTokens(prunable)
 
-  return Response.json({ ok: failed === 0, sent, failed })
+  // One greppable line. The counts already existed, in an HTTP response to a
+  // scheduled invocation that nothing reads — which is how total push failure
+  // went unnoticed for a fortnight.
+  logDeliverySummary('daily nudge', { sent, failed, reasons })
+
+  return Response.json({ ok: failed === 0, sent, failed, reasons: [...new Set(reasons)] })
 }

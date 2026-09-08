@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { deliverToChannels, hasChannel, pruneTokens } from '@/lib/deliver'
+import { deliverToChannels, hasChannel, pruneTokens, logDeliverySummary } from '@/lib/deliver'
 import { getOrCreateCheckIn, nextUnansweredField, QUESTIONS } from '@/lib/checkin'
 
 // Opens the weekly review and asks the next question. This is what makes the
@@ -10,9 +10,15 @@ export const maxDuration = 300
 const BATCH_SIZE = 5
 const PUSH_TITLE = 'This week'
 
-type Outcome = { sent: number; failed: number; skipped: number; prune: string[] }
+type Outcome = {
+  sent: number
+  failed: number
+  skipped: number
+  prune: string[]
+  reasons: string[]
+}
 
-const EMPTY: Outcome = { sent: 0, failed: 0, skipped: 0, prune: [] }
+const EMPTY: Outcome = { sent: 0, failed: 0, skipped: 0, prune: [], reasons: [] }
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET
@@ -31,6 +37,7 @@ export async function GET(request: Request) {
   let failed = 0
   let skipped = 0
   const prunable: string[] = []
+  const reasons: string[] = []
 
   for (let i = 0; i < users.length; i += BATCH_SIZE) {
     const batch = users.slice(i, i + BATCH_SIZE)
@@ -67,6 +74,7 @@ export async function GET(request: Request) {
           failed: deliveries.filter((d) => !d.ok).length,
           skipped: 0,
           prune: deliveries.flatMap((d) => (d.prune ? [d.prune] : [])),
+          reasons: deliveries.flatMap((d) => (d.reason ? [d.reason] : [])),
         }
       })
     )
@@ -74,17 +82,22 @@ export async function GET(request: Request) {
     for (const result of results) {
       if (result.status === 'rejected') {
         failed++
-        console.error(result.reason instanceof Error ? result.reason.message : 'Unknown error')
+        const why = result.reason instanceof Error ? result.reason.message : 'Unknown error'
+        reasons.push(why)
+        console.error(why)
         continue
       }
       sent += result.value.sent
       failed += result.value.failed
       skipped += result.value.skipped
       prunable.push(...result.value.prune)
+      reasons.push(...result.value.reasons)
     }
   }
 
   await pruneTokens(prunable)
 
-  return Response.json({ ok: failed === 0, sent, failed, skipped })
+  logDeliverySummary('weekly check-in', { sent, failed, reasons })
+
+  return Response.json({ ok: failed === 0, sent, failed, skipped, reasons: [...new Set(reasons)] })
 }
