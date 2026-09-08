@@ -22,6 +22,24 @@ struct Meal: Codable, Equatable, Identifiable {
     let source: String
 }
 
+/// What the vision model read from a photo, before the user has agreed to it.
+///
+/// The meal already exists server-side at this point, but pending: it is
+/// excluded from every total until `confirmMeal`, and `discardMeal` removes
+/// it. So abandoning this screen is safe — the worst case is a stale row that
+/// never counted.
+struct MealAnalysis: Codable, Equatable, Identifiable {
+    /// The pending meal's own id, so `.sheet(item:)` presents exactly one
+    /// analysis and re-presents when a second photo replaces it.
+    var id: String { mealId }
+
+    let mealId: String
+    let photoUrl: String
+    let foodItems: [FoodItem]
+    let totalCalories: Int
+    let totalProtein: Int
+}
+
 struct MacroPair: Codable, Equatable {
     let calories: Int
     let protein: Int
@@ -72,6 +90,11 @@ enum APIError: Error, Equatable {
     case unauthorized
     case badStatus(Int)
     case notSignedIn
+    /// The server refused because a daily cap is spent, and sent copy written
+    /// to be read by the user. Carried rather than flattened to a status code
+    /// because "that's plenty of photos for today" and "that photo didn't
+    /// work" ask for completely different things from the person reading it.
+    case limitReached(String)
 }
 
 struct TargetResponse: Codable, Equatable {

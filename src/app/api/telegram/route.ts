@@ -1,5 +1,5 @@
 import { sendTelegramMessage, getTelegramFileUrl, answerCallbackQuery } from '@/lib/telegram';
-import { logMealForUser } from '@/lib/meals';
+import { logMealForUser, confirmPendingMeal, discardPendingMeal } from '@/lib/meals';
 
 export const maxDuration = 60;
 import { coachReply } from '@/lib/chat';
@@ -7,7 +7,6 @@ import { analyzeMeal } from '@/lib/analyzeMeal';
 import { UsageLimitError } from '@/lib/limits';
 import { consumeLinkToken, resolveUserByChat, disconnectUser } from '@/lib/telegramLink';
 import { put } from '@vercel/blob';
-import { prisma } from '@/lib/db';
 
 const APP_URL = process.env.APP_URL ?? 'https://nutrition-coach-omega.vercel.app';
 
@@ -49,14 +48,15 @@ export async function POST(request: Request) {
         return ok({ ignored: true });
       }
       const [, action, mealId] = match;
-      // Scoped by userId: callback_data is client-supplied and forgeable.
-      const where = { id: mealId, userId: user.id, confirmed: false };
-      const { count } =
+      // Scoped by userId inside the helpers: callback_data is client-supplied
+      // and forgeable. Shared with the iOS confirm and discard routes so the
+      // scoping rule has exactly one home.
+      const changed =
         action === 'confirm'
-          ? await prisma.mealEntry.updateMany({ where, data: { confirmed: true } })
-          : await prisma.mealEntry.deleteMany({ where });
+          ? await confirmPendingMeal(user.id, mealId)
+          : await discardPendingMeal(user.id, mealId);
       await answerCallbackQuery(cb.id);
-      if (count === 0) {
+      if (!changed) {
         await sendTelegramMessage(cbChatId, "That meal's no longer pending.");
       } else if (action === 'confirm') {
         await sendTelegramMessage(cbChatId, 'Logged ✓');

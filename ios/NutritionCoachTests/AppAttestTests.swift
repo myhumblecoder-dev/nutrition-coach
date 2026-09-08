@@ -230,4 +230,44 @@ final class AppAttestTests: XCTestCase {
         XCTAssertNil(attest.persisted)
         XCTAssertTrue(StubURLProtocol.recorded.isEmpty)
     }
+
+    // MARK: - Meal photos
+
+    /// The reason the photo goes up as base64 inside JSON rather than as a
+    /// multipart or binary body: an assertion is signed over `httpBody`, and
+    /// the server verifies the same bytes as text. If the photo ever moved to
+    /// a binary body this test is what should fail.
+    func testAPhotoUploadIsSignedOverTheExactBodyBytes() async throws {
+        attest.keyId = "key-1"
+        respond(200, """
+        {"mealId":"m1","photoUrl":"https://blob/x.jpg",
+         "foodItems":[{"name":"eggs","portion":"2","calories":140,"protein":12}],
+         "totalCalories":140,"totalProtein":12}
+        """)
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x43, 0xFF, 0xD9])
+
+        _ = try await client.analyzeMealPhoto(jpeg: jpeg, hint: nil)
+
+        XCTAssertEqual(attest.signedData.count, 1)
+        // Signed over the bytes that actually went on the wire, not a
+        // re-serialisation of them — a different key order would produce an
+        // assertion the server cannot verify.
+        let sent = StubURLProtocol.bodyData(from: try XCTUnwrap(StubURLProtocol.lastRequest))
+        XCTAssertEqual(attest.signedData.first, sent)
+
+        let signed = try XCTUnwrap(attest.signedData.first)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: signed) as? [String: String])
+        XCTAssertEqual(Data(base64Encoded: try XCTUnwrap(json["image"])), jpeg)
+        XCTAssertEqual(StubURLProtocol.lastRequest?.value(forHTTPHeaderField: "x-attest-key-id"), "key-1")
+    }
+
+    /// A DELETE carries no body, so there is nothing to sign but the path.
+    func testDiscardingAMealIsSignedOverThePath() async throws {
+        attest.keyId = "key-1"
+        respond(200, #"{"ok":true}"#)
+
+        try await client.discardMeal(id: "meal-1")
+
+        XCTAssertEqual(attest.signedData.first, Data("/api/v1/meals/meal-1".utf8))
+    }
 }

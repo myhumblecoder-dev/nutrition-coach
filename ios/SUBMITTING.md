@@ -198,8 +198,10 @@ Then, in the sidebar:
 - **App Information** — category Health & Fitness, secondary Food & Drink
 - **Age Rating** — the table in `STORE-LISTING.md`. Every answer is None/No
   except **Health or Wellness Topics: Yes**
-- **App Privacy** — the six data types in `STORE-LISTING.md`, all Linked, none
-  Tracking, purpose App Functionality. **Not** Photos or Videos. Then Publish
+- **App Privacy** — the seven data types in `STORE-LISTING.md`, all Linked, none
+  Tracking, purpose App Functionality. **Photos or Videos is one of them** since
+  meal photo logging shipped on iOS; it must agree with `PrivacyInfo.xcprivacy`
+  and with `/privacy` on the web. Then Publish
 - **Pricing and Availability** — Free
 - **App Review Information** — uncheck "Sign-in required"; there is no username
   or password, and the Notes explain the reviewer should use their own Apple ID

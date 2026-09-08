@@ -95,7 +95,7 @@ itself two paragraphs later.
 ## Keywords (100, comma-separated, no spaces)
 
 ```
-meal,calories,protein,macros,diet,nutrition,food,log,tracker,weight,check-in,habit,training,journal
+meal,calories,protein,macros,diet,nutrition,food,log,tracker,weight,check-in,habit,training,photo
 ```
 
 99 characters. Nothing here repeats the app name: Apple indexes "Roughly",
@@ -103,8 +103,10 @@ meal,calories,protein,macros,diet,nutrition,food,log,tracker,weight,check-in,hab
 removed once the name grew — that recovered 14 characters, spent on `training`
 and `journal`.
 
-"photo" is deliberately absent: the iOS app has no camera feature, and a keyword
-the app cannot deliver on invites a 2.3.7 metadata rejection.
+`photo` earns its place now that the camera ships in Chat — a keyword the app
+cannot deliver on invites a 2.3.7 metadata rejection, and this one it can. It
+displaced `journal`, the weakest term in the set and the one furthest from what
+anyone types into search.
 
 ## Support URL
 
@@ -163,15 +165,17 @@ the web. All three disagreeing is a routine rejection.
 | Fitness | Yes | No | App functionality |
 | Other user content | Yes | No | App functionality |
 | Device ID | Yes | No | App functionality |
+| Photos or videos | Yes | No | App functionality |
 
 Nothing is used for tracking, and no data is shared with a data broker.
 
-**Photos or videos is deliberately not listed.** The service stores meal photos,
-but they are collected by the web app; the iOS binary has no camera and no photo
-picker. The privacy policy at `/privacy` covers the whole service and does
-mention photos — that is one policy describing more than one client, which is
-normal, and is not the mismatch Apple looks for. What must not happen is the
-reverse: the app collecting something the labels omit.
+**Photos or videos is listed because the binary now collects them.** Meal photo
+logging ships on iOS: the camera button in Chat takes a picture or picks one
+from the library, uploads it, and the vision model estimates the meal from it.
+Before that it was deliberately absent, and correctly so — the service stored
+meal photos, but the web app was the only thing collecting them. The rule that
+made it absent then is the rule that requires it now: the labels must never omit
+something the app collects.
 
 ## Screenshots
 
@@ -196,6 +200,9 @@ Four, in this order, because the first two are all most people scroll:
 4. **Settings** — notifications, the legal links, and the delete-account row.
    Also the fastest way for a reviewer to confirm 5.1.1(v) is satisfied.
 
-There is deliberately no meal-photo screenshot: photo logging exists on the web,
-**not** in the iOS app, and a screenshot of a feature the binary does not
-contain is a 2.3.3 rejection.
+The set does not yet include a meal-photo shot. That was previously mandatory —
+photo logging did not exist in the binary, and picturing a feature the app does
+not contain is a 2.3.3 rejection — but it now ships, so a fifth screenshot of
+the confirm sheet would be legitimate. Adding one needs a fixture in
+`DemoTransport.swift` for the analyze call, which is worth doing before the next
+submission that leads with the feature.
