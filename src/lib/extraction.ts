@@ -56,6 +56,17 @@ const factsSchema = z.object({
       minutes: z.number().int().nonnegative().optional(),
       steps: z.number().int().nonnegative().optional(),
       note: z.string().optional(),
+      // What was actually done. Capped like every other array here: a runaway
+      // response must not write a hundred exercises from one sentence.
+      exercises: lenientArray(
+        z.object({
+          name: z.string().trim().min(1).max(80),
+          sets: z.number().int().min(1).max(50).optional(),
+          reps: z.number().int().min(1).max(1000).optional(),
+          weightLb: z.number().min(0).max(2000).optional(),
+        }),
+        12
+      ).optional(),
     }),
     5
   ),
@@ -120,11 +131,14 @@ export function buildExtractionPrompt(
     'CAFFEINE: users name drinks, not milligrams, so ESTIMATE the milligrams from what they describe — ' +
     'roughly brewed coffee 95 per cup, espresso 65 per shot, black tea 47, green tea 28, energy drink 80, ' +
     'decaf 3 — multiplied by the number of servings stated.\n' +
+    'EXERCISES: when they name lifts, record each one. "3x8 squats at 185" is ' +
+    '{"name":"squat","sets":3,"reps":8,"weightLb":185}; "squats and rows" is two ' +
+    'entries with a name only. Never invent sets, reps or weight they did not say.\n' +
     'EVERYTHING ELSE (training, mood, measurement, and the sleep and water recovery kinds): ONLY facts the ' +
     'user EXPLICITLY stated — never infer, never invent.\n' +
     'Return ONLY a JSON object with keys: "meals" (array of {"name","portion","calories","protein"} ' +
     'with integer calories/protein), "training" (array of {"kind": "resistance"|"hiit"|"core"|"neat", ' +
-    '"minutes"?, "steps"?, "note"?}), "recovery" (array of {"kind": "sleep"|"water"|"caffeine", ' +
+    '"minutes"?, "steps"?, "note"?, "exercises"?: [{"name","sets"?,"reps"?,"weightLb"?}]}), "recovery" (array of {"kind": "sleep"|"water"|"caffeine", ' +
     '"value": number} — sleep in hours, water in liters, caffeine in milligrams), "mood" (array of ' +
     '{"score": 1-5, "note"?}), "measurement" (array of {"weightLb"?, "waistIn"?}), ' +
     '"targets" ({"calories": int, "protein": int} or null), ' +
@@ -171,6 +185,11 @@ export async function recordHealthFacts(
         kind: t.kind,
         minutes: t.minutes,
         steps: t.steps,
+        // Stored as JSON in a column, like MealEntry.foodItems. Null rather
+        // than "[]" when nothing was named, so an absent list and an empty one
+        // are not the same value.
+        exercises:
+          t.exercises && t.exercises.length > 0 ? JSON.stringify(t.exercises) : null,
         note: t.note,
         source: 'extracted',
         sourceText: sourceText ?? null,

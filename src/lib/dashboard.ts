@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db'
 import { startOfToday, startOfWeek } from '@/lib/time'
 import { caffeineStatus } from '@/lib/caffeine'
-import { ensureOpeningMessage } from '@/lib/onboarding'
+import { ensureOpeningMessage, OPENING_MESSAGE } from '@/lib/onboarding'
 
 // Sessionless cores for the read paths, following the phase-1d pattern: the
 // server action supplies the session, the route handler supplies a bearer,
@@ -228,6 +228,10 @@ export async function getActivityForUser(userId: string): Promise<ActivityRow[]>
 
   const mappedTrainings = trainings.map((row) => {
     let label = row.kind
+    // The lifts, when they were named: "resistance · 45 min" says nothing a
+    // week later, and the receipts feed exists to show what was actually said.
+    const lifts = describeExercises(row.exercises)
+    if (lifts) label += ` · ${lifts}`
     if (row.minutes) label += ` · ${row.minutes} min`
     if (row.steps) label += ` · ${row.steps} steps`
     return {
@@ -287,11 +291,57 @@ export async function getActivityForUser(userId: string): Promise<ActivityRow[]>
     .slice(0, 8)
 }
 
-/** The coach's most recent line, for the strip above the receipts feed. */
+/**
+ * The coach's most recent line, for the strip above the receipts feed.
+ *
+ * Returns null when that line is still the onboarding question and the user
+ * already has targets. Setting them in Settings writes no chat message, so the
+ * opening question stayed the newest thing the coach had said — leaving Today
+ * showing working rings above a strip still asking for the numbers they are
+ * built from.
+ */
 export async function getCoachMessageForUser(userId: string): Promise<string | null> {
   const last = await prisma.chatMessage.findFirst({
     where: { userId, role: 'assistant' },
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   })
-  return last?.content ?? null
+  if (!last) return null
+
+  if (last.content === OPENING_MESSAGE) {
+    const target = await prisma.dailyTarget.findUnique({ where: { userId } })
+    if (target) return null
+  }
+
+  return last.content
+}
+
+export type Exercise = { name: string; sets?: number; reps?: number; weightLb?: number }
+
+/** Parses the JSON exercises column, tolerating a malformed row like parseFoodItems. */
+export function parseExercises(raw: string | null): Exercise[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * "squat 3x8 @ 185, row 3x10" — how a person would write it down.
+ *
+ * Each part is omitted when it is unknown rather than shown as zero: a lift
+ * logged without a weight was still done, and "@ 0" would be a claim.
+ */
+export function describeExercises(raw: string | null): string {
+  return parseExercises(raw)
+    .map((e) => {
+      let text = e.name
+      if (e.sets && e.reps) text += ` ${e.sets}x${e.reps}`
+      else if (e.reps) text += ` x${e.reps}`
+      if (e.weightLb) text += ` @ ${e.weightLb}`
+      return text
+    })
+    .join(', ')
 }
