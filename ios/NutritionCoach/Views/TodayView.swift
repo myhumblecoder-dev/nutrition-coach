@@ -71,7 +71,7 @@ struct TodayView: View {
     private func content(_ data: DashboardResponse) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             subheading(data)
-            rings(data.today)
+            rings(data)
             remaining(data)
             training(data.week)
             recovery(data.week)
@@ -101,7 +101,9 @@ struct TodayView: View {
     }
 
     @ViewBuilder
-    private func rings(_ today: TodayResponse) -> some View {
+    private func rings(_ data: DashboardResponse) -> some View {
+        let today = data.today
+        return Group {
         if let target = today.target {
             HStack(spacing: 0) {
                 RingGauge(
@@ -124,7 +126,8 @@ struct TodayView: View {
             }
             .dashboardCard()
         } else {
-            noTargetsYet
+            noTargetsYet(coachMessage: data.coachMessage)
+        }
         }
     }
 
@@ -134,7 +137,7 @@ struct TodayView: View {
     /// rather than unconfigured, so this says what is missing, what will
     /// appear, and offers both routes to fixing it — the form, and the
     /// conversation the rest of the product runs on.
-    private var noTargetsYet: some View {
+    private func noTargetsYet(coachMessage: String?) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             // Empty rings rather than an icon: it shows the shape of what is
             // coming, so the screen reads as unfinished rather than as an
@@ -158,18 +161,39 @@ struct TodayView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Theme.ink)
 
-            Text("The rings measure what you have eaten against a daily calorie and protein goal. Nothing else on this screen needs them.")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
+            // The coach's own question, shown here rather than left waiting in
+            // a tab a new user has no reason to open. This screen is where
+            // they land, so this is where the conversation has to start.
+            if let coachMessage, !coachMessage.isEmpty {
+                Text(coachMessage)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.accentInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.accentWash)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.rowRadius))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.rowRadius)
+                            .stroke(Theme.accentWashBorder, lineWidth: 1)
+                    )
+            } else {
+                Text("The rings measure what you have eaten against a daily calorie and protein goal. Nothing else on this screen needs them.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             HStack(spacing: 16) {
-                Button("Set targets") { selectedTab = 2 }
+                // Chat leads: answering the coach is the route the product is
+                // built around, and it also sets the targets. Settings is the
+                // alternative, not the default.
+                Button("Answer in chat") { selectedTab = 1 }
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Theme.accent)
-                Text("or just tell the coach")
+                Button("Set them myself") { selectedTab = 2 }
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.faint)
+                    .foregroundStyle(Theme.muted)
             }
         }
         .dashboardCard()
