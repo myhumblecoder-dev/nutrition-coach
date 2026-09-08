@@ -120,6 +120,17 @@ that blames the wrong thing. Build numbers come from `github.run_number`, so
 they cannot collide. The `.xcarchive` is kept for 7 days on success and failure
 alike — a signing problem is far easier to read from the archive than the log.
 
+### If the archive fails on certificates
+
+> Choose a certificate to revoke. Your account has reached the maximum number
+> of certificates.
+
+Apple allows two development certificates per account, and automatic signing
+will try to mint one during a Release archive even though a distribution
+archive needs neither a development certificate nor a development profile. CD
+signs manually against the profile it installs, so it never asks. If this
+returns, check that the Archive step still passes `CODE_SIGN_STYLE=Manual`.
+
 ### If the upload is rejected on SDK version
 
 > This app was built with the iOS 18.5 SDK. All iOS and iPadOS apps must be
