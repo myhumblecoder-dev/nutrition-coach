@@ -1,0 +1,116 @@
+{
+  "" : {
+    "const-values" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary.swiftconstvalues",
+    "dependencies" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary.d",
+    "diagnostics" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary.dia",
+    "emit-module-dependencies" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary-emit-module.dia",
+    "pch" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary.swiftdeps"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/App.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/App.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/App.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/App.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Models/APIModels.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/APIModels.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/APIModels.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/APIModels.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Networking/APIClient.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/APIClient.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/APIClient.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/APIClient.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Networking/AppAttest.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/AppAttest.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/AppAttest.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/AppAttest.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Networking/DemoTransport.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/DemoTransport.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/DemoTransport.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/DemoTransport.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Networking/PushRegistrar.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/PushRegistrar.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/PushRegistrar.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/PushRegistrar.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Networking/TokenStore.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/TokenStore.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/TokenStore.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/TokenStore.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/State/AppState.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/AppState.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/AppState.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/AppState.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Theme.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/Theme.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/Theme.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/Theme.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/ChatView.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/ChatView.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/ChatView.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/ChatView.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/Dashboard/ActivityFeedView.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/ActivityFeedView.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/ActivityFeedView.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/ActivityFeedView.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/Dashboard/CoachStrip.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/CoachStrip.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/CoachStrip.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/CoachStrip.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/Dashboard/DotGrid.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/DotGrid.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/DotGrid.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/DotGrid.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/Dashboard/RingGauge.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/RingGauge.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/RingGauge.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/RingGauge.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/Dashboard/Sparkline.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/Sparkline.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/Sparkline.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/Sparkline.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/Dashboard/StatBar.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/StatBar.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/StatBar.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/StatBar.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/RootView.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/RootView.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/RootView.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/RootView.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/SettingsView.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/SettingsView.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/SettingsView.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/SettingsView.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/SignInView.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/SignInView.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/SignInView.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/SignInView.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Views/TodayView.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/TodayView.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/TodayView.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/TodayView.o"
+  },
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  }
+}

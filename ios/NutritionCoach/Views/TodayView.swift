@@ -124,11 +124,55 @@ struct TodayView: View {
             }
             .dashboardCard()
         } else {
-            Text("Tell the coach your daily targets and they'll show up here.")
+            noTargetsYet
+        }
+    }
+
+    /// The first thing a new account sees, and a reviewer with it.
+    ///
+    /// A dashboard whose headline graphs are simply absent reads as broken
+    /// rather than unconfigured, so this says what is missing, what will
+    /// appear, and offers both routes to fixing it — the form, and the
+    /// conversation the rest of the product runs on.
+    private var noTargetsYet: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Empty rings rather than an icon: it shows the shape of what is
+            // coming, so the screen reads as unfinished rather than as an
+            // error someone has to decode.
+            HStack(spacing: 0) {
+                ForEach(["Calories", "Protein"], id: \.self) { label in
+                    VStack(spacing: 6) {
+                        Circle()
+                            .stroke(Theme.track, lineWidth: 88 / 12)
+                            .frame(width: 74, height: 74)
+                        Text(label)
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(Theme.faint)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.bottom, 4)
+
+            Text("Set your daily targets to see these")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+
+            Text("The rings measure what you have eaten against a daily calorie and protein goal. Nothing else on this screen needs them.")
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.muted)
-                .dashboardCard()
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 16) {
+                Button("Set targets") { selectedTab = 2 }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                Text("or just tell the coach")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.faint)
+            }
         }
+        .dashboardCard()
     }
 
     @ViewBuilder

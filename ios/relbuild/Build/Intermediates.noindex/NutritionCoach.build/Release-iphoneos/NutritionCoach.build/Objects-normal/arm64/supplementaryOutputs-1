@@ -1,0 +1,12 @@
+{
+  "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach/Networking/APIClient.swift" : {
+    "abi-baseline-json" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach.abi.json",
+    "const-values" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary.swiftconstvalues",
+    "dependencies" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary.d",
+    "diagnostics" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-primary.dia",
+    "objc-header" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach-Swift.h",
+    "swiftdoc" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach.swiftdoc",
+    "swiftmodule" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach.swiftmodule",
+    "swiftsourceinfo" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/NutritionCoach.build/Release-iphoneos/NutritionCoach.build/Objects-normal/arm64/NutritionCoach.swiftsourceinfo"
+  }
+}
