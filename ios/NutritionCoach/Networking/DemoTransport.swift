@@ -135,7 +135,7 @@ enum DemoFixtures {
         "weights": [], "mood": null, "measurement": null
       },
       "activity": [],
-      "coachMessage": null
+      "coachMessage": "Right, let\'s get you started. What are you aiming for in a day — calories and protein? If you have no idea, just tell me roughly how tall you are and what you weigh, and I\'ll work out somewhere to start."
     }
     """
 

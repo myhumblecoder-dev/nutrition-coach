@@ -7,6 +7,7 @@ import {
   getCoachMessageForUser,
   parseFoodItems,
 } from '@/lib/dashboard'
+import { ensureOpeningMessage } from '@/lib/onboarding'
 
 // Everything the Today screen renders, in one request.
 //
@@ -20,6 +21,12 @@ export async function GET(request: Request) {
 
   const user = await authenticateBearer(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Seeded here as well as on the chat read: a new user lands on Today, not
+  // Chat, so the coach's opening question has to exist before Today asks for
+  // it. Idempotent — it fires once per account, whichever screen gets there
+  // first.
+  await ensureOpeningMessage(user.id)
 
   const [today, week, activity, coachMessage] = await Promise.all([
     getTodayForUser(user.id),

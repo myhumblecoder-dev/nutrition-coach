@@ -11,6 +11,7 @@ import {
 
 vi.mock('@/lib/apiAuth', () => ({ authenticateBearer: vi.fn() }))
 vi.mock('@/lib/attest', () => ({ requireAttestation: vi.fn() }))
+vi.mock('@/lib/onboarding', () => ({ ensureOpeningMessage: vi.fn() }))
 vi.mock('@/lib/dashboard', async (importOriginal) => ({
   // parseFoodItems is pure and is exercised for real: the route's job is to
   // hand a native client structured items instead of a JSON string, and
@@ -139,4 +140,16 @@ describe('GET /api/v1/dashboard', () => {
 
     expect(body.coachMessage).toBe('Protein is the lever today.')
   })
+
+  it('seeds the coach\'s opening question before Today reads it', async () => {
+    // A new user lands on Today, not Chat. If only the chat read seeded the
+    // opening message, the coach's question would sit in a tab they never
+    // opened — which is exactly how it shipped.
+    const { ensureOpeningMessage } = await import('@/lib/onboarding')
+
+    await GET(req())
+
+    expect(vi.mocked(ensureOpeningMessage)).toHaveBeenCalledWith('u1')
+  })
 })
+
