@@ -79,7 +79,7 @@ describe('GET /api/cron/weekly', () => {
       expect.stringContaining(QUESTIONS.body),
       expect.any(String)
     )
-    expect(body).toEqual({ ok: true, sent: 1, failed: 0, skipped: 0 })
+    expect(body).toEqual({ ok: true, sent: 1, failed: 0, skipped: 0, reasons: [] })
   })
 
   it('resumes at the next unanswered question rather than restarting', async () => {
@@ -114,7 +114,7 @@ describe('GET /api/cron/weekly', () => {
     const body = await (await GET(request('Bearer test-secret'))).json()
 
     expect(mockDeliver).not.toHaveBeenCalled()
-    expect(body).toEqual({ ok: true, sent: 0, failed: 0, skipped: 1 })
+    expect(body).toEqual({ ok: true, sent: 0, failed: 0, skipped: 1, reasons: [] })
   })
 
   it('prunes device tokens APNs reported as gone', async () => {
@@ -125,7 +125,7 @@ describe('GET /api/cron/weekly', () => {
     const body = await (await GET(request('Bearer test-secret'))).json()
 
     expect(mockPrune).toHaveBeenCalledWith(['dead'])
-    expect(body).toEqual({ ok: false, sent: 0, failed: 1, skipped: 0 })
+    expect(body).toEqual({ ok: false, sent: 0, failed: 1, skipped: 0, reasons: [] })
   })
 
   it('one failing user does not stop the rest', async () => {
