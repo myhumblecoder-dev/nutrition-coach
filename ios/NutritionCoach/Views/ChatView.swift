@@ -70,7 +70,7 @@ struct ChatView: View {
     }
 
     private func bubble(for message: ChatMessage) -> some View {
-        HStack {
+        HStack(alignment: .bottom, spacing: 4) {
             if !message.isFromCoach { Spacer(minLength: 40) }
             Text(message.content)
                 .padding(10)
@@ -90,7 +90,28 @@ struct ChatView: View {
                         }
                     }
                 }
-            if message.isFromCoach { Spacer(minLength: 40) }
+            // A visible handle beside every coach message. The context menu
+            // still works, but a long-press nobody guesses at is not a usable
+            // safety control — and Guideline 1.2 is only satisfied by one a
+            // reviewer can actually find.
+            if message.isFromCoach {
+                Menu {
+                    Button("Report", systemImage: "flag", role: .destructive) {
+                        reportingMessage = message
+                    }
+                    Button("Copy", systemImage: "doc.on.doc") {
+                        UIPasteboard.general.string = message.content
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.faint)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Message options")
+                Spacer(minLength: 12)
+            }
         }
         .frame(maxWidth: .infinity, alignment: message.isFromCoach ? .leading : .trailing)
     }

@@ -64,9 +64,13 @@ the user taps "Turn on notifications" in Settings, never at launch.
 
 REPORTING A COACH REPLY (Guideline 1.2)
 
-Long-press any coach message in Chat and choose Report. It sends that reply to
-us and confirms. The coach is generated and occasionally gets things wrong;
+Every coach message in Chat carries a "..." button to its right. Tap it and
+choose Report; long-pressing the message works too. It sends that reply to us
+and confirms. The coach is generated and occasionally gets things wrong, and
 this is how a user says so.
+
+Only the coach's messages are reportable — reporting your own would be
+reporting yourself.
 
 THIRD-PARTY PROCESSING
 

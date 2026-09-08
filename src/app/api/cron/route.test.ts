@@ -71,7 +71,7 @@ describe('route', () => {
 
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
-    expect(body).toEqual({ ok: true, sent: 2, failed: 0 });
+    expect(body).toEqual({ ok: true, sent: 2, failed: 0, reasons: [] });
     expect(generate).toHaveBeenCalledTimes(2);
     const prompts = vi.mocked(generate).mock.calls.map((c) => c[0]);
     expect(prompts.some((p) => p.includes('for Alice'))).toBe(true);
@@ -96,7 +96,7 @@ describe('route', () => {
 
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
-    expect(body).toEqual({ ok: true, sent: 2, failed: 0 });
+    expect(body).toEqual({ ok: true, sent: 2, failed: 0, reasons: [] });
     expect(sendPushNotification).toHaveBeenCalledWith('dev-a', {
       title: 'Roughly',
       body: 'how did you eat today?',
@@ -123,7 +123,7 @@ describe('route', () => {
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
     expect(generate).toHaveBeenCalledTimes(1);
-    expect(body).toEqual({ ok: true, sent: 2, failed: 0 });
+    expect(body).toEqual({ ok: true, sent: 2, failed: 0, reasons: [] });
     expect(sendTelegramMessage).toHaveBeenCalledWith('101', 'same message');
     expect(sendPushNotification).toHaveBeenCalledWith('dev-a', {
       title: 'Roughly',
@@ -143,7 +143,7 @@ describe('route', () => {
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
     expect(prisma.deviceToken.deleteMany).toHaveBeenCalledWith({ where: { token: 'dead' } });
-    expect(body).toEqual({ ok: false, sent: 0, failed: 1 });
+    expect(body).toEqual({ ok: false, sent: 0, failed: 1, reasons: ["APNs returned 410"] });
   });
 
   it('does not prune a token after an ordinary delivery failure', async () => {
@@ -174,7 +174,7 @@ describe('route', () => {
 
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
-    expect(body).toEqual({ ok: false, sent: 2, failed: 1 });
+    expect(body).toEqual({ ok: false, sent: 2, failed: 1, reasons: ["Forbidden"] });
     expect(console.error).toHaveBeenCalled();
   });
 
@@ -190,7 +190,7 @@ describe('route', () => {
 
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
-    expect(body).toEqual({ ok: false, sent: 1, failed: 1 });
+    expect(body).toEqual({ ok: false, sent: 1, failed: 1, reasons: ["rate limited"] });
   });
 
   it('delivers to every user when there are more than one batch of five', async () => {
@@ -201,7 +201,7 @@ describe('route', () => {
 
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
-    expect(body).toEqual({ ok: true, sent: 7, failed: 0 });
+    expect(body).toEqual({ ok: true, sent: 7, failed: 0, reasons: [] });
     expect(sendTelegramMessage).toHaveBeenCalledTimes(7);
   });
 
@@ -213,7 +213,7 @@ describe('route', () => {
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
     expect(generate).not.toHaveBeenCalled();
-    expect(body).toEqual({ ok: true, sent: 0, failed: 0 });
+    expect(body).toEqual({ ok: true, sent: 0, failed: 0, reasons: [] });
   });
 
   it('holds the daily nudge while a weekly check-in is unanswered', async () => {
@@ -231,7 +231,7 @@ describe('route', () => {
 
     expect(generate).not.toHaveBeenCalled();
     expect(sendTelegramMessage).not.toHaveBeenCalled();
-    expect(body).toEqual({ ok: true, sent: 0, failed: 0 });
+    expect(body).toEqual({ ok: true, sent: 0, failed: 0, reasons: [] });
   });
 
   it('resumes the daily nudge once the week is answered', async () => {
@@ -248,6 +248,6 @@ describe('route', () => {
 
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
-    expect(body).toEqual({ ok: true, sent: 1, failed: 0 });
+    expect(body).toEqual({ ok: true, sent: 1, failed: 0, reasons: [] });
   });
 });
