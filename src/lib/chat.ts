@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { generate } from "@/lib/llm";
 import { extractHealthFacts } from "@/lib/extraction";
 import { caffeineStatus } from "@/lib/caffeine";
+import { describeExercises } from "@/lib/dashboard";
 import { startOfWeek, appTimeZone, nowLine } from "@/lib/time";
 import { COACH_PREAMBLE } from "@/lib/voice";
 import { isOverLimit, recordUsage, todaySuccesses, limitMessage } from "@/lib/limits";
@@ -137,6 +138,18 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   if (weekTraining.length > 0) {
     const count = (kind: string) => weekTraining.filter((t) => t.kind === kind).length;
     coachPersona += `\nThis week: ${count('resistance')} resistance, ${count('hiit')} hiit, ${count('core')} core sessions.\n`;
+
+    // The actual lifts, so a suggestion can build on the last session instead
+    // of being generic advice. A coach that cannot see what you squatted last
+    // week cannot tell you what to squat this week.
+    const recent = weekTraining
+      .filter((t) => t.exercises)
+      .slice(-3)
+      .map((t) => describeExercises(t.exercises))
+      .filter(Boolean);
+    if (recent.length > 0) {
+      coachPersona += `Recent sessions: ${recent.join(' | ')}.\n`;
+    }
   }
 
   const latest = await prisma.measurement.findFirst({
