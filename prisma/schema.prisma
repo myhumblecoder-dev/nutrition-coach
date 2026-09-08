@@ -191,6 +191,11 @@ model TrainingEntry {
   minutes   Int?
   steps     Int?
   note      String?
+  // JSON array of {name, sets?, reps?, weightLb?}, the same shape-in-a-column
+  // approach MealEntry.foodItems uses. A session is a list of exercises far
+  // more often than it is a single duration, and "squats 3x8 at 185" is
+  // useless to a coach once it has been flattened to "resistance, 45 min".
+  exercises String?
   source    String   @default("manual")
   sourceText String?
   loggedAt  DateTime @default(now())
