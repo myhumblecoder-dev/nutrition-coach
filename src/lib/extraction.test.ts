@@ -14,7 +14,11 @@ vi.mock('@/lib/db', () => ({
     trainingEntry: { create: vi.fn(), findMany: vi.fn() },
     recoveryEntry: { create: vi.fn(), findMany: vi.fn() },
     moodEntry: { create: vi.fn() },
-    measurement: { create: vi.fn() },
+    measurement: { create: vi.fn(), findFirst: vi.fn() },
+    // Reached by the onboarding fallback: a user with no target gets a
+    // starting one estimated from height and weight.
+    userProfile: { findUnique: vi.fn(), upsert: vi.fn() },
+    dailyTarget: { findUnique: vi.fn(), upsert: vi.fn() },
   },
 }))
 vi.mock('@/lib/llm', () => ({ generate: vi.fn() }))

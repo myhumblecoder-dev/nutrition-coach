@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { startOfToday, startOfWeek } from '@/lib/time'
 import { caffeineStatus } from '@/lib/caffeine'
+import { ensureOpeningMessage } from '@/lib/onboarding'
 
 // Sessionless cores for the read paths, following the phase-1d pattern: the
 // server action supplies the session, the route handler supplies a bearer,
@@ -43,6 +44,12 @@ export async function getTodayForUser(userId: string) {
 }
 
 export async function getChatHistoryForUser(userId: string, take = 20) {
+  // A new account opens to an empty conversation and no targets, so there is
+  // nothing to mirror on Today and nothing to read here. The coach starts,
+  // rather than the app opening a form. Seeded on the read path so both
+  // clients get it without either knowing about onboarding.
+  await ensureOpeningMessage(userId)
+
   const messages = await prisma.chatMessage.findMany({
     where: { userId },
     // id as a tiebreak: rows written before exchanges carried explicit

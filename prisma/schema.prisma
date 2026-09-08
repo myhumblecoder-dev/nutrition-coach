@@ -37,6 +37,7 @@ model User {
   weeklyCheckIns WeeklyCheckIn[]
   usageEvents   UsageEvent[]
   attestedDevices AttestedDevice[]
+  contentReports  ContentReport[]
 }
 
 // An App Attest key that Apple has vouched for: proof that a request came from
@@ -254,10 +255,35 @@ model TelegramLinkToken {
   createdAt DateTime @default(now())
 }
 
+// A coach reply the user flagged as objectionable.
+//
+// Guideline 1.2 expects an app showing generated content to offer a way to
+// report it. Nothing here is published to anyone else, so this is not
+// moderation of a feed — it is a record of the model saying something it
+// should not have, which is worth having regardless of the guideline.
+model ContentReport {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // The reported text is copied, not referenced: deleting the conversation, or
+  // the account, must not erase the evidence of what was reported before it is
+  // read. It cascades with the user, which is the deletion that has to win.
+  messageId String?
+  content   String   @db.Text
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model UserProfile {
   id        String  @id @default(cuid())
   userId    String  @unique
   equipment String?
   notes     String?
+  // Height, unlike weight, does not change — so it belongs to the profile
+  // rather than being a Measurement event. Used once, to estimate a starting
+  // calorie and protein target for someone who does not know theirs.
+  heightIn  Float?
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

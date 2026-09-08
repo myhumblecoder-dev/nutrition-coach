@@ -45,9 +45,16 @@ questions — how the body feels, strength, sleep, mood — one at a time, and t
 user answers in their own words like any other message. There is no check-in
 screen and no form; it is a conversation.
 
-A brand-new account has an empty Today screen, because there is nothing to
-mirror yet. Send the coach a message describing a meal and it will appear on
-Today with the sentence that produced it.
+FIRST RUN
+
+A new account opens with the coach already asking a question in Chat: what the
+user is aiming for daily, in calories and protein, or — if they do not know —
+their rough height and weight, from which a starting target is estimated. Answer
+it in Chat and the rings on Today have something to measure against.
+
+Today is deliberately empty before that, and says so rather than showing blank
+graphs. Send the coach a message describing a meal and it appears on Today with
+the sentence that produced it.
 
 ACCOUNT DELETION (Guideline 5.1.1(v))
 
@@ -69,6 +76,12 @@ PUSH NOTIFICATIONS
 Used for one thing: telling the user the coach has asked this week's check-in
 question, which is waiting for them in Chat. Permission is requested only when
 the user taps "Turn on notifications" in Settings, never at launch.
+
+REPORTING A COACH REPLY (Guideline 1.2)
+
+Long-press any coach message in Chat and choose Report. It sends that reply to
+us and confirms. The coach is generated and occasionally gets things wrong;
+this is how a user says so.
 
 THIRD-PARTY PROCESSING
 
@@ -115,9 +128,8 @@ the iOS app merely wraps.
 **Estimates could read as health claims.** 1.4.1 is why the disclaimer appears
 in three places rather than one.
 
-**Anthropic-generated coach text is user-facing model output.** 1.2 expects
-apps with user-generated or model-generated content to have a way to report
-something objectionable. There is currently no in-app report control — the
-coach only ever addresses the person who wrote to it, and there is no other
-user to be harmed. If this is challenged, the fix is a "Report this reply"
-action in the chat view.
+**Anthropic-generated coach text is user-facing model output.** Mitigated
+rather than argued: long-pressing any coach reply in Chat offers "Report",
+which files the exact text the user saw for a human to read. Nothing is
+published to other users, so this is not feed moderation — it is a record of
+the model saying something it should not have.

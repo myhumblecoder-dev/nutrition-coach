@@ -149,6 +149,19 @@ final class APIClient {
         return response.assistantReply
     }
 
+    /// Flags a coach reply the user found objectionable.
+    ///
+    /// The text is sent rather than an id: a reply shown optimistically has no
+    /// server id yet, and that is exactly when someone is most likely to
+    /// report it.
+    func reportMessage(_ content: String, messageId: String?) async throws {
+        var body: [String: JSONValue] = ["content": .string(content)]
+        if let messageId, !messageId.hasPrefix("local-") {
+            body["messageId"] = .string(messageId)
+        }
+        try await sendIgnoringResponse("/api/v1/reports", method: "POST", body: body)
+    }
+
     func checkIns() async throws -> CheckInsResponse {
         try await send("/api/v1/checkins", method: "GET", body: nil)
     }

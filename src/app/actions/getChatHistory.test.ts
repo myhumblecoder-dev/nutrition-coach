@@ -10,7 +10,7 @@ vi.mock('@/auth', () => ({
 vi.mock('@/lib/db', () => ({
   prisma: {
     chatMessage: {
-      findMany: vi.fn(),
+      findMany: vi.fn(), count: vi.fn(), create: vi.fn(),
     },
   },
 }));

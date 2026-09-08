@@ -469,5 +469,52 @@ extension APIClientTests {
 
         XCTAssertEqual(data.coachMessage, "Protein is the lever today.")
     }
+
+    // MARK: - Reporting a coach reply
+
+    func testReportSendsTheTextTheUserActuallySaw() async throws {
+        respond(200, #"{"ok":true}"#)
+
+        try await client.reportMessage("something objectionable", messageId: "m1")
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.url?.path, "/api/v1/reports")
+        XCTAssertEqual(request.httpMethod, "POST")
+
+        let body = try XCTUnwrap(Self.bodyData(from: request))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        XCTAssertEqual(json["content"], "something objectionable")
+        XCTAssertEqual(json["messageId"], "m1")
+    }
+
+    func testReportOmitsAnOptimisticLocalId() async throws {
+        // A reply shown before the reload has a client-side id the server has
+        // never seen. Sending it would file a report pointing at nothing.
+        respond(200, #"{"ok":true}"#)
+
+        try await client.reportMessage("something objectionable", messageId: "local-ABC123")
+
+        let body = try XCTUnwrap(Self.bodyData(from: try XCTUnwrap(StubURLProtocol.lastRequest)))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        XCTAssertNil(json["messageId"])
+        XCTAssertEqual(json["content"], "something objectionable")
+    }
+
+    /// URLProtocol replaces httpBody with a stream, so both are checked.
+    private static func bodyData(from request: URLRequest) -> Data? {
+        if let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var data = Data()
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let read = stream.read(&buffer, maxLength: buffer.count)
+                if read <= 0 { break }
+                data.append(buffer, count: read)
+            }
+            return data
+        }
+        return request.httpBody
+    }
 }
 

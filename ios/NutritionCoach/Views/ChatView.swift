@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Free conversation with the coach. Anything said here is also mined for
 /// meals, training, sleep and caffeine by the server, so this doubles as the
@@ -11,6 +12,8 @@ struct ChatView: View {
     @State private var isSending = false
     @State private var error: String?
     @FocusState private var composerFocused: Bool
+    @State private var reportingMessage: ChatMessage?
+    @State private var reportConfirmation: String?
 
     var body: some View {
         NavigationStack {
@@ -38,6 +41,30 @@ struct ChatView: View {
                 composer
             }
             .navigationTitle("Coach")
+            .confirmationDialog(
+                "Report this reply?",
+                isPresented: .init(
+                    get: { reportingMessage != nil },
+                    set: { if !$0 { reportingMessage = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Report", role: .destructive) {
+                    if let message = reportingMessage { Task { await report(message) } }
+                }
+                Button("Cancel", role: .cancel) { reportingMessage = nil }
+            } message: {
+                Text("The coach is generated, and sometimes it gets things wrong. Reporting sends this reply to us to look at.")
+            }
+            .alert(
+                reportConfirmation ?? "",
+                isPresented: .init(
+                    get: { reportConfirmation != nil },
+                    set: { if !$0 { reportConfirmation = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { reportConfirmation = nil }
+            }
         }
         .task { await load() }
     }
@@ -50,6 +77,19 @@ struct ChatView: View {
                 .background(message.isFromCoach ? Color(.secondarySystemBackground) : Color.accentColor)
                 .foregroundStyle(message.isFromCoach ? Color.primary : Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
+                // Only the coach's words can be reported: reporting your own
+                // message would be reporting yourself, and the thing worth
+                // flagging is what the model said.
+                .contextMenu {
+                    if message.isFromCoach {
+                        Button("Report", systemImage: "flag", role: .destructive) {
+                            reportingMessage = message
+                        }
+                        Button("Copy", systemImage: "doc.on.doc") {
+                            UIPasteboard.general.string = message.content
+                        }
+                    }
+                }
             if message.isFromCoach { Spacer(minLength: 40) }
         }
         .frame(maxWidth: .infinity, alignment: message.isFromCoach ? .leading : .trailing)
@@ -71,6 +111,18 @@ struct ChatView: View {
             .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
         }
         .padding()
+    }
+
+    private func report(_ message: ChatMessage) async {
+        reportingMessage = nil
+        do {
+            try await state.client.reportMessage(message.content, messageId: message.id)
+            reportConfirmation = "Reported. Thank you — we'll take a look."
+        } catch APIError.unauthorized {
+            state.handleUnauthorized()
+        } catch {
+            reportConfirmation = "Couldn't send that report. Please try again."
+        }
     }
 
     private func load() async {

@@ -79,9 +79,34 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
 
   let coachPersona = nowLine() + " " + COACH_PREAMBLE + " ";
 
+  // Extraction normally runs after the reply, so a failure cannot cost the
+  // user their message. During onboarding it has to run first: the coach's
+  // whole job that turn is to state the target it just worked out, and it
+  // cannot state something that has not happened yet.
+  const hadTargetBefore = (await prisma.dailyTarget.findUnique({ where: { userId } })) !== null;
+  if (!hadTargetBefore) {
+    try {
+      await extractHealthFacts(userId, cleanText);
+    } catch {
+      // A failed extraction must not cost the reply.
+    }
+  }
+
   const target = await prisma.dailyTarget.findUnique({
     where: { userId },
   });
+
+  if (!target) {
+    // Onboarding. Extraction runs before the reply in this case only — see
+    // below — so by here the target may have just been set from what the user
+    // said, and the coach can state it instead of promising it next turn.
+    coachPersona +=
+      '\nThey have no daily calorie or protein target yet. If this message ' +
+      'states one, confirm it back. If it gives their height and weight, tell ' +
+      'them the starting numbers you have set — say plainly that it is a rough ' +
+      'starting point they can change any time. If it gives neither, ask ' +
+      'again, briefly.\n';
+  }
 
   if (target) {
     const today = startOfToday(new Date());
@@ -151,11 +176,14 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   await persistExchange(userId, cleanText, reply);
 
   // Belt and braces on top of the orchestrator's own guard: extraction must
-  // never break a reply.
-  try {
-    await extractHealthFacts(userId, cleanText);
-  } catch {
-    // ignore
+  // never break a reply. Skipped when onboarding already ran it above — twice
+  // would log the same meal twice.
+  if (hadTargetBefore) {
+    try {
+      await extractHealthFacts(userId, cleanText);
+    } catch {
+      // ignore
+    }
   }
 
   return { assistantReply: reply };

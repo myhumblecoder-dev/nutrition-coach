@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { generate } from '@/lib/llm';
 import { startOfToday } from '@/lib/time';
-import { setTargetForUser } from '@/lib/targets';
+import { setTargetForUser, getTargetForUser } from '@/lib/targets';
+import { estimateTargets } from '@/lib/onboarding';
 
 // Round rather than reject fractional model estimates (same policy as analyzeMeal).
 const roundedInt = z.number().nonnegative().transform(Math.round);
@@ -72,6 +73,10 @@ const factsSchema = z.object({
     }),
     3
   ),
+  // Height does not change, so it is a single value rather than a series.
+  // Asked for only during onboarding, to estimate a starting target for
+  // someone who does not know theirs.
+  heightIn: z.number().min(36).max(96).nullish().catch(null),
   // A target is a standing instruction, not an event, so it is a single
   // optional object rather than an array — and it is the one field here that
   // overwrites rather than appends. That is why the prompt requires an
@@ -122,7 +127,10 @@ export function buildExtractionPrompt(
     '"minutes"?, "steps"?, "note"?}), "recovery" (array of {"kind": "sleep"|"water"|"caffeine", ' +
     '"value": number} — sleep in hours, water in liters, caffeine in milligrams), "mood" (array of ' +
     '{"score": 1-5, "note"?}), "measurement" (array of {"weightLb"?, "waistIn"?}), ' +
-    '"targets" ({"calories": int, "protein": int} or null).\n' +
+    '"targets" ({"calories": int, "protein": int} or null), ' +
+    '"heightIn" (number or null).\n' +
+    'HEIGHT: in inches, converting if they give feet and inches — "5\'10" is ' +
+    '70. Only when they state it; never guess it from anything else.\n' +
     'TARGETS: set this ONLY when the user explicitly asks to set, change or ' +
     'correct their daily goal — "set my target to 2000 calories and 150g protein", ' +
     '"make my protein goal 160". It overwrites a standing setting, so a passing ' +
@@ -185,10 +193,23 @@ export async function recordHealthFacts(
       data: { userId, weightLb: m.weightLb, waistIn: m.waistIn, source: 'extracted', sourceText: sourceText ?? null },
     });
   }
+  if (facts.heightIn) {
+    await prisma.userProfile.upsert({
+      where: { userId },
+      create: { userId, heightIn: facts.heightIn },
+      update: { heightIn: facts.heightIn },
+    });
+  }
+
   // Last, and upserted rather than appended: unlike everything above, a target
   // replaces a standing setting instead of adding an event.
   if (facts.targets) {
     await setTargetForUser(userId, facts.targets);
+  } else {
+    // Onboarding's fallback: someone who does not know their targets gives
+    // height and weight instead, and gets a starting point. Only when no
+    // target exists — this must never quietly overwrite one the user chose.
+    await estimateTargetsIfMissing(userId, facts.heightIn ?? null);
   }
 
   return {
@@ -252,4 +273,33 @@ export async function extractHealthFacts(userId: string, userText: string) {
   } catch {
     return { meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 };
   }
+}
+
+/**
+ * Sets a starting target from height and weight, for a user who has neither.
+ *
+ * Height may have arrived in this message or in an earlier one, and weight may
+ * have come from any measurement the user has ever given — someone answering
+ * "5'10" to a coach that already knows their weight should not have to repeat
+ * it.
+ *
+ * Silent when anything is missing: the coach asks again rather than the app
+ * inventing a number.
+ */
+async function estimateTargetsIfMissing(userId: string, heightFromThisMessage: number | null) {
+  if (await getTargetForUser(userId)) return;
+
+  const [profile, measurement] = await Promise.all([
+    prisma.userProfile.findUnique({ where: { userId } }),
+    prisma.measurement.findFirst({
+      where: { userId, weightLb: { not: null } },
+      orderBy: { measuredAt: 'desc' },
+    }),
+  ]);
+
+  const heightIn = heightFromThisMessage ?? profile?.heightIn ?? null;
+  const weightLb = measurement?.weightLb ?? null;
+  if (!heightIn || !weightLb) return;
+
+  await setTargetForUser(userId, estimateTargets({ heightIn, weightLb }));
 }
