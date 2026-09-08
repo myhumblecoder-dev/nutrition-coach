@@ -1,0 +1,72 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildOnly"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "c77d5d7fd5308f9886a195c2f6f9f9bf800a0d6332f3ef3aa526642029ea75f8"
+    }
+  ],
+  "containerPath" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/NutritionCoach.xcodeproj",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "activeArchitecture" : "undefined_arch",
+    "activeRunDestination" : {
+      "disableOnlyActiveArch" : true,
+      "hostTargetedPlatform" : null,
+      "platform" : "iphoneos",
+      "sdk" : "iphoneos26.5",
+      "sdkVariant" : "iphoneos",
+      "supportedArchitectures" : [
+        "armv4t",
+        "armv5",
+        "armv6",
+        "armv7",
+        "armv7f",
+        "armv7s",
+        "armv7k",
+        "arm64",
+        "arm64e"
+      ],
+      "targetArchitecture" : "undefined_arch"
+    },
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex",
+      "buildProductsPath" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Products",
+      "derivedDataPath" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild",
+      "indexDataStoreFolderPath" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Index.noindex/PrecompiledHeaders",
+      "pchPath" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/Intermediates.noindex/PrecompiledHeaders"
+    },
+    "configurationName" : "Release",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+          "CODE_SIGNING_ALLOWED" : "NO"
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ACTION" : "build",
+          "CLANG_COVERAGE_MAPPING" : "YES",
+          "CLANG_PROFILE_DATA_DIRECTORY" : "/Users/thomasgooch/Projects/myhumblecoder-dev/nutrition-coach/ios/relbuild/Build/ProfileData",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "YES"
+        }
+      }
+    }
+  },
+  "schemeCommand" : "launch",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}

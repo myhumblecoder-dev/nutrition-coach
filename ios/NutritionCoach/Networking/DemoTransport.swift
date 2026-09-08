@@ -29,6 +29,13 @@ enum DemoMode {
 
     /// Scrolls Today to the receipts feed on load, so a screenshot can show
     /// the part of the screen that makes the product's argument.
+    /// Serves the state a brand-new account actually sees: no targets, no
+    /// history. Worth being able to look at — it is the first screen a new
+    /// user and a reviewer both open.
+    static var isFirstRun: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demo-first-run")
+    }
+
     static var scrollsToFeed: Bool {
         ProcessInfo.processInfo.arguments.contains("-demo-scroll-feed")
     }
@@ -45,6 +52,11 @@ enum DemoMode {
         components.year = 2026
         components.month = 9
         components.day = 6
+        // Midday, not midnight. The header formatter renders in device-local
+        // time, so a midnight-UTC instant shows as the 5th anywhere west of
+        // Greenwich — the same mistake weekOf carried before it became a
+        // calendar date, reintroduced here in the fixture meant to be stable.
+        components.hour = 12
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         return calendar.date(from: components)
@@ -99,13 +111,33 @@ enum DemoFixtures {
 
     static func json(for path: String, method: String) -> String {
         switch path {
-        case "/api/v1/dashboard" where method == "GET": return dashboard
-        case "/api/v1/targets" where method == "GET": return #"{"target":{"calories":2000,"protein":150}}"#
+        case "/api/v1/dashboard" where method == "GET":
+            return DemoMode.isFirstRun ? emptyDashboard : dashboard
+        case "/api/v1/targets" where method == "GET":
+            return DemoMode.isFirstRun ? #"{"target":null}"# : #"{"target":{"calories":2000,"protein":150}}"#
         case "/api/v1/chat" where method == "GET": return chat
         case "/api/v1/checkins" where method == "GET": return checkIns
         default: return #"{"ok":true}"#
         }
     }
+
+    /// A brand-new account: nothing logged, no targets set.
+    private static let emptyDashboard = """
+    {
+      "today": {"meals": [], "target": null, "consumed": {"calories": 0, "protein": 0}},
+      "week": {
+        "training": {"resistance":0,"hiit":0,"core":0,"stepsToday":0,
+          "days":{"resistance":[false,false,false,false,false,false,false],
+                  "hiit":[false,false,false,false,false,false,false],
+                  "core":[false,false,false,false,false,false,false]}},
+        "recovery": {"sleepHours":null,"waterLiters":null,"caffeine":null},
+        "streak": [false,false,false,false,false,false,false],
+        "weights": [], "mood": null, "measurement": null
+      },
+      "activity": [],
+      "coachMessage": null
+    }
+    """
 
     /// Conversation is the logging surface — the coach mines it for meals and
     /// training — so this exchange shows logging happening by talking, and the
