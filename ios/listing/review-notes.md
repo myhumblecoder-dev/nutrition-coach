@@ -22,9 +22,9 @@ WHERE TO LOOK
 • "Chat" is the coach. Logging happens by talking: "chicken burrito bowl, no
   rice, and I lifted this morning" is a complete entry. There is no logging
   form. The camera button beside the message field is the other way in:
-  photograph a meal and the coach estimates its calories and protein, showing
-  what it read first. Anything typed goes up with it as a hint. Nothing counts
-  until you tap "Log it".
+  attach a meal photo, caption it if you like, and the coach answers in the
+  thread with what it read. Correct it in words or nudge the numbers. Nothing
+  counts until you tap "Log it".
 • Settings holds notifications, the privacy policy and support links, and
   "Delete account".
 

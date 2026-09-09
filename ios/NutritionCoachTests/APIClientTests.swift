@@ -646,6 +646,50 @@ extension APIClientTests {
         }
     }
 
+    func testCorrectingAMealPostsTheWordsAndReturnsAFreshEstimate() async throws {
+        respond(200, """
+        {"mealId":"meal-1","photoUrl":"https://blob/meal.jpg",
+         "foodItems":[{"name":"chicken","portion":"2 cups","calories":700,"protein":60}],
+         "totalCalories":700,"totalProtein":60}
+        """)
+
+        let revised = try await client.reviseMeal(id: "meal-1", correction: "that's chicken")
+
+        XCTAssertEqual(revised.totalCalories, 700)
+        XCTAssertEqual(revised.foodItems.first?.name, "chicken")
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/meals/meal-1/revise")
+
+        let body = try XCTUnwrap(Self.bodyData(from: request))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        XCTAssertEqual(json["correction"], "that's chicken")
+    }
+
+    func testCorrectingAMealThatIsNoLongerPendingFails() async {
+        respond(404, #"{"error":"That meal's no longer pending."}"#)
+
+        do {
+            _ = try await client.reviseMeal(id: "gone", correction: "x")
+            XCTFail("expected a thrown error")
+        } catch {
+            XCTAssertEqual(error as? APIError, .badStatus(404))
+        }
+    }
+
+    func testTheCapAppliesToCorrectionsToo() async {
+        respond(429, #"{"error":"That's plenty of photos for today."}"#)
+
+        do {
+            _ = try await client.reviseMeal(id: "meal-1", correction: "x")
+            XCTFail("expected limitReached")
+        } catch {
+            // A correction is another vision call, so it can hit the same cap.
+            XCTAssertEqual(error as? APIError, .limitReached("That's plenty of photos for today."))
+        }
+    }
+
     private static func bodyData(from request: URLRequest) -> Data? {
         StubURLProtocol.bodyData(from: request)
     }

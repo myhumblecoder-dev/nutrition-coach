@@ -2,19 +2,49 @@ import SwiftUI
 import UIKit
 import PhotosUI
 
+/// One turn in the conversation.
+///
+/// The thread is no longer just server messages: a meal photo and the coach's
+/// read on it are turns too, and they exist only on the device until the meal
+/// is logged. Modelling them as cases here rather than faking them as
+/// `ChatMessage`s keeps the photo an image and the pending meal interactive.
+enum ChatItem: Identifiable {
+    case message(ChatMessage)
+    case photo(SentPhoto)
+    case pending(MealAnalysis)
+
+    var id: String {
+        switch self {
+        case .message(let message): return "m-\(message.id)"
+        case .photo(let photo): return "p-\(photo.id)"
+        // The meal id, so a correction updates the card in place instead of
+        // stacking a second one underneath.
+        case .pending(let analysis): return "pending-\(analysis.mealId)"
+        }
+    }
+}
+
+/// A photo the user sent, held locally so it can be shown at full fidelity
+/// without waiting on the blob round trip.
+struct SentPhoto: Identifiable {
+    let id = UUID().uuidString
+    let image: UIImage
+    let caption: String
+}
+
 /// Free conversation with the coach. Anything said here is also mined for
 /// meals, training, sleep and caffeine by the server, so this doubles as the
 /// logging surface — conversation is the only input.
 ///
-/// A meal photo is part of that conversation rather than a separate feature,
-/// which is why the camera lives in this composer and not on Today. It is the
-/// same shape as the Telegram bot: send a picture, optionally say what it is,
-/// and the coach tells you what it read before anything is logged. Whatever is
-/// typed in the composer at the time travels with the photo as the hint.
+/// A meal photo is part of that conversation, not a feature beside it. It is
+/// attached in the composer and captioned before it is sent, the way any
+/// messaging app handles a picture; the coach answers in the thread with what
+/// it read and two buttons. Disagreeing is just talking: while a meal is
+/// pending, what you type corrects it rather than starting a new subject.
 struct ChatView: View {
     @Environment(AppState.self) private var state
 
-    @State private var messages: [ChatMessage] = []
+    @State private var items: [ChatItem] = []
     @State private var draft = ""
     @State private var isSending = false
     @State private var error: String?
@@ -26,26 +56,17 @@ struct ChatView: View {
     @State private var showingCamera = false
     @State private var isPickingFromLibrary = false
     @State private var libraryItem: PhotosPickerItem?
-    @State private var pendingAnalysis: MealAnalysis?
+    /// Staged in the composer, not yet uploaded — this is the window in which
+    /// a caption can be written.
+    @State private var attached: UIImage?
+    /// While set, the composer corrects this meal instead of saying something
+    /// new.
+    @State private var pendingMealId: String?
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 12) {
-                            ForEach(messages) { message in
-                                bubble(for: message).id(message.id)
-                            }
-                        }
-                        .padding()
-                    }
-                    .scrollDismissesKeyboard(.interactively)
-                    .onChange(of: messages.count) {
-                        guard let last = messages.last else { return }
-                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                    }
-                }
+                thread
 
                 if let error {
                     Text(error).font(.footnote).foregroundStyle(.red).padding(.horizontal)
@@ -91,19 +112,10 @@ struct ChatView: View {
             .photosPicker(isPresented: $isPickingFromLibrary, selection: $libraryItem, matching: .images)
             .fullScreenCover(isPresented: $showingCamera) {
                 CameraPicker(
-                    onPicked: { image in Task { await analyze(image) } },
+                    onPicked: { attach($0) },
                     onFinished: { showingCamera = false }
                 )
                 .ignoresSafeArea()
-            }
-            .sheet(item: $pendingAnalysis) { analysis in
-                MealConfirmSheet(
-                    analysis: analysis,
-                    onLogged: { calories, protein in
-                        await log(analysis, calories: calories, protein: protein)
-                    },
-                    onDiscarded: { await discard(analysis) }
-                )
             }
             .onChange(of: libraryItem) { _, item in
                 guard let item else { return }
@@ -113,7 +125,7 @@ struct ChatView: View {
                     // holds, which on an iPhone is usually HEIC.
                     if let data = try? await item.loadTransferable(type: Data.self),
                        let image = UIImage(data: data) {
-                        await analyze(image)
+                        attach(image)
                     } else {
                         error = "Couldn't read that photo."
                     }
@@ -121,7 +133,94 @@ struct ChatView: View {
                 }
             }
         }
-        .task { await load() }
+        .task {
+            await load()
+            #if DEBUG
+            // Drives the real attach-and-send path against DemoTransport's
+            // fixture, so the composer's attachment strip and the pending card
+            // can be inspected on a Simulator with no camera. Inert without
+            // the launch argument, and absent from a Release binary.
+            if DemoMode.sendsAMealPhoto {
+                attach(DemoMode.stubMealPhoto())
+                draft = "chicken burrito bowl, no rice"
+                await sendPhoto()
+
+                if DemoMode.correctsTheMeal, let id = pendingMealId {
+                    draft = "that was a double portion"
+                    await correct(id)
+                }
+                if DemoMode.logsTheMeal,
+                   case .pending(let analysis)? = items.last {
+                    await log(analysis, calories: analysis.totalCalories, protein: analysis.totalProtein)
+                }
+            }
+            #endif
+        }
+    }
+
+    // MARK: - Thread
+
+    private var thread: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    ForEach(items) { item in
+                        row(for: item).id(item.id)
+                    }
+                }
+                .padding()
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: items.map(\.id).joined()) {
+                guard let last = items.last else { return }
+                withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func row(for item: ChatItem) -> some View {
+        switch item {
+        case .message(let message):
+            bubble(for: message)
+        case .photo(let photo):
+            photoBubble(photo)
+        case .pending(let analysis):
+            PendingMealCard(
+                analysis: analysis,
+                isBusy: isSending,
+                onLog: { calories, protein in
+                    Task { await log(analysis, calories: calories, protein: protein) }
+                },
+                onDiscard: { Task { await discard(analysis) } }
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// The photo as sent, with its caption underneath in the same bubble — so
+    /// the words and the picture read as one turn, which is what they were.
+    private func photoBubble(_ photo: SentPhoto) -> some View {
+        HStack {
+            Spacer(minLength: 40)
+            VStack(alignment: .trailing, spacing: 0) {
+                Image(uiImage: photo.image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: 220, maxHeight: 220)
+                    .clipped()
+
+                if !photo.caption.isEmpty {
+                    Text(photo.caption)
+                        .font(.body)
+                        .foregroundStyle(.white)
+                        .padding(10)
+                        .frame(maxWidth: 220, alignment: .leading)
+                }
+            }
+            .background(Color.accentColor)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
     }
 
     private func bubble(for message: ChatMessage) -> some View {
@@ -171,48 +270,125 @@ struct ChatView: View {
         .frame(maxWidth: .infinity, alignment: message.isFromCoach ? .leading : .trailing)
     }
 
+    // MARK: - Composer
+
     private var composer: some View {
-        HStack(spacing: 8) {
-            Button {
-                composerFocused = false
-                isChoosingPhoto = true
-            } label: {
-                Image(systemName: "camera.fill").font(.title3)
-            }
-            .disabled(isSending)
-            .accessibilityLabel("Log a meal from a photo")
+        VStack(spacing: 8) {
+            if let attached { attachmentStrip(attached) }
+            if attached == nil, pendingMealId != nil { correctingStrip }
 
-            TextField("Tell the coach about your day…", text: $draft, axis: .vertical)
-                .lineLimit(1...4)
-                .textFieldStyle(.roundedBorder)
-                .disabled(isSending)
-                .focused($composerFocused)
+            HStack(spacing: 8) {
+                Button {
+                    composerFocused = false
+                    isChoosingPhoto = true
+                } label: {
+                    Image(systemName: "camera.fill").font(.title3)
+                }
+                .disabled(isSending || attached != nil)
+                .accessibilityLabel("Log a meal from a photo")
 
-            Button {
-                Task { await send() }
-            } label: {
-                Image(systemName: "arrow.up.circle.fill").font(.title2)
+                TextField(composerPrompt, text: $draft, axis: .vertical)
+                    .lineLimit(1...4)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(isSending)
+                    .focused($composerFocused)
+
+                Button {
+                    Task { await sendComposer() }
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill").font(.title2)
+                }
+                .disabled(!canSend)
             }
-            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
         }
         .padding()
     }
 
-    private func report(_ message: ChatMessage) async {
-        reportingMessage = nil
-        do {
-            try await state.client.reportMessage(message.content, messageId: message.id)
-            reportConfirmation = "Reported. Thank you — we'll take a look."
-        } catch APIError.unauthorized {
-            state.handleUnauthorized()
-        } catch {
-            reportConfirmation = "Couldn't send that report. Please try again."
+    private var composerPrompt: String {
+        if attached != nil { return "Add a caption…" }
+        if pendingMealId != nil { return "Tell me what I got wrong…" }
+        return "Tell the coach about your day…"
+    }
+
+    /// A photo with no caption is still worth sending — the caption is help,
+    /// not a requirement. Text alone is only sendable when it is not empty.
+    private var canSend: Bool {
+        guard !isSending else { return false }
+        if attached != nil { return true }
+        return !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func attachmentStrip(_ image: UIImage) -> some View {
+        HStack(spacing: 10) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            Text("Say what it is, if you like — I'll judge the portion.")
+                .font(.caption)
+                .foregroundStyle(Theme.muted)
+
+            Spacer(minLength: 0)
+
+            Button {
+                attached = nil
+            } label: {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.faint)
+            }
+            .accessibilityLabel("Remove photo")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Says plainly that typing will correct the meal rather than change the
+    /// subject, and offers the way out. Routing text somewhere unexpected with
+    /// no sign it was happening would be worse than having no correction at all.
+    private var correctingStrip: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.uturn.backward")
+                .font(.caption)
+                .foregroundStyle(Theme.accentInk)
+            Text("Correcting the meal above")
+                .font(.caption)
+                .foregroundStyle(Theme.accentInk)
+            Spacer(minLength: 0)
+            Button("Done") { pendingMealId = nil }
+                .font(.caption.weight(.semibold))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Theme.accentWash)
+        .clipShape(Capsule())
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Actions
+
+    private func attach(_ image: UIImage) {
+        showingCamera = false
+        error = nil
+        attached = image
+        // Focus follows the photo: the caption is the point of this step, and
+        // a keyboard the user has to summon is a step most people skip.
+        composerFocused = true
+    }
+
+    /// One send button, three meanings, decided by what is on screen.
+    private func sendComposer() async {
+        if attached != nil {
+            await sendPhoto()
+        } else if let mealId = pendingMealId {
+            await correct(mealId)
+        } else {
+            await send()
         }
     }
 
     private func load() async {
         do {
-            messages = try await state.client.chatHistory()
+            items = try await state.client.chatHistory().map(ChatItem.message)
         } catch APIError.unauthorized {
             state.handleUnauthorized()
         } catch {
@@ -220,14 +396,8 @@ struct ChatView: View {
         }
     }
 
-    /// Uploads a photo and shows what the coach read from it.
-    ///
-    /// The user bubble goes up first for the same reason it does in `send`:
-    /// the vision round trip is slow, and a conversation that appears to stall
-    /// reads as broken. The draft, if there is one, is the hint — so "chicken
-    /// burrito bowl, no rice" plus a photo tells the model what the food is
-    /// and leaves it to judge the portion.
-    private func analyze(_ image: UIImage) async {
+    private func sendPhoto() async {
+        guard let image = attached else { return }
         error = nil
 
         guard let jpeg = MealImage.jpegForUpload(image) else {
@@ -235,26 +405,22 @@ struct ChatView: View {
             return
         }
 
-        let hint = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let caption = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         draft = ""
+        attached = nil
         composerFocused = false
 
         isSending = true
         defer { isSending = false }
 
-        messages.append(
-            ChatMessage(
-                id: "local-\(UUID().uuidString)",
-                role: "user",
-                content: hint.isEmpty ? "📷 Meal photo" : "📷 \(hint)",
-                createdAt: Date()
-            )
-        )
+        items.append(.photo(SentPhoto(image: image, caption: caption)))
 
         do {
-            pendingAnalysis = try await state.client.analyzeMealPhoto(
-                jpeg: jpeg, hint: hint.isEmpty ? nil : hint
+            let analysis = try await state.client.analyzeMealPhoto(
+                jpeg: jpeg, hint: caption.isEmpty ? nil : caption
             )
+            items.append(.pending(analysis))
+            pendingMealId = analysis.mealId
         } catch APIError.unauthorized {
             state.handleUnauthorized()
         } catch APIError.limitReached(let message) {
@@ -267,19 +433,54 @@ struct ChatView: View {
         }
     }
 
+    /// Re-reads the photo in light of what the user just said about it.
+    private func correct(_ mealId: String) async {
+        let words = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !words.isEmpty else { return }
+
+        error = nil
+        draft = ""
+        composerFocused = false
+
+        isSending = true
+        defer { isSending = false }
+
+        items.append(
+            .message(ChatMessage(id: "local-\(UUID().uuidString)", role: "user", content: words, createdAt: Date()))
+        )
+
+        do {
+            let revised = try await state.client.reviseMeal(id: mealId, correction: words)
+            // Replaced in place, so the thread shows one current answer rather
+            // than a pile of superseded ones.
+            if let index = items.firstIndex(where: { $0.id == "pending-\(mealId)" }) {
+                items.remove(at: index)
+            }
+            items.append(.pending(revised))
+        } catch APIError.unauthorized {
+            state.handleUnauthorized()
+        } catch APIError.limitReached(let message) {
+            error = message
+        } catch APIError.badStatus(404) {
+            pendingMealId = nil
+            error = "That meal's no longer pending."
+        } catch {
+            self.error = "I couldn't make sense of that one — try telling me another way."
+        }
+    }
+
     private func log(_ analysis: MealAnalysis, calories: Int, protein: Int) async {
+        error = nil
+        isSending = true
+        defer { isSending = false }
+
         do {
             try await state.client.confirmMeal(
                 id: analysis.mealId, totalCalories: calories, totalProtein: protein
             )
-            let foods = analysis.foodItems.map(\.name).joined(separator: ", ")
-            messages.append(
-                ChatMessage(
-                    id: "local-\(UUID().uuidString)",
-                    role: "assistant",
-                    content: "Logged \(foods) — \(calories) cal, \(protein)g protein. ✓",
-                    createdAt: Date()
-                )
+            replacePending(
+                analysis,
+                with: "Logged \(analysis.foodItems.map(\.name).joined(separator: ", ")) — \(calories) cal, \(protein)g protein. ✓"
             )
         } catch APIError.unauthorized {
             state.handleUnauthorized()
@@ -289,10 +490,34 @@ struct ChatView: View {
     }
 
     private func discard(_ analysis: MealAnalysis) async {
+        error = nil
         // Failure is swallowed on purpose. The meal is pending, so it counts
         // towards nothing either way; nagging about a discard that did not
         // land would be noise about a decision already made.
         try? await state.client.discardMeal(id: analysis.mealId)
+        replacePending(analysis, with: "Dropped it. Tell me or show me again if you want it logged differently.")
+    }
+
+    /// Swaps the interactive card for the coach's plain word on the outcome,
+    /// so a settled meal cannot be logged twice from a stale card.
+    private func replacePending(_ analysis: MealAnalysis, with reply: String) {
+        items.removeAll { $0.id == "pending-\(analysis.mealId)" }
+        items.append(
+            .message(ChatMessage(id: "local-\(UUID().uuidString)", role: "assistant", content: reply, createdAt: Date()))
+        )
+        if pendingMealId == analysis.mealId { pendingMealId = nil }
+    }
+
+    private func report(_ message: ChatMessage) async {
+        reportingMessage = nil
+        do {
+            try await state.client.reportMessage(message.content, messageId: message.id)
+            reportConfirmation = "Reported. Thank you — we'll take a look."
+        } catch APIError.unauthorized {
+            state.handleUnauthorized()
+        } catch {
+            reportConfirmation = "Couldn't send that report. Please try again."
+        }
     }
 
     private func send() async {
@@ -309,14 +534,14 @@ struct ChatView: View {
 
         // Shown immediately so the conversation does not appear to stall
         // during the LLM round trip; the id is replaced when history reloads.
-        messages.append(
-            ChatMessage(id: "local-\(UUID().uuidString)", role: "user", content: text, createdAt: Date())
+        items.append(
+            .message(ChatMessage(id: "local-\(UUID().uuidString)", role: "user", content: text, createdAt: Date()))
         )
 
         do {
             let reply = try await state.client.sendMessage(text)
-            messages.append(
-                ChatMessage(id: "local-\(UUID().uuidString)", role: "assistant", content: reply, createdAt: Date())
+            items.append(
+                .message(ChatMessage(id: "local-\(UUID().uuidString)", role: "assistant", content: reply, createdAt: Date()))
             )
         } catch APIError.unauthorized {
             state.handleUnauthorized()

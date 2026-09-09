@@ -88,3 +88,56 @@ export async function discardPendingMeal(userId: string, mealId: string): Promis
 
   return count > 0;
 }
+
+/// The analysis half of a meal row, shared by the photo and revise paths.
+type MealAnalysis = {
+  foodItems: z.infer<typeof foodItemSchema>[];
+  totalCalories: number;
+  totalProtein: number;
+};
+
+/**
+ * Reads back a pending meal so it can be re-estimated.
+ *
+ * Only the photo and the words said about it so far: a correction re-runs
+ * vision against the same image, and the accumulated description is what tells
+ * the model what the food is.
+ */
+export async function getPendingMeal(userId: string, mealId: string) {
+  const meal = await prisma.mealEntry.findFirst({
+    where: pendingScope(userId, mealId),
+    select: { photoUrl: true, sourceText: true },
+  });
+
+  return meal ? { photoUrl: meal.photoUrl, sourceText: meal.sourceText } : null;
+}
+
+/**
+ * Replaces a pending meal's estimate with a re-read of the same photo.
+ *
+ * Deliberately leaves `confirmed` alone. Correcting the coach is not agreeing
+ * with it — the meal stays out of every total until the user says so, and a
+ * correction that quietly logged the meal would take that decision away at
+ * exactly the moment they were disagreeing.
+ *
+ * Returns false when the meal stopped being pending underneath — confirmed or
+ * discarded from another device while the correction was in flight.
+ */
+export async function updatePendingMealAnalysis(
+  userId: string,
+  mealId: string,
+  analysis: MealAnalysis,
+  sourceText: string,
+): Promise<boolean> {
+  const { count } = await prisma.mealEntry.updateMany({
+    where: pendingScope(userId, mealId),
+    data: {
+      foodItems: JSON.stringify(analysis.foodItems),
+      totalCalories: analysis.totalCalories,
+      totalProtein: analysis.totalProtein,
+      sourceText,
+    },
+  });
+
+  return count > 0;
+}

@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import UIKit
 
 /// Fixture transport for App Store screenshots.
 ///
@@ -38,6 +39,41 @@ enum DemoMode {
 
     static var scrollsToFeed: Bool {
         ProcessInfo.processInfo.arguments.contains("-demo-scroll-feed")
+    }
+
+    /// Sends a stand-in meal photo on launch, so the attach-analyse-confirm
+    /// path can be looked at without a camera. It drives the real `sendPhoto`,
+    /// not a faked card: a fixture that bypassed the code under inspection
+    /// would be worth nothing.
+    static var sendsAMealPhoto: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demo-meal-photo")
+    }
+
+    /// Carries the demo past the pending card: corrects the meal in words,
+    /// then logs it. Exercises the two paths that only a tap can otherwise
+    /// reach.
+    static var correctsTheMeal: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demo-meal-correct")
+    }
+
+    static var logsTheMeal: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demo-meal-log")
+    }
+
+    /// Stands in for a camera roll the Simulator does not have. Drawn rather
+    /// than bundled so no binary asset ships for a debug-only path.
+    static func stubMealPhoto() -> UIImage {
+        let size = CGSize(width: 900, height: 675)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor(red: 0.86, green: 0.80, blue: 0.68, alpha: 1).setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            UIColor(red: 0.55, green: 0.38, blue: 0.22, alpha: 1).setFill()
+            context.cgContext.fillEllipse(in: CGRect(x: 150, y: 120, width: 600, height: 440))
+            UIColor(red: 0.29, green: 0.44, blue: 0.24, alpha: 1).setFill()
+            context.cgContext.fillEllipse(in: CGRect(x: 300, y: 250, width: 300, height: 190))
+        }
     }
 
     /// The date Today's header shows in a screenshot run.
@@ -117,9 +153,37 @@ enum DemoFixtures {
             return DemoMode.isFirstRun ? #"{"target":null}"# : #"{"target":{"calories":2000,"protein":150}}"#
         case "/api/v1/chat" where method == "GET": return chat
         case "/api/v1/checkins" where method == "GET": return checkIns
+        case "/api/v1/meals/photo" where method == "POST": return mealAnalysis
+        // A correction re-reads the same photo, so it answers in the same
+        // shape — with different numbers, which is the point of it.
+        case let p where p.hasSuffix("/revise") && method == "POST": return revisedMeal
+        // Confirm and discard fall through to {"ok":true}, which is exactly
+        // what the real routes return.
         default: return #"{"ok":true}"#
         }
     }
+
+    /// What the coach reads off a meal photo. Lets a screenshot run — and a
+    /// developer checking a layout — exercise the real analyze-and-confirm
+    /// path in the Simulator, which has no camera and no backend.
+    private static let mealAnalysis = """
+    {"mealId":"demo-meal-1","photoUrl":"https://example.invalid/meal.jpg",
+     "foodItems":[
+       {"name":"grilled chicken","portion":"about 6 oz","calories":280,"protein":52},
+       {"name":"black beans","portion":"1 cup","calories":227,"protein":15},
+       {"name":"pico de gallo","portion":"2 tbsp","calories":11,"protein":1}],
+     "totalCalories":518,"totalProtein":68}
+    """
+
+    /// The same meal after being told the portion was bigger.
+    private static let revisedMeal = """
+    {"mealId":"demo-meal-1","photoUrl":"https://example.invalid/meal.jpg",
+     "foodItems":[
+       {"name":"grilled chicken","portion":"about 10 oz","calories":465,"protein":87},
+       {"name":"black beans","portion":"1.5 cups","calories":341,"protein":23},
+       {"name":"pico de gallo","portion":"2 tbsp","calories":11,"protein":1}],
+     "totalCalories":817,"totalProtein":111}
+    """
 
     /// A brand-new account: nothing logged, no targets set.
     private static let emptyDashboard = """
