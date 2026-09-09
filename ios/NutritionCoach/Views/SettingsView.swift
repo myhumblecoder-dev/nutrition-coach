@@ -174,6 +174,10 @@ struct SettingsView: View {
 
         do {
             timezone = try await state.client.setTimezone(identifier)
+            // The nudges are pinned to this zone, so they have to move with
+            // it — otherwise changing it here fixes the caps and the rings and
+            // silently leaves the notifications on the old day.
+            await MealReminders.schedule(timeZoneIdentifier: timezone)
         } catch APIError.unauthorized {
             state.handleUnauthorized()
         } catch {
@@ -208,6 +212,10 @@ struct SettingsView: View {
                 Task {
                     _ = await PushRegistrar.shared.requestAuthorization(with: state.client)
                     status = await PushRegistrar.shared.currentAuthorizationStatus()
+                    // Scheduled the moment permission exists. Waiting for the
+                    // next launch would mean turning notifications on and
+                    // getting nothing all day.
+                    await MealReminders.schedule(timeZoneIdentifier: timezone)
                 }
             }
         case .denied:
