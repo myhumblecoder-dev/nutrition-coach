@@ -61,7 +61,19 @@ final class AppState {
         }
     }
 
+    /// Puts the three daily nudges on the device, at the times the user's own
+    /// day runs to. Local rather than pushed, so they cannot arrive at the
+    /// wrong hour and cost nothing to send.
+    func scheduleMealReminders() async {
+        guard let zone = try? await client.timezone() else { return }
+        await MealReminders.schedule(timeZoneIdentifier: zone)
+    }
+
     func signOut() async {
+        // Before the token goes: these belong to the account that is leaving,
+        // and a signed-out phone still buzzing about breakfast is a bug the
+        // user cannot turn off from inside the app.
+        MealReminders.cancel()
         await client.signOut()
         isSignedIn = false
     }
@@ -72,6 +84,7 @@ final class AppState {
     func deleteAccount() async -> String? {
         do {
             try await client.deleteAccount()
+            MealReminders.cancel()
             isSignedIn = false
             return nil
         } catch {
