@@ -38,6 +38,7 @@ model User {
   usageEvents   UsageEvent[]
   attestedDevices AttestedDevice[]
   contentReports  ContentReport[]
+  subscription    Subscription?
 }
 
 // An App Attest key that Apple has vouched for: proof that a request came from
@@ -77,7 +78,19 @@ model UsageEvent {
   kind      String
   createdAt DateTime @default(now())
 
+  // What the call actually cost, filled in after it returns. Nullable because
+  // the row is written BEFORE the call — a timeout still has to count — and
+  // because every row written before this existed has no tokens to report.
+  //
+  // Recorded rather than assumed: the per-call costs the caps are sized
+  // against were estimates nobody had ever checked, and a spend ceiling
+  // computed from the same estimate would inherit the same error.
+  inputTokens  Int?
+  outputTokens Int?
+
   @@index([userId, kind, createdAt])
+  // The spend ceiling sums a month per user across both kinds.
+  @@index([userId, createdAt])
 }
 
 // The weekly review: am I fatter or thinner, stronger or weaker, how am I
@@ -291,4 +304,51 @@ model UserProfile {
   // calorie and protein target for someone who does not know theirs.
   heightIn  Float?
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// What Apple says about this account's subscription, mirrored locally.
+///
+/// Apple is the source of truth; this is a cache so every request does not
+/// become a network call to App Store Server. It is written from two places —
+/// the transaction the app posts after a purchase, and the notifications Apple
+/// sends afterwards — and both carry the same fields, so whichever arrives
+/// last wins.
+model Subscription {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Apple's stable identifier for this subscriber, constant across renewals,
+  /// upgrades and resubscribes. Unique because it identifies the subscription
+  /// itself: if it ever appears under a second account, that is one Apple ID
+  /// funding two accounts and the newer claim has to be rejected rather than
+  /// silently entitle both.
+  originalTransactionId String @unique
+
+  /// The App Store product — the monthly or the annual.
+  productId String
+
+  /// Apple's own status, kept as a bare string like every other kind column
+  /// here: 'active' | 'expired' | 'billing_retry' | 'grace' | 'revoked'.
+  status String
+
+  /// When access ends if nothing renews. The entitlement is this plus the
+  /// clock; nothing is trusted to a status string alone, because a renewal
+  /// notification that never arrives would otherwise strand a paying user.
+  expiresAt DateTime
+
+  /// True while the introductory offer is running. Recorded because a trial
+  /// and a paid month are the same entitlement but not the same event.
+  isTrial Boolean @default(false)
+
+  /// 'Production' | 'Sandbox'. A sandbox transaction must never entitle a real
+  /// account in production, and telling them apart after the fact is
+  /// impossible without this.
+  environment String
+
+  lastVerifiedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([expiresAt])
 }

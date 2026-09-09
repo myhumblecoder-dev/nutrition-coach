@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { redactIdentifiers } from '@/lib/redact'
 import { generate } from '@/lib/llm'
 import { startOfWeek } from '@/lib/time'
 import { COACH_PERSONA, PLAIN_TEXT_RULE } from '@/lib/voice'
@@ -145,7 +146,9 @@ export async function recordAnswer(
   // fails, keep them and use them as the answer rather than losing the row.
   let answer = sourceText
   try {
-    const summary = await generate(buildAnswerPrompt(field, sourceText))
+    // Redacted on the way to the model only. What is stored and shown back is
+    // what the user actually said.
+    const summary = await generate(buildAnswerPrompt(field, redactIdentifiers(sourceText)))
     const trimmed = summary.trim()
     if (trimmed) answer = trimmed
   } catch (error) {

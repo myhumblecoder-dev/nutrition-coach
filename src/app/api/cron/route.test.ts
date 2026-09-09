@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GET, maxDuration } from './route';
 import { prisma } from '@/lib/db';
 import { generate } from '@/lib/llm';
@@ -19,10 +19,25 @@ type Row = {
   name: string;
   telegramChat?: { chatId: string } | null;
   deviceTokens?: { token: string }[];
+  subscription?: {
+    status: string;
+    expiresAt: Date;
+    isTrial: boolean;
+    environment: string;
+  } | null;
 };
 
-function userRow({ id, name, telegramChat = null, deviceTokens = [] }: Row) {
-  return { id, name, telegramChat, deviceTokens };
+/// Paid by default, because the nudge is a paid feature and every other test
+/// in this file is about the delivery mechanics rather than entitlement.
+const PAID = {
+  status: 'active',
+  expiresAt: new Date('2099-01-01T00:00:00.000Z'),
+  isTrial: false,
+  environment: 'Production',
+};
+
+function userRow({ id, name, telegramChat = null, deviceTokens = [], subscription = PAID }: Row) {
+  return { id, name, telegramChat, deviceTokens, subscription };
 }
 
 function telegramUser(chatId: string, name: string) {
@@ -249,5 +264,51 @@ describe('route', () => {
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
     expect(body).toEqual({ ok: true, sent: 1, failed: 0, reasons: [] });
+  });
+});
+
+describe('the daily nudge is a paid feature', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.CRON_SECRET = 'test-secret';
+    // These assert what enforcement does. It ships off, so it has to be turned
+    // on here or the tests would pass for the wrong reason.
+    vi.stubEnv('SUBSCRIPTIONS_ENFORCED', 'true');
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('spends nothing on an account whose subscription has lapsed', async () => {
+    // This ran one model call per user per day regardless of engagement or
+    // payment, so a churned account kept costing money forever — a floor that
+    // scaled with total signups rather than subscribers.
+    vi.mocked(prisma.user.findMany).mockResolvedValue([
+      userRow({ id: 'u-lapsed', name: 'Alice', telegramChat: { chatId: '101' }, subscription: null }),
+    ] as never);
+
+    const body = await (await GET(makeRequest('Bearer test-secret'))).json();
+
+    expect(generate).not.toHaveBeenCalled();
+    expect(sendTelegramMessage).not.toHaveBeenCalled();
+    expect(body.sent).toBe(0);
+  });
+
+  it('still nudges someone on the free trial', async () => {
+    // A trial is a full entitlement — the nudge is part of what they are
+    // trying out.
+    vi.mocked(prisma.user.findMany).mockResolvedValue([
+      userRow({
+        id: 'u-trial',
+        name: 'Bob',
+        telegramChat: { chatId: '202' },
+        subscription: { ...PAID, isTrial: true },
+      }),
+    ] as never);
+    vi.mocked(generate).mockResolvedValue('stay healthy');
+    vi.mocked(sendTelegramMessage).mockResolvedValue(undefined as never);
+
+    const body = await (await GET(makeRequest('Bearer test-secret'))).json();
+
+    expect(body.sent).toBe(1);
   });
 });

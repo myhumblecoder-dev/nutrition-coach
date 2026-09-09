@@ -4,6 +4,7 @@ import { requireAttestation } from '@/lib/attest'
 import { analyzeMeal } from '@/lib/analyzeMeal'
 import { getPendingMeal, updatePendingMealAnalysis } from '@/lib/meals'
 import { UsageLimitError } from '@/lib/limits'
+import { denialResponse } from '@/lib/denialResponse'
 
 // Another vision call, so the same budget as the photo route it corrects.
 export const maxDuration = 60
@@ -54,7 +55,7 @@ export async function POST(request: Request, { params }: Context) {
   } catch (error) {
     console.error(error)
     if (error instanceof UsageLimitError) {
-      return Response.json({ error: error.userMessage }, { status: 429 })
+      return denialResponse(error)
     }
     return Response.json(
       { error: "I couldn't make sense of that one — try telling me another way." },

@@ -112,6 +112,17 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
+      <Section heading="Terms">
+        <p>
+          The agreement for using Roughly — including the subscription, and the AI model behind the
+          coach — is in the{' '}
+          <a className="underline" href="/terms">
+            Terms of Service
+          </a>
+          .
+        </p>
+      </Section>
+
       <Section heading="Changes and contact">
         <p>
           If this policy changes materially, the date at the top changes with it. Questions, or a

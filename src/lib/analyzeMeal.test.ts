@@ -8,13 +8,17 @@ vi.mock('@/lib/llm', () => ({
 
 // The cap has its own tests; stubbed off here so these exercise parsing.
 vi.mock('@/lib/limits', () => ({
-  isOverLimit: vi.fn().mockResolvedValue(false),
+  // One gate now, answering entitlement and cap together. Null means proceed.
+  denialFor: vi.fn().mockResolvedValue(null),
   recordUsage: vi.fn().mockResolvedValue(undefined),
-  todaySuccesses: vi.fn().mockResolvedValue(null),
-  photoLimitMessage: vi.fn(() => 'enough photos'),
   UsageLimitError: class UsageLimitError extends Error {
     userMessage: string
-    constructor(m: string) { super(m); this.userMessage = m }
+    reason: string
+    constructor(m: string, reason = 'capped') {
+      super(m)
+      this.userMessage = m
+      this.reason = reason
+    }
   },
 }))
 
