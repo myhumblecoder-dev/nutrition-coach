@@ -11,7 +11,7 @@ import PhotosUI
 enum ChatItem: Identifiable {
     case message(ChatMessage)
     case photo(SentPhoto)
-    case pending(MealAnalysis)
+    case pending(PendingMeal)
 
     var id: String {
         switch self {
@@ -19,9 +19,43 @@ enum ChatItem: Identifiable {
         case .photo(let photo): return "p-\(photo.id)"
         // The meal id, so a correction updates the card in place instead of
         // stacking a second one underneath.
-        case .pending(let analysis): return "pending-\(analysis.mealId)"
+        case .pending(let meal): return "pending-\(meal.id)"
         }
     }
+
+    /// True for the turns that exist only on this device.
+    ///
+    /// A meal photo and the card deciding its fate are not messages the server
+    /// knows about, so a history reload has nothing to say about them.
+    var isLocalToThisDevice: Bool {
+        switch self {
+        case .photo, .pending: return true
+        case .message: return false
+        }
+    }
+
+    /// Folds freshly loaded history back into the thread without dropping a
+    /// meal that is still being decided.
+    ///
+    /// `load()` used to assign the mapped history straight over `items`, which
+    /// meant switching to Today and back threw away the photo and its pending
+    /// card — stranding a meal mid-decision with no way back to it. Server
+    /// history owns the messages; the device owns the rest.
+    static func merged(history: [ChatMessage], keeping existing: [ChatItem]) -> [ChatItem] {
+        history.map(ChatItem.message) + existing.filter(\.isLocalToThisDevice)
+    }
+}
+
+/// A meal the coach has read but nobody has agreed to yet.
+///
+/// Carries the photo alongside the analysis so the card can show what was
+/// photographed next to the numbers claimed about it — from memory, with no
+/// round trip for the blob and nothing to load on a bad connection.
+struct PendingMeal: Identifiable {
+    let analysis: MealAnalysis
+    let image: UIImage
+
+    var id: String { analysis.mealId }
 }
 
 /// A photo the user sent, held locally so it can be shown at full fidelity
@@ -149,9 +183,12 @@ struct ChatView: View {
                     draft = "that was a double portion"
                     await correct(id)
                 }
-                if DemoMode.logsTheMeal,
-                   case .pending(let analysis)? = items.last {
-                    await log(analysis, calories: analysis.totalCalories, protein: analysis.totalProtein)
+                if DemoMode.logsTheMeal, case .pending(let meal)? = items.last {
+                    await log(
+                        meal.analysis,
+                        calories: meal.analysis.totalCalories,
+                        protein: meal.analysis.totalProtein
+                    )
                 }
             }
             #endif
@@ -185,14 +222,14 @@ struct ChatView: View {
             bubble(for: message)
         case .photo(let photo):
             photoBubble(photo)
-        case .pending(let analysis):
+        case .pending(let meal):
             PendingMealCard(
-                analysis: analysis,
+                meal: meal,
                 isBusy: isSending,
                 onLog: { calories, protein in
-                    Task { await log(analysis, calories: calories, protein: protein) }
+                    Task { await log(meal.analysis, calories: calories, protein: protein) }
                 },
-                onDiscard: { Task { await discard(analysis) } }
+                onDiscard: { Task { await discard(meal.analysis) } }
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -388,7 +425,7 @@ struct ChatView: View {
 
     private func load() async {
         do {
-            items = try await state.client.chatHistory().map(ChatItem.message)
+            items = ChatItem.merged(history: try await state.client.chatHistory(), keeping: items)
         } catch APIError.unauthorized {
             state.handleUnauthorized()
         } catch {
@@ -419,7 +456,7 @@ struct ChatView: View {
             let analysis = try await state.client.analyzeMealPhoto(
                 jpeg: jpeg, hint: caption.isEmpty ? nil : caption
             )
-            items.append(.pending(analysis))
+            items.append(.pending(PendingMeal(analysis: analysis, image: image)))
             pendingMealId = analysis.mealId
         } catch APIError.unauthorized {
             state.handleUnauthorized()
@@ -453,10 +490,13 @@ struct ChatView: View {
             let revised = try await state.client.reviseMeal(id: mealId, correction: words)
             // Replaced in place, so the thread shows one current answer rather
             // than a pile of superseded ones.
-            if let index = items.firstIndex(where: { $0.id == "pending-\(mealId)" }) {
-                items.remove(at: index)
-            }
-            items.append(.pending(revised))
+            // The photo has not changed, only what the coach makes of it.
+            let image = items.compactMap { item -> UIImage? in
+                if case .pending(let meal) = item, meal.id == mealId { return meal.image }
+                return nil
+            }.first
+            items.removeAll { $0.id == "pending-\(mealId)" }
+            items.append(.pending(PendingMeal(analysis: revised, image: image ?? UIImage())))
         } catch APIError.unauthorized {
             state.handleUnauthorized()
         } catch APIError.limitReached(let message) {
