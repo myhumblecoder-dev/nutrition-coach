@@ -2,13 +2,14 @@ import { prisma } from '@/lib/db'
 import { startOfToday, startOfWeek } from '@/lib/time'
 import { caffeineStatus } from '@/lib/caffeine'
 import { ensureOpeningMessage, OPENING_MESSAGE } from '@/lib/onboarding'
+import { zoneFor } from '@/lib/userZone'
 
 // Sessionless cores for the read paths, following the phase-1d pattern: the
 // server action supplies the session, the route handler supplies a bearer,
 // and both call the same query with an explicit userId.
 
-export async function getTodayForUser(userId: string) {
-  const startOfDay = startOfToday(new Date())
+export async function getTodayForUser(userId: string, timeZone?: string) {
+  const startOfDay = startOfToday(new Date(), timeZone ?? (await zoneFor(userId)))
 
   const [meals, target] = await Promise.all([
     prisma.mealEntry.findMany({
@@ -94,10 +95,10 @@ export function parseFoodItems(raw: string): FoodItem[] {
  * like" would drift, and the whole point of the iOS Today screen is that it
  * mirrors the web one.
  */
-export async function getWeekForUser(userId: string) {
+export async function getWeekForUser(userId: string, timeZone?: string) {
   const now = new Date()
   const weekStart = startOfWeek(now)
-  const today = startOfToday(now)
+  const today = startOfToday(now, timeZone ?? (await zoneFor(userId)))
   const streakStart = new Date(today.getTime() - 6 * 86400000)
 
   const [trainingEntries, recoveryEntries, moodEntry, measurementRow, streakMeals, weightRows] =
@@ -192,8 +193,11 @@ type ActivityRow = {
  *
  * Lifted out of `getActivity()` unchanged, for the same reason as the week.
  */
-export async function getActivityForUser(userId: string): Promise<ActivityRow[]> {
-  const since = startOfToday(new Date())
+export async function getActivityForUser(
+  userId: string,
+  timeZone?: string
+): Promise<ActivityRow[]> {
+  const since = startOfToday(new Date(), timeZone ?? (await zoneFor(userId)))
   const window = { userId, loggedAt: { gte: since } }
 
   const [meals, trainings, recoveries, moods, measurements] = await Promise.all([

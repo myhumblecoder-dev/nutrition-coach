@@ -8,6 +8,7 @@ import {
   parseFoodItems,
 } from '@/lib/dashboard'
 import { ensureOpeningMessage } from '@/lib/onboarding'
+import { zoneFor } from '@/lib/userZone'
 
 // Everything the Today screen renders, in one request.
 //
@@ -28,10 +29,15 @@ export async function GET(request: Request) {
   // first.
   await ensureOpeningMessage(user.id)
 
+  // Resolved once for the whole screen: three lookups of the same value on the
+  // main screen load would be pure waste, and the sections must agree about
+  // when today started anyway.
+  const timeZone = await zoneFor(user.id)
+
   const [today, week, activity, coachMessage] = await Promise.all([
-    getTodayForUser(user.id),
-    getWeekForUser(user.id),
-    getActivityForUser(user.id),
+    getTodayForUser(user.id, timeZone),
+    getWeekForUser(user.id, timeZone),
+    getActivityForUser(user.id, timeZone),
     getCoachMessageForUser(user.id),
   ])
 
