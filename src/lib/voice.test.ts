@@ -20,6 +20,28 @@ describe('COACH_PERSONA', () => {
     expect(COACH_PERSONA.toLowerCase()).toMatch(/diet culture|labels|calorie/)
   })
 
+  it('tells the coach to answer a statement with a statement', () => {
+    // The failure: every reply ending in a question. "I had a yogurt" is a
+    // log, not an opening — answering it with "and what else?" turns logging
+    // your day into an interrogation, and it is the fastest way to make
+    // someone stop telling you things.
+    expect(COACH_PERSONA).toMatch(/statement/i)
+    expect(COACH_PERSONA).toMatch(/Logged\./)
+  })
+
+  it('still allows a question when it genuinely cannot act without one', () => {
+    // Not "never ask". An unplaceable food or an ambiguous portion is worth
+    // one question; the rule is against asking out of habit.
+    expect(COACH_PERSONA).toMatch(/only ask/i)
+  })
+
+  it('yields to a later instruction that needs a question asked', () => {
+    // The check-in probe and first-run setup both append "ask ..." after the
+    // persona. Without this the two rules argue, and which one wins is left to
+    // the model.
+    expect(COACH_PERSONA).toMatch(/later in this prompt/i)
+  })
+
   it('does not ask the coach to count anything', () => {
     expect(COACH_PERSONA).not.toMatch(/how many calories|count their|track their intake/i)
   })
