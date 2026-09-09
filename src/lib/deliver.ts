@@ -32,11 +32,27 @@ function logged(error: unknown): Delivery {
   return { ok: false, prune: undefined, reason }
 }
 
+export type Channels = {
+  /**
+   * Whether to send an APNs push as well as Telegram.
+   *
+   * The daily nudge sets this false: the phone now schedules its own three
+   * reminders locally, at the user's own nine, one and seven, so pushing a
+   * fourth from a fixed UTC cron would be a duplicate arriving at the wrong
+   * hour for everyone outside one timezone. The weekly check-in still pushes —
+   * it has no local equivalent and it is the one notification worth
+   * interrupting for.
+   */
+  push?: boolean
+}
+
 export async function deliverToChannels(
   user: Deliverable,
   message: string,
-  title: string = PUSH_TITLE
+  title: string = PUSH_TITLE,
+  channels: Channels = {}
 ): Promise<Delivery[]> {
+  const { push = true } = channels
   const deliveries: Promise<Delivery>[] = []
 
   if (user.telegramChat) {
@@ -45,7 +61,7 @@ export async function deliverToChannels(
     )
   }
 
-  for (const device of user.deviceTokens) {
+  for (const device of push ? user.deviceTokens : []) {
     deliveries.push(
       sendPushNotification(device.token, { title, body: message }).then(
         (result) => ({
