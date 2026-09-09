@@ -78,7 +78,19 @@ model UsageEvent {
   kind      String
   createdAt DateTime @default(now())
 
+  // What the call actually cost, filled in after it returns. Nullable because
+  // the row is written BEFORE the call — a timeout still has to count — and
+  // because every row written before this existed has no tokens to report.
+  //
+  // Recorded rather than assumed: the per-call costs the caps are sized
+  // against were estimates nobody had ever checked, and a spend ceiling
+  // computed from the same estimate would inherit the same error.
+  inputTokens  Int?
+  outputTokens Int?
+
   @@index([userId, kind, createdAt])
+  // The spend ceiling sums a month per user across both kinds.
+  @@index([userId, createdAt])
 }
 
 // The weekly review: am I fatter or thinner, stronger or weaker, how am I

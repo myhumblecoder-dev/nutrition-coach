@@ -9,6 +9,9 @@ import {
   photoLimitMessage,
   UsageLimitError,
   denialFor,
+  monthlySpendUsd,
+  monthlyCeilingUsd,
+  attributeTokens,
 } from './limits'
 import { prisma } from '@/lib/db'
 import { isEntitled } from '@/lib/entitlement'
@@ -17,7 +20,7 @@ vi.mock('@/lib/entitlement', () => ({ isEntitled: vi.fn() }))
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    usageEvent: { count: vi.fn(), create: vi.fn() },
+    usageEvent: { count: vi.fn(), create: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     mealEntry: { count: vi.fn() },
     trainingEntry: { findMany: vi.fn() },
     recoveryEntry: { findMany: vi.fn() },
@@ -205,7 +208,15 @@ describe('recordUsage', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     mockPrisma.usageEvent.create.mockRejectedValue(new Error('db down'))
 
-    await expect(recordUsage('u1', 'chat')).resolves.toBeUndefined()
+    // Null rather than an id: there is no row to attribute tokens to, so the
+    // call's cost falls back to the estimate. Still no throw.
+    await expect(recordUsage('u1', 'chat')).resolves.toBeNull()
+  })
+
+  it('hands back the row id so the real cost can be filled in later', async () => {
+    mockPrisma.usageEvent.create.mockResolvedValue({ id: 'event-1' } as never)
+
+    await expect(recordUsage('u1', 'chat')).resolves.toBe('event-1')
   })
 })
 
@@ -225,6 +236,7 @@ describe('denialFor', () => {
     vi.resetAllMocks()
     stubCounts()
     mockPrisma.usageEvent.count.mockResolvedValue(0 as never)
+    mockPrisma.usageEvent.findMany.mockResolvedValue([] as never)
   })
 
   it('lets an entitled user under the cap through', async () => {
@@ -295,5 +307,115 @@ describe('the caps are sized to the subscription price', () => {
     // properly should never meet the cap.
     expect(dailyLimit('chat')).toBeGreaterThan(25)
     expect(dailyLimit('vision')).toBeGreaterThan(10)
+  })
+})
+
+describe('spend is measured, not assumed', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    process.env = { ...process.env }
+    delete process.env.MONTHLY_SPEND_CEILING_USD
+  })
+
+  it('prices real tokens at the model rate', async () => {
+    // Haiku 4.5 is $1/MTok in, $5/MTok out.
+    mockPrisma.usageEvent.findMany.mockResolvedValue([
+      { kind: 'chat', inputTokens: 1_000_000, outputTokens: 0 },
+      { kind: 'chat', inputTokens: 0, outputTokens: 1_000_000 },
+    ] as never)
+
+    expect(await monthlySpendUsd('u1', new Date())).toBeCloseTo(6, 5)
+  })
+
+  it('falls back to the per-call estimate for rows with no tokens', async () => {
+    // Every row written before tokens were recorded, and every call that
+    // failed before reporting. Ignoring them would under-count spend, which is
+    // the one direction a cost ceiling must never err in.
+    mockPrisma.usageEvent.findMany.mockResolvedValue([
+      { kind: 'chat', inputTokens: null, outputTokens: null },
+      { kind: 'vision', inputTokens: null, outputTokens: null },
+    ] as never)
+
+    expect(await monthlySpendUsd('u1', new Date())).toBeCloseTo(0.0029 + 0.0038, 5)
+  })
+
+  it('counts a whole month for one user', async () => {
+    mockPrisma.usageEvent.findMany.mockResolvedValue([] as never)
+
+    await monthlySpendUsd('u1', new Date('2026-09-20T00:00:00.000Z'))
+
+    const where = mockPrisma.usageEvent.findMany.mock.calls[0][0]?.where as {
+      userId: string
+      createdAt: { gte: Date }
+    }
+    expect(where.userId).toBe('u1')
+    // A rolling 30 days, not a calendar month: a calendar reset lets someone
+    // burn a full month on the 31st and another on the 1st.
+    const days = (Date.now() - 0) && (new Date('2026-09-20T00:00:00.000Z').getTime() - where.createdAt.gte.getTime()) / 86_400_000
+    expect(days).toBeCloseTo(30, 1)
+  })
+
+  it('has a ceiling above a heavy honest month but below the daily caps', () => {
+    // Heavy honest use is ~$3.31/month. The daily caps allow ~$4.32. The
+    // ceiling sits between: it never troubles a real user, and it still stops
+    // an account whose calls cost more than the estimate says they do.
+    expect(monthlyCeilingUsd()).toBeGreaterThan(3.31)
+    expect(monthlyCeilingUsd()).toBeLessThan(6.79)
+  })
+})
+
+describe('the monthly ceiling', () => {
+  const mockEntitled = vi.mocked(isEntitled)
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    stubCounts()
+    mockEntitled.mockResolvedValue(true)
+    mockPrisma.usageEvent.count.mockResolvedValue(0 as never)
+    mockPrisma.usageEvent.findMany.mockResolvedValue([] as never)
+  })
+
+  it('lets an ordinary month through', async () => {
+    expect(await denialFor('u1', 'chat')).toBeNull()
+  })
+
+  it('stops an account that has spent its month, even under the daily cap', async () => {
+    // The daily caps bound a burst; this bounds the bill. Without it, thirty
+    // saturated days in a row is simply allowed.
+    mockPrisma.usageEvent.findMany.mockResolvedValue(
+      Array.from({ length: 4000 }, () => ({ kind: 'chat', inputTokens: 10_000, outputTokens: 1_000 })) as never
+    )
+
+    const denial = await denialFor('u1', 'chat')
+
+    expect(denial?.reason).toBe('capped')
+  })
+})
+
+describe('attributeTokens', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('fills in what the call cost once it is known', async () => {
+    await attributeTokens('event-1', { inputTokens: 1200, outputTokens: 300 })
+
+    const arg = mockPrisma.usageEvent.update.mock.calls[0][0]
+    expect(arg.where).toEqual({ id: 'event-1' })
+    expect(arg.data).toEqual({ inputTokens: 1200, outputTokens: 300 })
+  })
+
+  it('does nothing without an event to attribute to', async () => {
+    // recordUsage swallows its own failures, so the id can legitimately be
+    // absent. Bookkeeping must never break the request it is describing.
+    await attributeTokens(null, { inputTokens: 1, outputTokens: 1 })
+
+    expect(mockPrisma.usageEvent.update).not.toHaveBeenCalled()
+  })
+
+  it('never throws when the write fails', async () => {
+    mockPrisma.usageEvent.update.mockRejectedValue(new Error('db down'))
+
+    await expect(
+      attributeTokens('event-1', { inputTokens: 1, outputTokens: 1 })
+    ).resolves.toBeUndefined()
   })
 })
