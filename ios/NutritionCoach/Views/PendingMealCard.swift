@@ -12,33 +12,52 @@ import SwiftUI
 /// number. Saying "that's chicken, not turkey" fixes the reason the number was
 /// wrong — and that is the one the rest of this app is built around.
 struct PendingMealCard: View {
-    let analysis: MealAnalysis
+    let meal: PendingMeal
     let isBusy: Bool
     let onLog: (Int, Int) -> Void
     let onDiscard: () -> Void
+
+    private var analysis: MealAnalysis { meal.analysis }
 
     @State private var calories: Int
     @State private var protein: Int
 
     init(
-        analysis: MealAnalysis,
+        meal: PendingMeal,
         isBusy: Bool,
         onLog: @escaping (Int, Int) -> Void,
         onDiscard: @escaping () -> Void
     ) {
-        self.analysis = analysis
+        self.meal = meal
         self.isBusy = isBusy
         self.onLog = onLog
         self.onDiscard = onDiscard
-        _calories = State(initialValue: analysis.totalCalories)
-        _protein = State(initialValue: analysis.totalProtein)
+        _calories = State(initialValue: meal.analysis.totalCalories)
+        _protein = State(initialValue: meal.analysis.totalProtein)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("I see:")
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(Theme.muted)
+            // The photo sits with the numbers claimed about it. It is also in
+            // the thread above as its own turn, but the card is what the
+            // conversation scrolls to — tall enough that the bubble ends up
+            // off the top of the screen, so the one place you can actually
+            // check the estimate against the food was the one place the food
+            // was missing.
+            HStack(spacing: 10) {
+                Image(uiImage: meal.image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .accessibilityLabel("The meal you photographed")
+
+                Text("I see:")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Theme.muted)
+
+                Spacer(minLength: 0)
+            }
 
             ForEach(Array(analysis.foodItems.enumerated()), id: \.offset) { _, item in
                 HStack(alignment: .firstTextBaseline) {
@@ -90,6 +109,15 @@ struct PendingMealCard: View {
                 .stroke(Theme.cardBorder, lineWidth: 1)
         )
         .opacity(isBusy ? 0.6 : 1)
+        // A correction keeps the same meal id, so SwiftUI reuses this view and
+        // `init` cannot reseed the steppers — `State(initialValue:)` is honoured
+        // once per identity and ignored on every later render. Without this the
+        // card showed the re-read food items above the numbers from before the
+        // correction, which is the one combination that is definitely wrong.
+        .onChange(of: analysis) { _, revised in
+            calories = revised.totalCalories
+            protein = revised.totalProtein
+        }
     }
 
     /// A stepper, not a text field: this is a nudge to an estimate, and a
