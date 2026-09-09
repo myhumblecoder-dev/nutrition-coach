@@ -240,7 +240,9 @@ enum DemoFixtures {
           "days":{"resistance":[true,false,true,false,true,false,false],
                   "hiit":[false,true,false,false,false,false,false],
                   "core":[true,false,false,true,false,false,false]}},
-        "recovery": {"sleepHours":7.5,"waterLiters":2.5,"caffeine":null},
+        "recovery": {"sleepHours":7.5,"waterLiters":2.5,
+          "caffeine":{"totalMg":260,"currentMg":180,
+            "hoursUntilEffectsFade":3.4,"hoursUntilNegligible":8.4}},
         "streak": [true,true,false,true,true,true,true],
         "weights": [
           {"at":"2026-08-08T08:00:00.000Z","weightLb":173.4},
