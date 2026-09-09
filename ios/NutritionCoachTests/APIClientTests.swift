@@ -690,6 +690,46 @@ extension APIClientTests {
         }
     }
 
+    // MARK: - Timezone
+
+    func testFetchingTheTimezoneReadsWhatTheServerHasStored() async throws {
+        respond(200, #"{"timezone":"Europe/London"}"#)
+
+        let zone = try await client.timezone()
+
+        XCTAssertEqual(zone, "Europe/London")
+        XCTAssertEqual(StubURLProtocol.lastRequest?.httpMethod, "GET")
+        XCTAssertEqual(StubURLProtocol.lastRequest?.url?.path, "/api/v1/timezone")
+    }
+
+    func testSettingTheTimezonePutsTheIdentifier() async throws {
+        respond(200, #"{"timezone":"Asia/Tokyo"}"#)
+
+        let saved = try await client.setTimezone("Asia/Tokyo")
+
+        XCTAssertEqual(saved, "Asia/Tokyo")
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "PUT")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer session-abc")
+
+        let body = try XCTUnwrap(Self.bodyData(from: request))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        XCTAssertEqual(json["timezone"], "Asia/Tokyo")
+    }
+
+    func testAZoneTheServerRejectsSurfacesAsAnError() async {
+        // The server validates the identifier; a 400 must not be swallowed
+        // into a silent no-op that leaves Settings showing the wrong zone.
+        respond(400, #"{"error":"Not a recognised timezone"}"#)
+
+        do {
+            _ = try await client.setTimezone("Mars/Olympus_Mons")
+            XCTFail("expected a thrown error")
+        } catch {
+            XCTAssertEqual(error as? APIError, .badStatus(400))
+        }
+    }
+
     private static func bodyData(from request: URLRequest) -> Data? {
         StubURLProtocol.bodyData(from: request)
     }
