@@ -21,15 +21,26 @@
 	     with /privacy on the web. A mismatch between the three is a routine
 	     rejection. Everything is Linked (it hangs off an account) and
 	     nothing is used for Tracking. -->
-	<!-- NSPrivacyCollectedDataTypePhotosorVideos is deliberately absent. The
-	     service stores meal photos, but they are collected by the web app;
-	     this binary has no camera and no photo picker, and never transmits or
-	     displays an image. A manifest describes what the app collects, and
-	     declaring a type it cannot collect is the same false claim as
-	     declaring an unused required-reason API above. Add it back the day
-	     photo logging ships on iOS. -->
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
+		<dict>
+			<!-- Meal photos, taken with the camera or chosen from the photo
+			     library in Chat. Uploaded, read by the vision model for a
+			     calorie and protein estimate, and kept alongside the meal so
+			     the estimate can be checked against the food it describes.
+			     Added when photo logging shipped on iOS; until then this
+			     binary genuinely could not collect an image. -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
 		<dict>
 			<!-- From Sign in with Apple. A Hide My Email relay address is
 			     still an email address as far as this declaration goes. -->

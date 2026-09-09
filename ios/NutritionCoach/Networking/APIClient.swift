@@ -162,6 +162,50 @@ final class APIClient {
         try await sendIgnoringResponse("/api/v1/reports", method: "POST", body: body)
     }
 
+    // MARK: - Meal photos
+
+    /// Uploads a photo and returns what the vision model read from it.
+    ///
+    /// The image goes up base64-encoded inside the JSON body rather than as a
+    /// multipart upload. That costs a third more bytes and buys the whole
+    /// existing transport: App Attest signs `httpBody`, the server verifies
+    /// the same bytes as text, and neither side needs a second code path for
+    /// this one request.
+    ///
+    /// `hint` is whatever the user had typed when they picked the photo —
+    /// ground truth for *what* the food is, while the photo judges the
+    /// portion. Omitted entirely when empty, because "" is not something
+    /// anyone said.
+    ///
+    /// The meal it returns is pending. Nothing counts until `confirmMeal`.
+    func analyzeMealPhoto(jpeg: Data, hint: String?) async throws -> MealAnalysis {
+        var body: [String: JSONValue] = [
+            "image": .string(jpeg.base64EncodedString()),
+            "mimeType": .string("image/jpeg"),
+        ]
+        if let hint, !hint.isEmpty { body["hint"] = .string(hint) }
+
+        return try await send("/api/v1/meals/photo", method: "POST", body: body)
+    }
+
+    /// Logs a pending meal for real, with the totals the user settled on.
+    ///
+    /// Always sends both numbers even when neither was edited: they are what
+    /// is on screen above the button, and sending exactly that is one less
+    /// way for the logged meal to differ from the one the user agreed to.
+    func confirmMeal(id: String, totalCalories: Int, totalProtein: Int) async throws {
+        try await sendIgnoringResponse(
+            "/api/v1/meals/\(id)/confirm", method: "POST",
+            body: ["totalCalories": .int(totalCalories), "totalProtein": .int(totalProtein)]
+        )
+    }
+
+    /// Throws away a pending meal. Only ever a pending one — the server will
+    /// not let this remove something already logged.
+    func discardMeal(id: String) async throws {
+        try await sendIgnoringResponse("/api/v1/meals/\(id)", method: "DELETE", body: nil)
+    }
+
     func checkIns() async throws -> CheckInsResponse {
         try await send("/api/v1/checkins", method: "GET", body: nil)
     }
@@ -227,7 +271,10 @@ final class APIClient {
         request.setValue(assertion, forHTTPHeaderField: "x-attest-assertion")
     }
 
-    private func validate(_ response: URLResponse) throws {
+    /// Takes the body as well as the response, because a 429 carries copy the
+    /// user is meant to read — the daily photo cap explains itself in the
+    /// coach's own words, and a bare status code would throw that away.
+    private func validate(_ response: URLResponse, _ data: Data) throws {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 {
             // The session was revoked or expired server-side. Drop it so the
@@ -235,7 +282,18 @@ final class APIClient {
             tokenStore.clear()
             throw APIError.unauthorized
         }
+        if status == 429, let message = Self.errorMessage(in: data) {
+            throw APIError.limitReached(message)
+        }
         guard (200..<300).contains(status) else { throw APIError.badStatus(status) }
+    }
+
+    /// The `error` field every v1 route uses when it refuses. Absent or
+    /// unreadable falls back to the plain status: inventing copy here would
+    /// put words in the coach's mouth that the server never said.
+    private static func errorMessage(in data: Data) -> String? {
+        struct Failure: Decodable { let error: String }
+        return try? JSONDecoder().decode(Failure.self, from: data).error
     }
 
     private func send<T: Decodable>(
@@ -246,7 +304,7 @@ final class APIClient {
             path, method: method, body: body, authenticated: authenticated, attested: attested
         )
         let (data, response) = try await session.data(for: request)
-        try validate(response)
+        try validate(response, data)
         return try decoder.decode(T.self, from: data)
     }
 
@@ -259,7 +317,7 @@ final class APIClient {
             path, method: method, body: body, authenticated: authenticated, attested: attested
         )
         let (data, response) = try await session.data(for: request)
-        try validate(response)
+        try validate(response, data)
         return data
     }
 }

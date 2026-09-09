@@ -26,6 +26,26 @@ final class StubURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
+
+    /// URLProtocol replaces `httpBody` with a stream, so both are checked.
+    /// Shared rather than private to one test class: asserting on a request
+    /// body is something every suite here needs, and a second hand-rolled
+    /// drain would be a second chance to get it subtly wrong.
+    static func bodyData(from request: URLRequest) -> Data? {
+        if let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var data = Data()
+            var buffer = [UInt8](repeating: 0, count: 1024)
+            while stream.hasBytesAvailable {
+                let read = stream.read(&buffer, maxLength: buffer.count)
+                if read <= 0 { break }
+                data.append(buffer, count: read)
+            }
+            return data
+        }
+        return request.httpBody
+    }
 }
 
 final class APIClientTests: XCTestCase {
@@ -500,21 +520,134 @@ extension APIClientTests {
         XCTAssertEqual(json["content"], "something objectionable")
     }
 
-    /// URLProtocol replaces httpBody with a stream, so both are checked.
-    private static func bodyData(from request: URLRequest) -> Data? {
-        if let stream = request.httpBodyStream {
-            stream.open()
-            defer { stream.close() }
-            var data = Data()
-            var buffer = [UInt8](repeating: 0, count: 1024)
-            while stream.hasBytesAvailable {
-                let read = stream.read(&buffer, maxLength: buffer.count)
-                if read <= 0 { break }
-                data.append(buffer, count: read)
-            }
-            return data
+    // MARK: - Meal photos
+
+    /// Not a real JPEG — the client never decodes it, it only carries it. What
+    /// matters is that the bytes arrive intact on the other side.
+    private static let photoBytes = Data([0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x43, 0xFF, 0xD9])
+
+    private func respondWithAnalysis() {
+        respond(200, """
+        {"mealId":"meal-1","photoUrl":"https://blob/meal.jpg",
+         "foodItems":[{"name":"eggs","portion":"2 large","calories":140,"protein":12}],
+         "totalCalories":140,"totalProtein":12}
+        """)
+    }
+
+    func testAnalyzingAPhotoPostsTheBytesAndDecodesTheAnalysis() async throws {
+        respondWithAnalysis()
+
+        let analysis = try await client.analyzeMealPhoto(jpeg: Self.photoBytes, hint: "two eggs")
+
+        XCTAssertEqual(analysis.mealId, "meal-1")
+        XCTAssertEqual(analysis.foodItems.first?.name, "eggs")
+        XCTAssertEqual(analysis.totalCalories, 140)
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/meals/photo")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer session-abc")
+
+        let body = try XCTUnwrap(Self.bodyData(from: request))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        // Base64 in JSON rather than a multipart body, so App Attest can sign
+        // over exactly the bytes the server verifies as text.
+        XCTAssertEqual(Data(base64Encoded: try XCTUnwrap(json["image"])), Self.photoBytes)
+        XCTAssertEqual(json["mimeType"], "image/jpeg")
+        XCTAssertEqual(json["hint"], "two eggs")
+    }
+
+    func testAPhotoWithNoHintOmitsTheKeyEntirely() async throws {
+        respondWithAnalysis()
+
+        _ = try await client.analyzeMealPhoto(jpeg: Self.photoBytes, hint: nil)
+
+        let body = try XCTUnwrap(Self.bodyData(from: try XCTUnwrap(StubURLProtocol.lastRequest)))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        // Not an empty string: the server treats a hint as the user's own
+        // words about the food, and "" is not something anyone said.
+        XCTAssertNil(json["hint"])
+    }
+
+    func testTheDailyPhotoCapReachesTheUserInItsOwnWords() async {
+        respond(429, #"{"error":"That's plenty of photos for today — back tomorrow."}"#)
+
+        do {
+            _ = try await client.analyzeMealPhoto(jpeg: Self.photoBytes, hint: nil)
+            XCTFail("expected limitReached")
+        } catch {
+            // A cap is not a failure to send. Collapsing it into a generic
+            // error would tell someone to retake a photo that was fine.
+            XCTAssertEqual(
+                error as? APIError,
+                .limitReached("That's plenty of photos for today — back tomorrow.")
+            )
         }
-        return request.httpBody
+        XCTAssertEqual(store.read(), "session-abc", "a cap must not sign anyone out")
+    }
+
+    func testA429WithNoMessageStillFailsRatherThanInventingCopy() async {
+        respond(429, "{}")
+
+        do {
+            _ = try await client.analyzeMealPhoto(jpeg: Self.photoBytes, hint: nil)
+            XCTFail("expected a thrown error")
+        } catch {
+            XCTAssertEqual(error as? APIError, .badStatus(429))
+        }
+    }
+
+    func testAnExpiredSessionStillSignsOutOnThePhotoPath() async {
+        respond(401, #"{"error":"Unauthorized"}"#)
+
+        do {
+            _ = try await client.analyzeMealPhoto(jpeg: Self.photoBytes, hint: nil)
+            XCTFail("expected unauthorized")
+        } catch {
+            XCTAssertEqual(error as? APIError, .unauthorized)
+        }
+        XCTAssertNil(store.read())
+    }
+
+    func testConfirmingSendsTheCorrectedTotals() async throws {
+        respond(200, #"{"ok":true}"#)
+
+        try await client.confirmMeal(id: "meal-1", totalCalories: 500, totalProtein: 40)
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/meals/meal-1/confirm")
+
+        let body = try XCTUnwrap(Self.bodyData(from: request))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Int])
+        XCTAssertEqual(json["totalCalories"], 500)
+        XCTAssertEqual(json["totalProtein"], 40)
+    }
+
+    func testDiscardingDeletesThePendingMeal() async throws {
+        respond(200, #"{"ok":true}"#)
+
+        try await client.discardMeal(id: "meal-1")
+
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        XCTAssertEqual(request.url?.path, "/api/v1/meals/meal-1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer session-abc")
+    }
+
+    func testConfirmingAMealThatIsNoLongerPendingFails() async {
+        respond(404, #"{"error":"That meal's no longer pending."}"#)
+
+        do {
+            try await client.confirmMeal(id: "gone", totalCalories: 1, totalProtein: 1)
+            XCTFail("expected a thrown error")
+        } catch {
+            XCTAssertEqual(error as? APIError, .badStatus(404))
+        }
+    }
+
+    private static func bodyData(from request: URLRequest) -> Data? {
+        StubURLProtocol.bodyData(from: request)
     }
 }
 

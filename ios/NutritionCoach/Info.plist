@@ -22,6 +22,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<!-- Without this key every App Store Connect upload stops to ask the
 	     export-compliance question. The app uses only HTTPS, which is exempt. -->
+	<!-- Shown verbatim in the permission prompt, so it says what the photo is
+	     for rather than restating that the app wants the camera. A vague
+	     purpose string is a routine 5.1.1 rejection, and it is also the only
+	     explanation the user gets at the moment they decide.
+	     The photo library needs no key: PhotosPicker runs out of process and
+	     hands back only what the user picked. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of a meal and the coach will estimate its calories and protein for you.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UILaunchScreen</key>
