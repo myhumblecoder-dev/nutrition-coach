@@ -60,6 +60,14 @@ enum DemoMode {
         ProcessInfo.processInfo.arguments.contains("-demo-meal-log")
     }
 
+    /// Reloads history after the meal sequence, standing in for the tab switch
+    /// that used to reorder the conversation. Catches what the merge's unit
+    /// tests cannot: whether the call sites tag their turns correctly, so
+    /// nothing is dropped and nothing arrives twice.
+    static var reloadsHistory: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demo-reload")
+    }
+
     /// Stands in for a camera roll the Simulator does not have. Drawn rather
     /// than bundled so no binary asset ships for a debug-only path.
     static func stubMealPhoto() -> UIImage {
