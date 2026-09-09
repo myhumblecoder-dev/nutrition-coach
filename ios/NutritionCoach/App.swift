@@ -36,6 +36,11 @@ struct NutritionCoachApp: App {
                     // it if this waited for a session.
                     await state.prepareAttestation()
                     guard state.isSignedIn else { return }
+                    // Rescheduled every launch against the zone the server
+                    // holds, so a timezone changed on another device is picked
+                    // up here. Same identifiers, so it replaces rather than
+                    // stacks.
+                    await state.scheduleMealReminders()
                     await PushRegistrar.shared.registerIfAuthorized(with: state.client)
                 }
         }
