@@ -188,6 +188,22 @@ final class APIClient {
         return try await send("/api/v1/meals/photo", method: "POST", body: body)
     }
 
+    /// Re-reads a pending meal's photo in light of something the user said.
+    ///
+    /// "That's chicken, not turkey" fixes the reason an estimate was wrong,
+    /// where nudging a number only fixes the symptom. The server keeps the
+    /// earlier words and appends this correction to them, so the caller sends
+    /// only what was newly said.
+    ///
+    /// Costs a vision call, so it can come back as `.limitReached` exactly as
+    /// the first read can.
+    func reviseMeal(id: String, correction: String) async throws -> MealAnalysis {
+        try await send(
+            "/api/v1/meals/\(id)/revise", method: "POST",
+            body: ["correction": .string(correction)]
+        )
+    }
+
     /// Logs a pending meal for real, with the totals the user settled on.
     ///
     /// Always sends both numbers even when neither was edited: they are what
