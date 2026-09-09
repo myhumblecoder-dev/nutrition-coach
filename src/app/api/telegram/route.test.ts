@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST, maxDuration } from './route'
 import { sendTelegramMessage, getTelegramFileUrl, answerCallbackQuery } from '@/lib/telegram'
-import { logMealForUser } from '@/lib/meals'
+import { logMealForUser, confirmPendingMeal, discardPendingMeal } from '@/lib/meals'
 import { coachReply } from '@/lib/chat'
 import { analyzeMeal } from '@/lib/analyzeMeal'
 import { consumeLinkToken, resolveUserByChat, disconnectUser } from '@/lib/telegramLink'
 import { put } from '@vercel/blob'
-import { prisma } from '@/lib/db'
 
 vi.mock('@/lib/telegram', () => ({ getTelegramFileUrl: vi.fn(), sendTelegramMessage: vi.fn(), answerCallbackQuery: vi.fn() }))
 vi.mock('@/lib/analyzeMeal', () => ({ analyzeMeal: vi.fn() }))
@@ -14,18 +13,13 @@ vi.mock('@/lib/limits', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/limits')>()),
 }))
 vi.mock('@/lib/telegramLink', () => ({ consumeLinkToken: vi.fn(), resolveUserByChat: vi.fn(), disconnectUser: vi.fn() }))
-vi.mock('@/lib/meals', () => ({ logMealForUser: vi.fn() }))
+vi.mock('@/lib/meals', () => ({
+  logMealForUser: vi.fn(),
+  confirmPendingMeal: vi.fn(),
+  discardPendingMeal: vi.fn(),
+}))
 vi.mock('@/lib/chat', () => ({ coachReply: vi.fn() }))
 vi.mock('@vercel/blob', () => ({ put: vi.fn() }))
-vi.mock('@/lib/db', () => ({
-  prisma: {
-    mealEntry: {
-      updateMany: vi.fn(),
-      deleteMany: vi.fn(),
-    },
-  },
-}))
-
 const TOKEN = 'f'.repeat(32)
 
 function makeRequest(update: object) {
@@ -209,14 +203,16 @@ describe('route', () => {
 
   it('a confirm tap flips only the resolved user own pending meal', async () => {
     vi.mocked(resolveUserByChat).mockResolvedValue({ id: 'u1' } as never)
-    vi.mocked(prisma.mealEntry.updateMany).mockResolvedValue({ count: 1 } as never)
+    vi.mocked(confirmPendingMeal).mockResolvedValue(true)
 
     await POST(makeRequest({
       callback_query: { id: 'cb1', data: 'meal:confirm:meal-9', from: { id: 5519 }, message: { chat: privateChat() } },
     }))
 
-    const arg = vi.mocked(prisma.mealEntry.updateMany).mock.calls.at(-1)![0]
-    expect(arg?.where).toEqual({ id: 'meal-9', userId: 'u1', confirmed: false })
+    // The user the chat resolved to, never the tapper's claim. That the write
+    // is then scoped by it is confirmPendingMeal's own guarantee, covered in
+    // meals.test.ts.
+    expect(confirmPendingMeal).toHaveBeenCalledWith('u1', 'meal-9')
     expect(answerCallbackQuery).toHaveBeenCalledWith('cb1')
     const reply = vi.mocked(sendTelegramMessage).mock.calls.at(-1)!
     expect(reply[1]).toContain('Logged')
@@ -224,7 +220,7 @@ describe('route', () => {
 
   it('a confirm tap on a stale or forged meal id says nothing was pending', async () => {
     vi.mocked(resolveUserByChat).mockResolvedValue({ id: 'u1' } as never)
-    vi.mocked(prisma.mealEntry.updateMany).mockResolvedValue({ count: 0 } as never)
+    vi.mocked(confirmPendingMeal).mockResolvedValue(false)
 
     await POST(makeRequest({
       callback_query: { id: 'cb1', data: 'meal:confirm:meal-x', from: { id: 5519 }, message: { chat: privateChat() } },
@@ -240,7 +236,7 @@ describe('route', () => {
     }))
 
     expect(answerCallbackQuery).toHaveBeenCalledWith('cb3')
-    expect(prisma.mealEntry.updateMany).not.toHaveBeenCalled()
+    expect(confirmPendingMeal).not.toHaveBeenCalled()
     expect(sendTelegramMessage).not.toHaveBeenCalled()
   })
 
@@ -252,6 +248,6 @@ describe('route', () => {
     }))
 
     expect(answerCallbackQuery).toHaveBeenCalledWith('cb4')
-    expect(prisma.mealEntry.deleteMany).not.toHaveBeenCalled()
+    expect(discardPendingMeal).not.toHaveBeenCalled()
   })
 })
