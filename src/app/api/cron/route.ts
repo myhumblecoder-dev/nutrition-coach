@@ -45,7 +45,11 @@ async function deliverToUser(user: DailyUser): Promise<Delivery[]> {
     ' Reply with the message only.'
   const message = await generate(prompt)
 
-  return deliverToChannels(user, message)
+  // Telegram only. iOS schedules its own nudges on the device now, so pushing
+  // one from a fixed UTC cron would arrive at the wrong hour for everyone
+  // outside APP_TIMEZONE — and as a second notification for everyone inside
+  // it. Telegram has no local scheduling, so it keeps this one.
+  return deliverToChannels(user, message, undefined, { push: false })
 }
 
 export async function GET(request: Request) {
@@ -57,7 +61,10 @@ export async function GET(request: Request) {
   }
 
   const users = await prisma.user.findMany({
-    where: { OR: [{ telegramChat: { isNot: null } }, { deviceTokens: { some: {} } }] },
+    // Only linked Telegram chats: an iOS-only account gets nothing from this
+    // cron now, so loading it would be a model call spent on a message with
+    // nowhere to go.
+    where: { telegramChat: { isNot: null } },
     include: {
       telegramChat: true,
       deviceTokens: true,

@@ -98,67 +98,40 @@ describe('route', () => {
     expect(sends).toContainEqual(['202', 'stay healthy']);
   });
 
-  it('pushes the check-in to every registered device', async () => {
-    vi.mocked(prisma.user.findMany).mockResolvedValue([
-      userRow({
-        id: 'u1',
-        name: 'Thomas',
-        deviceTokens: [{ token: 'dev-a' }, { token: 'dev-b' }],
-      }),
-    ] as never);
-    vi.mocked(generate).mockResolvedValue('how did you eat today?');
-    vi.mocked(sendPushNotification).mockResolvedValue(ok);
-
-    const body = await (await GET(makeRequest('Bearer test-secret'))).json();
-
-    expect(body).toEqual({ ok: true, sent: 2, failed: 0, reasons: [] });
-    expect(sendPushNotification).toHaveBeenCalledWith('dev-a', {
-      title: 'Roughly',
-      body: 'how did you eat today?',
-    });
-    expect(sendPushNotification).toHaveBeenCalledWith('dev-b', expect.anything());
-    expect(sendTelegramMessage).not.toHaveBeenCalled();
-  });
-
-  it('generates one message for a user reachable on both channels', async () => {
-    // Two LLM calls for one person would be paying twice to say the same
-    // thing — and could say two different things.
+  it('does not push the daily nudge — the phone schedules its own', async () => {
+    // iOS now schedules three local reminders at the user's own nine, one and
+    // seven. A push from a fixed UTC cron would be a fourth notification, at
+    // the wrong hour for everyone outside APP_TIMEZONE.
     vi.mocked(prisma.user.findMany).mockResolvedValue([
       userRow({
         id: 'u1',
         name: 'Thomas',
         telegramChat: { chatId: '101' },
-        deviceTokens: [{ token: 'dev-a' }],
+        deviceTokens: [{ token: 'dev-a' }, { token: 'dev-b' }],
       }),
     ] as never);
-    vi.mocked(generate).mockResolvedValue('same message');
+    vi.mocked(generate).mockResolvedValue('how did you eat today?');
     vi.mocked(sendTelegramMessage).mockResolvedValue(undefined as never);
-    vi.mocked(sendPushNotification).mockResolvedValue(ok);
 
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
-    expect(generate).toHaveBeenCalledTimes(1);
-    expect(body).toEqual({ ok: true, sent: 2, failed: 0, reasons: [] });
-    expect(sendTelegramMessage).toHaveBeenCalledWith('101', 'same message');
-    expect(sendPushNotification).toHaveBeenCalledWith('dev-a', {
-      title: 'Roughly',
-      body: 'same message',
-    });
+    expect(sendPushNotification).not.toHaveBeenCalled();
+    expect(sendTelegramMessage).toHaveBeenCalledWith('101', 'how did you eat today?');
+    expect(body).toEqual({ ok: true, sent: 1, failed: 0, reasons: [] });
   });
 
-  it('prunes a device token APNs reports as unregistered', async () => {
-    // 410 means the app was deleted. Keeping the row would waste a request
-    // every day forever.
-    vi.mocked(prisma.user.findMany).mockResolvedValue([
-      userRow({ id: 'u1', name: 'Thomas', deviceTokens: [{ token: 'dead' }] }),
-    ] as never);
-    vi.mocked(generate).mockResolvedValue('hi');
-    vi.mocked(sendPushNotification).mockResolvedValue(gone);
+  it('spends nothing on an account with no Telegram to send to', async () => {
+    // An iOS-only account gets its nudges locally and free. Loading it here
+    // would be a model call spent on a message with nowhere to go.
+    vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
 
     const body = await (await GET(makeRequest('Bearer test-secret'))).json();
 
-    expect(prisma.deviceToken.deleteMany).toHaveBeenCalledWith({ where: { token: 'dead' } });
-    expect(body).toEqual({ ok: false, sent: 0, failed: 1, reasons: ["APNs returned 410"] });
+    expect(generate).not.toHaveBeenCalled();
+    expect(body.sent).toBe(0);
+    // The query itself excludes them, rather than filtering after the fact.
+    const where = vi.mocked(prisma.user.findMany).mock.calls[0][0]?.where as Record<string, unknown>;
+    expect(where).toEqual({ telegramChat: { isNot: null } });
   });
 
   it('does not prune a token after an ordinary delivery failure', async () => {
