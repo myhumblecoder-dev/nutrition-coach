@@ -267,6 +267,9 @@ struct TodayView: View {
 
             statRow("Sleep", week.recovery.sleepHours.map { "\($0.formatted())h" }, "target 7–9h")
             statRow("Water", week.recovery.waterLiters.map { "\($0.formatted())L" }, "/ 3.8L")
+            // Between Water and Mood, matching the order of the web's
+            // Recovery & mind card so the two read as one product.
+            CaffeineRow(status: week.recovery.caffeine)
             statRow("Mood", week.mood.map { "\($0.score)/5" }, week.mood?.note ?? "")
 
             if let weight = week.measurement?.weightLb {
