@@ -101,3 +101,32 @@ describe('time', () => {
     })
   })
 })
+
+describe('startOfToday in a specific timezone', () => {
+  // 09:00 UTC on 10 September. Which day that belongs to, and when the day
+  // began, depends entirely on where the person is standing.
+  const now = new Date('2026-09-10T09:00:00.000Z')
+
+  it('uses the zone it is given rather than the app default', () => {
+    // Tokyo is UTC+9, so 09:00 UTC is 18:00 on the 10th — the day started at
+    // 15:00 UTC on the 9th.
+    expect(startOfToday(now, 'Asia/Tokyo').toISOString()).toBe('2026-09-09T15:00:00.000Z')
+    // London is UTC+1 in September; the day started at 23:00 UTC on the 9th.
+    expect(startOfToday(now, 'Europe/London').toISOString()).toBe('2026-09-09T23:00:00.000Z')
+    // New York is UTC-4; 09:00 UTC is 05:00 local, day started at 04:00 UTC.
+    expect(startOfToday(now, 'America/New_York').toISOString()).toBe('2026-09-10T04:00:00.000Z')
+  })
+
+  it('falls back to the app timezone when given nothing', () => {
+    // Every existing caller passes no zone and must keep behaving identically.
+    expect(startOfToday(now).getTime()).toBe(startOfToday(now, appTimeZone()).getTime())
+  })
+
+  it('ignores a zone the runtime does not recognise', () => {
+    // A timezone arrives from a client and is not to be trusted. A bad one
+    // must degrade to the app default, never throw — a thrown formatter here
+    // would fail the request the user actually made.
+    expect(startOfToday(now, 'Mars/Olympus_Mons').getTime()).toBe(startOfToday(now).getTime())
+    expect(startOfToday(now, '').getTime()).toBe(startOfToday(now).getTime())
+  })
+})

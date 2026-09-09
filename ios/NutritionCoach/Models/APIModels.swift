@@ -60,6 +60,10 @@ struct ChatMessage: Codable, Equatable, Identifiable {
     var isFromCoach: Bool { role == "assistant" }
 }
 
+struct TimezoneResponse: Codable, Equatable {
+    let timezone: String
+}
+
 struct ChatHistoryResponse: Codable, Equatable {
     let messages: [ChatMessage]
 }
