@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { logMealForUser, confirmPendingMeal, discardPendingMeal } from './meals'
+import {
+  logMealForUser,
+  confirmPendingMeal,
+  discardPendingMeal,
+  getPendingMeal,
+  updatePendingMealAnalysis,
+} from './meals'
 import { prisma } from '@/lib/db'
 
 vi.mock('@/lib/db', () => ({
@@ -8,6 +14,7 @@ vi.mock('@/lib/db', () => ({
       create: vi.fn(),
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }))
@@ -152,5 +159,62 @@ describe('pending meals', () => {
     vi.mocked(prisma.mealEntry.deleteMany).mockResolvedValue({ count: 0 } as never)
 
     expect(await discardPendingMeal('u1', 'already-logged')).toBe(false)
+  })
+})
+
+describe('revising a pending meal', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('reads back only a pending meal belonging to the user', async () => {
+    vi.mocked(prisma.mealEntry.findFirst).mockResolvedValue({
+      photoUrl: 'https://blob/x.jpg',
+      sourceText: 'chicken burrito bowl',
+    } as never)
+
+    const meal = await getPendingMeal('u1', 'meal-1')
+
+    expect(meal).toEqual({ photoUrl: 'https://blob/x.jpg', sourceText: 'chicken burrito bowl' })
+    const arg = vi.mocked(prisma.mealEntry.findFirst).mock.calls[0][0]
+    expect(arg?.where).toEqual({ id: 'meal-1', userId: 'u1', confirmed: false })
+  })
+
+  it('reports nothing for a meal that is not pending', async () => {
+    vi.mocked(prisma.mealEntry.findFirst).mockResolvedValue(null as never)
+
+    expect(await getPendingMeal('u1', 'gone')).toBeNull()
+  })
+
+  it('writes the re-read analysis back over the pending row', async () => {
+    vi.mocked(prisma.mealEntry.updateMany).mockResolvedValue({ count: 1 } as never)
+
+    const updated = await updatePendingMealAnalysis('u1', 'meal-1', {
+      foodItems: [{ name: 'chicken', portion: '2 cups', calories: 700, protein: 60 }],
+      totalCalories: 700,
+      totalProtein: 60,
+    }, 'chicken burrito bowl. double portion')
+
+    expect(updated).toBe(true)
+    const arg = vi.mocked(prisma.mealEntry.updateMany).mock.calls[0][0]
+    expect(arg.where).toEqual({ id: 'meal-1', userId: 'u1', confirmed: false })
+    // foodItems is a JSON string column, same as on create.
+    expect(JSON.parse(arg.data.foodItems as string)[0].name).toBe('chicken')
+    expect(arg.data.totalCalories).toBe(700)
+    // The accumulated words are the receipt Today's feed quotes back, so the
+    // correction has to land in the row, not just in the estimate.
+    expect(arg.data.sourceText).toBe('chicken burrito bowl. double portion')
+    // Still pending: a correction is not an agreement to log it.
+    expect(arg.data.confirmed).toBeUndefined()
+  })
+
+  it('reports false when the meal stopped being pending mid-correction', async () => {
+    vi.mocked(prisma.mealEntry.updateMany).mockResolvedValue({ count: 0 } as never)
+
+    const updated = await updatePendingMealAnalysis('u1', 'meal-1', {
+      foodItems: [{ name: 'x', portion: '1', calories: 1, protein: 1 }],
+      totalCalories: 1,
+      totalProtein: 1,
+    }, 'x')
+
+    expect(updated).toBe(false)
   })
 })
