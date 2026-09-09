@@ -82,7 +82,7 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
     lastMessage?.role === "assistant" ? lastMessage.content : null
   );
   if (checkInField) {
-    return answerCheckInInConversation(userId, checkInField, cleanText, modelText);
+    return answerCheckInInConversation(userId, checkInField, cleanText, modelText, usageEventId);
   }
 
   const historyLines = history
@@ -98,7 +98,10 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   const hadTargetBefore = (await prisma.dailyTarget.findUnique({ where: { userId } })) !== null;
   if (!hadTargetBefore) {
     try {
-      await extractHealthFacts(userId, modelText);
+      await extractHealthFacts(userId, modelText, {
+        sourceText: cleanText,
+        onUsage: (usage) => void attributeTokens(usageEventId, usage),
+      });
     } catch {
       // A failed extraction must not cost the reply.
     }
@@ -206,7 +209,10 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   // would log the same meal twice.
   if (hadTargetBefore) {
     try {
-      await extractHealthFacts(userId, modelText);
+      await extractHealthFacts(userId, modelText, {
+        sourceText: cleanText,
+        onUsage: (usage) => void attributeTokens(usageEventId, usage),
+      });
     } catch {
       // ignore
     }
@@ -228,7 +234,12 @@ async function answerCheckInInConversation(
   /** The user's own words — persisted, and quoted back on Today. */
   userText: string,
   /** The same answer with direct identifiers stripped, for the model. */
-  modelText: string
+  modelText: string,
+  /**
+   * The usage row this turn was recorded against, so the two model calls this
+   * branch makes land on it rather than vanishing from the month's spend.
+   */
+  usageEventId: string | null
 ): Promise<{ assistantReply: string }> {
   // recordAnswer keeps the verbatim words even when its summariser fails, so
   // the answer is never lost to a model error.
@@ -237,7 +248,11 @@ async function answerCheckInInConversation(
 
   let reply: string;
   try {
-    reply = (await generate(buildProbePrompt(field, modelText, nextField))).trim();
+    reply = (
+      await generate(buildProbePrompt(field, modelText, nextField), (usage) =>
+        void attributeTokens(usageEventId, usage)
+      )
+    ).trim();
   } catch (error) {
     // The answer is already saved. A failed reply must degrade the
     // conversation, not lose the record — the same rule the v1 route follows.
@@ -252,7 +267,10 @@ async function answerCheckInInConversation(
   // A check-in answer is still something the user said — "172 on the scale"
   // belongs on Today whether it arrived as an answer or as small talk.
   try {
-    await extractHealthFacts(userId, modelText);
+    await extractHealthFacts(userId, modelText, {
+      sourceText: userText,
+      onUsage: (usage) => void attributeTokens(usageEventId, usage),
+    });
   } catch {
     // ignore
   }

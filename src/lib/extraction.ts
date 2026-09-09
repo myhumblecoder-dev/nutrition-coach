@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { generate } from '@/lib/llm';
+import { generate, type UsageReporter } from '@/lib/llm';
 import { startOfToday } from '@/lib/time';
 import { setTargetForUser, getTargetForUser } from '@/lib/targets';
 import { estimateTargets } from '@/lib/onboarding';
@@ -266,7 +266,21 @@ export function parseHealthFacts(response: string) {
 
 // Extraction must never break or delay a coach reply: the whole body is
 // guarded, and a failure resolves to zero counts.
-export async function extractHealthFacts(userId: string, userText: string) {
+export async function extractHealthFacts(
+  userId: string,
+  /** What goes to the model — identifiers already stripped. */
+  userText: string,
+  options: {
+    /**
+     * What gets stored as the receipt and quoted back on Today. Defaults to
+     * `userText`; the chat path passes the user's own words, because a
+     * receipts feed showing "[redacted]" as the source of a meal tells the
+     * person who typed it nothing.
+     */
+    sourceText?: string
+    onUsage?: UsageReporter
+  } = {}
+) {
   try {
     const since = startOfToday(new Date());
     const [meals, training, recovery] = await Promise.all([
@@ -287,8 +301,10 @@ export async function extractHealthFacts(userId: string, userText: string) {
       training: training.map((t) => t.kind),
       recovery: recovery.map((r) => r.kind),
     };
-    const facts = parseHealthFacts(await generate(buildExtractionPrompt(seeds, userText)));
-    return await recordHealthFacts(userId, facts, userText.slice(0, 200));
+    const facts = parseHealthFacts(
+      await generate(buildExtractionPrompt(seeds, userText), options.onUsage)
+    );
+    return await recordHealthFacts(userId, facts, (options.sourceText ?? userText).slice(0, 200));
   } catch {
     return { meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 };
   }

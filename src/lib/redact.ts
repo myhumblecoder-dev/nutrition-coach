@@ -23,9 +23,17 @@ const RULES: RegExp[] = [
   // and over-matching here costs nothing.
   /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
 
-  // Card-length digit runs, 13-16 digits with optional spaces or hyphens.
-  // Before the phone rule, which would otherwise bite off the first chunk.
-  /\b(?:\d[ -]?){12,15}\d\b/g,
+  // Card numbers, in the shapes cards are actually written. Before the phone
+  // rule, which would otherwise bite off the first chunk.
+  //
+  // Deliberately NOT "13-16 digits with optional separators": that matched any
+  // list of numbers separated by single spaces, so "squats 10 10 10 8 8 8..."
+  // and a week of weigh-ins were destroyed before the model saw them. Groups
+  // have to look like a card — four-digit blocks, or the Amex 4-6-5 — so a
+  // list of one- to three-digit numbers cannot match.
+  /\b\d{13,19}\b/g,
+  /\b\d{4}[ -]\d{4}[ -]\d{4}[ -]\d{1,7}\b/g,
+  /\b\d{4}[ -]\d{6}[ -]\d{5}\b/g,
 
   // US social security number.
   /\b\d{3}-\d{2}-\d{4}\b/g,

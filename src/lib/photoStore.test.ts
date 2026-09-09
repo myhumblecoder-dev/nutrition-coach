@@ -41,3 +41,32 @@ describe('deletePhotos', () => {
     await expect(deletePhotos(['https://blob/a.jpg'])).resolves.toBeUndefined()
   })
 })
+
+describe('deleting a lot of photos', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('chunks rather than handing the store one huge array', async () => {
+    // A long-standing account can have thousands. One oversized call would
+    // throw, be swallowed, and leave every photo public — the exact outcome
+    // this function exists to prevent, arriving silently.
+    const urls = Array.from({ length: 250 }, (_, i) => `https://blob/${i}.jpg`)
+
+    await deletePhotos(urls)
+
+    expect(mockDel).toHaveBeenCalledTimes(3)
+    expect(mockDel.mock.calls.flatMap((call) => call[0] as string[])).toHaveLength(250)
+  })
+
+  it('keeps going when one batch fails', async () => {
+    const urls = Array.from({ length: 150 }, (_, i) => `https://blob/${i}.jpg`)
+    mockDel.mockRejectedValueOnce(new Error('rate limited'))
+
+    await deletePhotos(urls)
+
+    // The second batch still runs; one bad chunk must not abandon the rest.
+    expect(mockDel).toHaveBeenCalledTimes(2)
+  })
+})

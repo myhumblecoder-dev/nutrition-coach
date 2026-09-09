@@ -31,6 +31,32 @@ describe('redactIdentifiers', () => {
     expect(redactIdentifiers('ssn 123-45-6789')).toBe('ssn [redacted]')
   })
 
+  it('does not eat a list of numbers, which is what a set log looks like', () => {
+    // The rule that caught this was mine and it was wrong: any 13-16 digits
+    // separated by single spaces matched, so a week of weigh-ins or a set log
+    // became "[redacted]" with no error anywhere. The coach then answers about
+    // nothing and extraction logs nothing.
+    for (const text of [
+      'squats 10 10 10 8 8 8 6 6 6 5 5 5 5',
+      'weights this week 171 172 170 173 172 171 174',
+      'ate 500 600 700 400 300 200 100 calories',
+      '5 5 5 5 5 5 5 5 5 5 5 5 5 5',
+    ]) {
+      expect(redactIdentifiers(text)).toBe(text)
+    }
+  })
+
+  it('still catches the card shapes people actually paste', () => {
+    for (const card of [
+      '4111111111111111',
+      '4111 1111 1111 1111',
+      '4111-1111-1111-1111',
+      '3782 822463 10005',
+    ]) {
+      expect(redactIdentifiers(card)).toBe('[redacted]')
+    }
+  })
+
   it('does not eat the numbers this app exists to read', () => {
     // The risk of a greedy digit rule: a redactor that ate these would break
     // logging silently and look like the model getting worse.

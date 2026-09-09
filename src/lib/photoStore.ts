@@ -1,5 +1,8 @@
 import { del } from '@vercel/blob'
 
+/** Comfortably inside the store's per-call url limit. */
+const BATCH_SIZE = 100
+
 /**
  * Removes meal photos from blob storage.
  *
@@ -24,11 +27,22 @@ export async function deletePhotos(
   const real = urls.filter((url): url is string => Boolean(url))
   if (real.length === 0) return
 
-  try {
-    await del(real)
-  } catch (error) {
-    console.error(
-      'photo cleanup failed: ' + (error instanceof Error ? error.message : 'unknown')
-    )
+  // Chunked, because a long-standing account can have thousands of photos and
+  // `del` caps how many urls it takes. One oversized call would throw, get
+  // swallowed below, and leave EVERY photo public — the exact outcome this
+  // function exists to prevent, arriving silently.
+  //
+  // Each chunk is caught on its own so one bad batch cannot abandon the rest.
+  for (let i = 0; i < real.length; i += BATCH_SIZE) {
+    const batch = real.slice(i, i + BATCH_SIZE)
+
+    try {
+      await del(batch)
+    } catch (error) {
+      console.error(
+        `photo cleanup failed for ${batch.length} blobs: ` +
+          (error instanceof Error ? error.message : 'unknown')
+      )
+    }
   }
 }
