@@ -8,8 +8,12 @@ import {
   limitMessage,
   photoLimitMessage,
   UsageLimitError,
+  denialFor,
 } from './limits'
 import { prisma } from '@/lib/db'
+import { isEntitled } from '@/lib/entitlement'
+
+vi.mock('@/lib/entitlement', () => ({ isEntitled: vi.fn() }))
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -211,5 +215,85 @@ describe('UsageLimitError', () => {
 
     expect(error).toBeInstanceOf(Error)
     expect(error.userMessage).toBe('enough photos, hon')
+  })
+})
+
+describe('denialFor', () => {
+  const mockEntitled = vi.mocked(isEntitled)
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    stubCounts()
+    mockPrisma.usageEvent.count.mockResolvedValue(0 as never)
+  })
+
+  it('lets an entitled user under the cap through', async () => {
+    mockEntitled.mockResolvedValue(true)
+
+    expect(await denialFor('u1', 'chat')).toBeNull()
+  })
+
+  it('refuses an account with no subscription, and says why in a way code can read', async () => {
+    mockEntitled.mockResolvedValue(false)
+
+    const denial = await denialFor('u1', 'chat')
+
+    // The prose is for the user; the reason is for the client, which has to
+    // decide between an inline message and a paywall.
+    expect(denial?.reason).toBe('subscription_required')
+    expect(denial?.userMessage).toMatch(/subscri/i)
+  })
+
+  it('never counts usage for an account that cannot spend anyway', async () => {
+    mockEntitled.mockResolvedValue(false)
+
+    await denialFor('u1', 'chat')
+
+    // A lapsed user must not be able to grow the usage table either.
+    expect(mockPrisma.usageEvent.count).not.toHaveBeenCalled()
+  })
+
+  it('separates a spent cap from an absent subscription', async () => {
+    mockEntitled.mockResolvedValue(true)
+    mockPrisma.usageEvent.count.mockResolvedValue(999 as never)
+
+    const denial = await denialFor('u1', 'chat')
+
+    // Same refusal to the user, completely different remedy: one is "come
+    // back tomorrow", the other is "this costs money now".
+    expect(denial?.reason).toBe('capped')
+  })
+
+  it('uses the right copy for each kind of spend', async () => {
+    mockEntitled.mockResolvedValue(true)
+    mockPrisma.usageEvent.count.mockResolvedValue(999 as never)
+
+    expect((await denialFor('u1', 'vision'))?.userMessage).toMatch(/photo/i)
+    expect((await denialFor('u1', 'chat'))?.userMessage).not.toMatch(/camera/i)
+  })
+})
+
+describe('the caps are sized to the subscription price', () => {
+  const originalEnv = process.env
+  beforeEach(() => {
+    process.env = { ...originalEnv }
+    delete process.env.DAILY_MESSAGE_LIMIT
+    delete process.env.DAILY_PHOTO_LIMIT
+  })
+
+  it('cannot let one account cost more than it pays', () => {
+    // $7.99/mo nets $6.79 after Apple's 15%. A chat exchange is ~$0.0029 (two
+    // calls) and a photo ~$0.0038. If this ever fails, either the caps or the
+    // price moved and the other has not caught up.
+    const worstCaseMonthly = (dailyLimit('chat') * 0.0029 + dailyLimit('vision') * 0.0038) * 30
+
+    expect(worstCaseMonthly).toBeLessThan(6.79)
+  })
+
+  it('still sits well above a heavy honest day', () => {
+    // 25 messages and 10 photos is a heavy real day. Someone using the app
+    // properly should never meet the cap.
+    expect(dailyLimit('chat')).toBeGreaterThan(25)
+    expect(dailyLimit('vision')).toBeGreaterThan(10)
   })
 })

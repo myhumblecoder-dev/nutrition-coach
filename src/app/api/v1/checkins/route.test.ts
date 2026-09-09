@@ -6,6 +6,19 @@ import { getOrCreateCheckIn, recordAnswer, listCheckIns, QUESTIONS } from '@/lib
 
 vi.mock('@/lib/apiAuth', () => ({ authenticateBearer: vi.fn() }))
 vi.mock('@/lib/llm', () => ({ generate: vi.fn() }))
+vi.mock('@/lib/limits', () => ({
+  denialFor: vi.fn().mockResolvedValue(null),
+  recordUsage: vi.fn(),
+  UsageLimitError: class UsageLimitError extends Error {
+    userMessage: string
+    reason: string
+    constructor(m: string, reason = 'capped') {
+      super(m)
+      this.userMessage = m
+      this.reason = reason
+    }
+  },
+}))
 vi.mock('@/lib/checkin', async (importOriginal) => ({
   // QUESTIONS, nextUnansweredField and buildProbePrompt are pure — exercise
   // the real ones so the route is tested against real question ordering.
@@ -186,5 +199,66 @@ describe('POST /api/v1/checkins', () => {
     expect(body.complete).toBe(true)
     expect(mockRecord).not.toHaveBeenCalled()
     expect(mockGenerate).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/v1/checkins spends money and must be gated', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('refuses a lapsed subscription with 402 before calling the model', async () => {
+    // This route makes two model calls and was the one paid path with no gate
+    // on it at all — it never imported limits.
+    const { denialFor } = await import('@/lib/limits')
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+    vi.mocked(denialFor).mockResolvedValue({
+      reason: 'subscription_required',
+      userMessage: 'that needs a subscription',
+    })
+
+    const res = await POST(
+      new Request('http://test/api/v1/checkins', {
+        method: 'POST',
+        body: JSON.stringify({ message: 'slept badly' }),
+      })
+    )
+
+    expect(res.status).toBe(402)
+    expect(mockGenerate).not.toHaveBeenCalled()
+  })
+
+  it('refuses a spent cap with 429', async () => {
+    const { denialFor } = await import('@/lib/limits')
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+    vi.mocked(denialFor).mockResolvedValue({ reason: 'capped', userMessage: 'enough' })
+
+    const res = await POST(
+      new Request('http://test/api/v1/checkins', {
+        method: 'POST',
+        body: JSON.stringify({ message: 'slept badly' }),
+      })
+    )
+
+    expect(res.status).toBe(429)
+    expect(mockGenerate).not.toHaveBeenCalled()
+  })
+
+  it('records the spend when it does go through', async () => {
+    const { denialFor, recordUsage } = await import('@/lib/limits')
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+    vi.mocked(denialFor).mockResolvedValue(null)
+    mockGetOrCreate.mockResolvedValue({ bodyAnswer: null } as never)
+    mockRecord.mockResolvedValue({ bodyAnswer: 'slept badly' } as never)
+    mockGenerate.mockResolvedValue('Right.')
+
+    await POST(
+      new Request('http://test/api/v1/checkins', {
+        method: 'POST',
+        body: JSON.stringify({ message: 'slept badly' }),
+      })
+    )
+
+    // Two model calls happen here, so it has to appear in the ledger like any
+    // other paid path.
+    expect(recordUsage).toHaveBeenCalledWith('user-1', 'chat')
   })
 })

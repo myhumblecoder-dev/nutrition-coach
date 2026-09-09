@@ -5,6 +5,7 @@ import { requireAttestation } from '@/lib/attest'
 import { analyzeMeal } from '@/lib/analyzeMeal'
 import { logMealForUser } from '@/lib/meals'
 import { UsageLimitError } from '@/lib/limits'
+import { denialResponse } from '@/lib/denialResponse'
 
 // A vision call plus a blob write. Matches the Telegram webhook's budget,
 // which does the same work for the same reason.
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     // come back tomorrow, the other says take the shot again. Collapsing them
     // sends someone round a loop retaking a picture that was fine.
     if (error instanceof UsageLimitError) {
-      return Response.json({ error: error.userMessage }, { status: 429 })
+      return denialResponse(error)
     }
     return Response.json(
       { error: "I couldn't read that as a meal photo — try a clearer, closer shot of the food." },

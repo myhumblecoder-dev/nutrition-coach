@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
 import { startOfToday } from '@/lib/time'
+import { isEntitled } from '@/lib/entitlement'
 
 // Model calls are the app's only real marginal cost, so they are counted
 // directly rather than inferred from whatever rows they happen to leave
@@ -10,20 +11,27 @@ import { startOfToday } from '@/lib/time'
 
 export type UsageKind = 'chat' | 'vision'
 
-// Sized against real use, then costed. On Haiku 4.5 ($1/$5 per MTok) a chat
-// exchange is ~$0.0029 (it is two calls — the reply and the extraction pass)
-// and a photo ~$0.0038 (~2.5k image tokens after Anthropic's downsize). A
-// heavy real day is maybe 25 messages and 10 photos, so these sit at roughly
-// 2-4x genuine use and cap one saturated account near $10/month.
+// Sized against real use, then costed against what a subscription actually
+// earns. On Haiku 4.5 ($1/$5 per MTok) a chat exchange is ~$0.0029 (it is two
+// calls — the reply and the extraction pass) and a photo ~$0.0038 (~2.5k image
+// tokens after Anthropic's downsize). A heavy real day is maybe 25 messages
+// and 10 photos.
+//
+// These were 60 and 40, which capped a saturated account near $10/month —
+// more than the $6.79 that $7.99 nets after Apple's 15%. So one account
+// sitting on the caps cost more than it paid. At 40 and 25 the worst case is
+// ~$6.33/month, inside the revenue, and still 1.6x and 2.5x a heavy day.
+// `limits.test.ts` asserts both halves of that, so this cannot silently drift
+// away from the price again.
 //
 // The cap is not the cost control of last resort — it is there so a runaway
 // client or a curious stranger cannot run up a bill unnoticed. Someone using
 // the app hard should never meet it.
 const DEFAULTS: Record<UsageKind, number> = {
-  chat: 60,
+  chat: 40,
   // Vision is the pricier call per unit, but a day of eating is a handful of
   // photos, so the ceiling can still sit well above honest use.
-  vision: 40,
+  vision: 25,
 }
 
 const ENV_VARS: Record<UsageKind, string> = {
@@ -31,14 +39,31 @@ const ENV_VARS: Record<UsageKind, string> = {
   vision: 'DAILY_PHOTO_LIMIT',
 }
 
+/**
+ * Why a request that costs money was refused.
+ *
+ * The prose is for the user and the reason is for the client: a spent cap and
+ * an absent subscription read almost the same to a person, but one is answered
+ * by waiting until tomorrow and the other by a paywall. A client cannot tell
+ * those apart from a sentence.
+ */
+export type DenialReason = 'capped' | 'subscription_required'
+
+export type Denial = {
+  reason: DenialReason
+  userMessage: string
+}
+
 /** Thrown by a gated path. Carries copy the caller can show the user as-is. */
 export class UsageLimitError extends Error {
   readonly userMessage: string
+  readonly reason: DenialReason
 
-  constructor(userMessage: string) {
+  constructor(userMessage: string, reason: DenialReason = 'capped') {
     super('Usage limit reached')
     this.name = 'UsageLimitError'
     this.userMessage = userMessage
+    this.reason = reason
   }
 }
 
@@ -142,4 +167,53 @@ export function limitMessage(successes: string | null): string {
 export function photoLimitMessage(successes: string | null): string {
   const opening = "Easy with the camera, hon. That's enough photos for today — bring me more tomorrow."
   return successes ? `${opening} You got down ${successes}.` : opening
+}
+
+/**
+ * The coach's word when the subscription has run out.
+ *
+ * Names no price. Apple prices per storefront and the paywall reads the real
+ * localised figure from StoreKit — a number hardcoded here would eventually be
+ * wrong somewhere, and wrong about money.
+ *
+ * Says the data is still there because it is: Today, the history and the
+ * receipts all keep working. Someone deciding whether to pay should not also
+ * be wondering whether they have lost anything.
+ */
+export function subscriptionRequiredMessage(): string {
+  return "That's me done for now, hon. Everything you've logged is still here to look at — " +
+    'but the talking and the photo reading are the parts that cost me money, so those need a subscription.'
+}
+
+/**
+ * The single gate every paid path goes through.
+ *
+ * Entitlement first, then the cap: an account that cannot spend at all should
+ * not get as far as counting, or a lapsed user could still grow the usage
+ * table by hammering a route that was going to refuse them anyway.
+ *
+ * Lives here rather than in the routes for the same reason the caps do — the
+ * web action, the v1 API and the Telegram webhook all land on `chat.ts` and
+ * `analyzeMeal.ts`, and Telegram has no route-level auth to hang a check from.
+ *
+ * Returns null when the request may proceed.
+ */
+export async function denialFor(
+  userId: string,
+  kind: UsageKind,
+  now: Date = new Date()
+): Promise<Denial | null> {
+  if (!(await isEntitled(userId, now))) {
+    return { reason: 'subscription_required', userMessage: subscriptionRequiredMessage() }
+  }
+
+  if (await isOverLimit(userId, kind, now)) {
+    const successes = await todaySuccesses(userId, now)
+    return {
+      reason: 'capped',
+      userMessage: kind === 'vision' ? photoLimitMessage(successes) : limitMessage(successes),
+    }
+  }
+
+  return null
 }

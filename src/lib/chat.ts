@@ -5,7 +5,7 @@ import { caffeineStatus } from "@/lib/caffeine";
 import { describeExercises } from "@/lib/dashboard";
 import { startOfWeek, appTimeZone, nowLine } from "@/lib/time";
 import { COACH_PREAMBLE } from "@/lib/voice";
-import { isOverLimit, recordUsage, todaySuccesses, limitMessage } from "@/lib/limits";
+import { denialFor, recordUsage } from "@/lib/limits";
 import {
   awaitingCheckInAnswer,
   buildProbePrompt,
@@ -45,8 +45,9 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   // the Telegram webhook, the v1 API and any later surface all land on this
   // function. Nothing is persisted and no model is called once over the cap —
   // an abusive client must not be able to grow the table either.
-  if (await isOverLimit(userId, "chat")) {
-    return { assistantReply: limitMessage(await todaySuccesses(userId)) };
+  const denial = await denialFor(userId, "chat");
+  if (denial) {
+    return { assistantReply: denial.userMessage };
   }
 
   // Recorded before the call: a timeout still costs money, and counting only
