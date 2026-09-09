@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { deletePhotos } from "@/lib/photoStore";
 import { z } from "zod";
 
 const foodItemSchema = z.object({
@@ -82,9 +83,19 @@ export async function confirmPendingMeal(
 
 /** Returns false when there was no pending meal to discard. */
 export async function discardPendingMeal(userId: string, mealId: string): Promise<boolean> {
+  // Read the photo before the row goes, or the blob is orphaned with nothing
+  // left pointing at it. A discarded meal is the commonest way a photo becomes
+  // garbage: analysed, rejected, and previously kept forever.
+  const meal = await prisma.mealEntry.findFirst({
+    where: pendingScope(userId, mealId),
+    select: { photoUrl: true },
+  });
+
   const { count } = await prisma.mealEntry.deleteMany({
     where: pendingScope(userId, mealId),
   });
+
+  if (count > 0) await deletePhotos([meal?.photoUrl]);
 
   return count > 0;
 }

@@ -136,7 +136,11 @@ describe('answering the weekly check-in in the conversation', () => {
 
     await coachReply('u1', 'leaner, 172 on the scale')
 
-    expect(vi.mocked(extractHealthFacts)).toHaveBeenCalledWith('u1', 'leaner, 172 on the scale')
+    expect(vi.mocked(extractHealthFacts)).toHaveBeenCalledWith(
+      'u1',
+      'leaner, 172 on the scale',
+      expect.anything()
+    )
   })
 
   it('stamps the question before the answer, not alongside it', async () => {

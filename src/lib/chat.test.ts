@@ -68,7 +68,11 @@ describe('chat', () => {
 
     await coachReply('u1', 'how did I do?')
 
-    expect(extractHealthFacts).toHaveBeenCalledWith('u1', 'how did I do?')
+    expect(extractHealthFacts).toHaveBeenCalledWith(
+      'u1',
+      'how did I do?',
+      expect.anything()
+    )
   })
 
   it('an extraction failure does not break the reply', async () => {
@@ -313,5 +317,25 @@ describe('chat', () => {
 
     expect(result.assistantReply).toBe('that needs a subscription')
     expect(generate).not.toHaveBeenCalled()
+  })
+
+  it("sends the model redacted text but keeps the user's own words as the receipt", async () => {
+    // The receipts feed quotes what you said back at you. Storing the redacted
+    // string there would show "[redacted]" as the source of a meal, telling
+    // the person who typed it nothing.
+    // An earlier test leaves denialFor returning a denial: clearAllMocks
+    // resets calls, not implementations, so this has to be put back or the
+    // turn short-circuits before extraction.
+    const { denialFor } = await import('@/lib/limits')
+    vi.mocked(denialFor).mockResolvedValue(null)
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(generate).mockResolvedValue('Right.')
+
+    await coachReply('u1', 'burrito bowl, text me on 555-123-4567')
+
+    const [, modelText, options] = vi.mocked(extractHealthFacts).mock.calls.at(-1)!
+    expect(modelText).toBe('burrito bowl, text me on [redacted]')
+    expect(options?.sourceText).toBe('burrito bowl, text me on 555-123-4567')
   })
 })
