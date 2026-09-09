@@ -4,7 +4,30 @@
 // model name to Ollama.
 const OLLAMA_DEFAULT_MODEL = 'gemma4:26b';
 
-export async function generate(prompt: string): Promise<string> {
+/**
+ * What a call actually cost, as reported by the provider.
+ *
+ * Delivered through a callback rather than the return value so the 30-odd
+ * existing call sites and their stubs keep working unchanged — this is
+ * bookkeeping, and it should not reshape every caller to collect it.
+ */
+export type TokenUsage = { inputTokens: number; outputTokens: number }
+
+export type UsageReporter = (usage: TokenUsage) => void
+
+function reportUsage(onUsage: UsageReporter | undefined, raw: unknown): void {
+  if (!onUsage) return
+
+  const usage = raw as { input_tokens?: number; output_tokens?: number } | undefined
+  if (!usage) return
+
+  onUsage({
+    inputTokens: usage.input_tokens ?? 0,
+    outputTokens: usage.output_tokens ?? 0,
+  })
+}
+
+export async function generate(prompt: string, onUsage?: UsageReporter): Promise<string> {
   const provider = process.env.LLM_PROVIDER;
 
   if (provider === 'anthropic') {
@@ -27,6 +50,7 @@ export async function generate(prompt: string): Promise<string> {
     }
 
     const data = await res.json();
+    reportUsage(onUsage, data.usage);
     return data.content[0].text;
   }
 
@@ -66,7 +90,8 @@ export async function generate(prompt: string): Promise<string> {
  */
 export async function analyzePhoto(
   imageUrl: string,
-  systemPrompt: string
+  systemPrompt: string,
+  onUsage?: UsageReporter
 ): Promise<string> {
   const imageRes = await fetch(imageUrl);
   if (!imageRes.ok) {
@@ -106,6 +131,7 @@ export async function analyzePhoto(
       throw new Error(res.statusText);
     }
     const data = await res.json();
+    reportUsage(onUsage, data.usage);
     return data.content[0].text;
   }
 

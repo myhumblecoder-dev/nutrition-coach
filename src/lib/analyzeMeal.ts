@@ -1,6 +1,7 @@
 import { analyzePhoto } from '@/lib/llm'
+import { redactIdentifiers } from '@/lib/redact'
 import { z } from 'zod'
-import { denialFor, recordUsage, UsageLimitError } from '@/lib/limits'
+import { attributeTokens, denialFor, recordUsage, UsageLimitError } from '@/lib/limits'
 
 // Vision models return fractional estimates despite integer instructions;
 // round rather than reject.
@@ -47,10 +48,13 @@ export async function analyzeMeal(userId: string, photoUrl: string, hint?: strin
 
   // Recorded before the call, not after: a timeout or a 500 still cost money,
   // and counting only successes would let a failing loop run free.
-  await recordUsage(userId, 'vision')
+  const usageEventId = await recordUsage(userId, 'vision')
 
-  const hintBlock = hint
-    ? `The user says this meal is: "${hint}". Trust their description of what the food IS; use the photo to judge portions; any numbers the user states win.\n`
+  // The caption goes to the model, so direct identifiers come out of it first.
+  // What was typed is still stored verbatim as the meal's sourceText.
+  const modelHint = hint ? redactIdentifiers(hint) : undefined
+  const hintBlock = modelHint
+    ? `The user says this meal is: "${modelHint}". Trust their description of what the food IS; use the photo to judge portions; any numbers the user states win.\n`
     : ''
   const systemPrompt = `${hintBlock}Return ONLY valid JSON with no prose, in the exact shape: {
   "foodItems": [
@@ -65,7 +69,12 @@ export async function analyzeMeal(userId: string, photoUrl: string, hint?: strin
   "totalProtein": number
 }`
 
-  const response = await analyzePhoto(photoUrl, systemPrompt)
+  // The tokens come back with the reply, so the row written above gets its
+  // real cost filled in. Fire-and-forget: attributeTokens never throws, and
+  // the estimate stands in if it never lands.
+  const response = await analyzePhoto(photoUrl, systemPrompt, (usage) => {
+    void attributeTokens(usageEventId, usage)
+  })
 
   let parsed
   try {

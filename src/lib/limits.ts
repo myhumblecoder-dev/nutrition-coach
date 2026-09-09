@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { startOfToday } from '@/lib/time'
 import { isEntitled } from '@/lib/entitlement'
+import type { TokenUsage } from '@/lib/llm'
 
 // Model calls are the app's only real marginal cost, so they are counted
 // directly rather than inferred from whatever rows they happen to leave
@@ -28,10 +29,10 @@ export type UsageKind = 'chat' | 'vision'
 // client or a curious stranger cannot run up a bill unnoticed. Someone using
 // the app hard should never meet it.
 const DEFAULTS: Record<UsageKind, number> = {
-  chat: 40,
+  chat: 30,
   // Vision is the pricier call per unit, but a day of eating is a handful of
   // photos, so the ceiling can still sit well above honest use.
-  vision: 25,
+  vision: 15,
 }
 
 const ENV_VARS: Record<UsageKind, string> = {
@@ -97,14 +98,20 @@ export async function isOverLimit(
  * is actually making. The worst case is undercounting, which is the safe
  * direction for the person and the visible one for us in the logs.
  */
-export async function recordUsage(userId: string, kind: UsageKind): Promise<void> {
+export async function recordUsage(userId: string, kind: UsageKind): Promise<string | null> {
   try {
-    await prisma.usageEvent.create({ data: { userId, kind } })
+    const event = await prisma.usageEvent.create({ data: { userId, kind } })
+
+    // The id lets `attributeTokens` fill in what the call actually cost once
+    // the provider says. Callers that do not care can keep ignoring it.
+    return event.id
   } catch (error) {
     console.error(
       'usage record failed: ' + (error instanceof Error ? error.message : 'Unknown error')
     )
   }
+
+  return null
 }
 
 const TRAINING_WORDS: Record<string, string> = {
@@ -207,7 +214,12 @@ export async function denialFor(
     return { reason: 'subscription_required', userMessage: subscriptionRequiredMessage() }
   }
 
-  if (await isOverLimit(userId, kind, now)) {
+  // Daily cap, then the month's bill. Both are 'capped' to the user — the
+  // remedy is the same, only the wait is longer.
+  const overDaily = await isOverLimit(userId, kind, now)
+  const overMonthly = overDaily ? false : (await monthlySpendUsd(userId, now)) >= monthlyCeilingUsd()
+
+  if (overDaily || overMonthly) {
     const successes = await todaySuccesses(userId, now)
     return {
       reason: 'capped',
@@ -216,4 +228,89 @@ export async function denialFor(
   }
 
   return null
+}
+
+// Haiku 4.5, per million tokens. The two numbers that turn recorded usage into
+// money; everything else here is arithmetic over them.
+const USD_PER_INPUT_TOKEN = 1 / 1_000_000
+const USD_PER_OUTPUT_TOKEN = 5 / 1_000_000
+
+/**
+ * What a call is assumed to cost when its real tokens were never recorded.
+ *
+ * Used for rows written before tokens were measured, and for calls that died
+ * before reporting. Erring high on purpose: under-counting spend is the one
+ * direction a cost ceiling must not be wrong in.
+ */
+const ESTIMATED_USD: Record<UsageKind, number> = {
+  chat: 0.0029,
+  vision: 0.0038,
+}
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+
+/**
+ * The hard stop on what one account can cost in a month.
+ *
+ * The daily caps bound a burst; this bounds the bill. Thirty saturated days in
+ * a row is otherwise simply allowed, and — more to the point — the daily caps
+ * only bound cost if the per-call estimates are right. They were never
+ * checked. This ceiling is denominated in dollars over *measured* tokens, so
+ * it still holds when the estimate turns out to be wrong.
+ *
+ * Sits above a heavy honest month (~$3.31) and below what a subscription nets
+ * ($6.79), so it never troubles a real user and always protects the margin.
+ */
+export function monthlyCeilingUsd(): number {
+  const raw = Number(process.env.MONTHLY_SPEND_CEILING_USD)
+
+  return Number.isFinite(raw) && raw > 0 ? raw : 5
+}
+
+/** What this account has actually cost over the last 30 days. */
+export async function monthlySpendUsd(userId: string, now: Date = new Date()): Promise<number> {
+  const events = await prisma.usageEvent.findMany({
+    // Rolling rather than calendar: a month boundary that resets the ceiling
+    // lets someone spend a full month on the 31st and another on the 1st.
+    where: { userId, createdAt: { gte: new Date(now.getTime() - THIRTY_DAYS_MS) } },
+    select: { kind: true, inputTokens: true, outputTokens: true },
+  })
+
+  return events.reduce((total, event) => {
+    if (event.inputTokens === null || event.outputTokens === null) {
+      return total + (ESTIMATED_USD[event.kind as UsageKind] ?? 0)
+    }
+
+    return (
+      total +
+      event.inputTokens * USD_PER_INPUT_TOKEN +
+      event.outputTokens * USD_PER_OUTPUT_TOKEN
+    )
+  }, 0)
+}
+
+/**
+ * Records what a call actually cost, once the provider has said.
+ *
+ * Separate from `recordUsage` because the row is written before the call — a
+ * timeout still has to count — and the tokens are only known after it. Never
+ * throws, for the same reason `recordUsage` does not: bookkeeping must not
+ * break the request it is describing.
+ */
+export async function attributeTokens(
+  eventId: string | null,
+  usage: TokenUsage
+): Promise<void> {
+  if (!eventId) return
+
+  try {
+    await prisma.usageEvent.update({
+      where: { id: eventId },
+      data: { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens },
+    })
+  } catch (error) {
+    console.error(
+      'token attribution failed: ' + (error instanceof Error ? error.message : 'unknown')
+    )
+  }
 }

@@ -6,7 +6,13 @@ import { prisma } from '@/lib/db'
 
 vi.mock('@/lib/apiAuth', () => ({ authenticateBearer: vi.fn() }))
 vi.mock('@/lib/attest', () => ({ requireAttestation: vi.fn() }))
-vi.mock('@/lib/db', () => ({ prisma: { user: { delete: vi.fn() } } }))
+vi.mock('@/lib/db', () => ({
+  prisma: {
+    user: { delete: vi.fn() },
+    mealEntry: { findMany: vi.fn().mockResolvedValue([]) },
+  },
+}))
+vi.mock('@/lib/photoStore', () => ({ deletePhotos: vi.fn() }))
 
 const mockAuth = vi.mocked(authenticateBearer)
 const mockAttest = vi.mocked(requireAttestation)
@@ -24,6 +30,7 @@ describe('DELETE /api/v1/account', () => {
     vi.resetAllMocks()
     mockAttest.mockResolvedValue({ blocked: null, keyId: null })
     mockAuth.mockResolvedValue({ id: 'u1' } as never)
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([] as never)
   })
 
   it('deletes the signed-in user', async () => {
@@ -96,5 +103,35 @@ describe('DELETE /api/v1/account', () => {
     await DELETE(req({ confirm: 'DELETE' }))
 
     expect(mockAttest).toHaveBeenCalledWith(expect.anything(), JSON.stringify({ confirm: 'DELETE' }))
+  })
+})
+
+describe('deleting an account takes the photos with it', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockAttest.mockResolvedValue({ blocked: null, keyId: null })
+  })
+
+  it('removes the blobs no cascade can reach', async () => {
+    // Every related table cascades, but photos live in blob storage. Before
+    // this they stayed readable at public URLs after the account was gone,
+    // which is not what "delete my account" means.
+    const { prisma } = await import('@/lib/db')
+    const { deletePhotos } = await import('@/lib/photoStore')
+    vi.mocked(authenticateBearer).mockResolvedValue({ id: 'u1' } as never)
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      { photoUrl: 'https://blob/a.jpg' },
+      { photoUrl: '' },
+    ] as never)
+
+    await DELETE(
+      new Request('http://test/api/v1/account', {
+        method: 'DELETE',
+        body: JSON.stringify({ confirm: 'DELETE' }),
+      })
+    )
+
+    expect(prisma.user.delete).toHaveBeenCalled()
+    expect(deletePhotos).toHaveBeenCalledWith(['https://blob/a.jpg', ''])
   })
 })
