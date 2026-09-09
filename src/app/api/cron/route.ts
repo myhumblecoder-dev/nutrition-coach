@@ -1,4 +1,5 @@
 import { generate } from '@/lib/llm'
+import { tierOf, subscriptionsEnforced, type SubscriptionFacts } from '@/lib/entitlement';
 import { prisma } from '@/lib/db'
 import { nowLine, startOfWeek } from '@/lib/time'
 import { COACH_PREAMBLE } from '@/lib/voice'
@@ -14,6 +15,7 @@ const BATCH_SIZE = 5
 type DailyUser = Parameters<typeof deliverToChannels>[0] & {
   name: string | null
   weeklyCheckIns?: Parameters<typeof nextUnansweredField>[0][]
+  subscription?: SubscriptionFacts | null
 }
 
 async function deliverToUser(user: DailyUser): Promise<Delivery[]> {
@@ -22,6 +24,12 @@ async function deliverToUser(user: DailyUser): Promise<Delivery[]> {
   // The weekly review outranks the daily nudge. Both crons fire on the same
   // morning, and asking about breakfast while still waiting on the review is
   // two notifications from one bot — this product asks one thing at a time.
+  // The nudge is a model call per user per day. Before subscriptions this ran
+  // for anyone who had ever installed the app, so a churned account kept
+  // costing money indefinitely — a floor that scaled with total signups
+  // rather than with subscribers.
+  if (subscriptionsEnforced() && tierOf(user.subscription ?? null) === 'lapsed') return []
+
   const pending = user.weeklyCheckIns?.[0]
   if (pending && nextUnansweredField(pending)) return []
 
@@ -53,6 +61,9 @@ export async function GET(request: Request) {
     include: {
       telegramChat: true,
       deviceTokens: true,
+      // Joined rather than queried per user: `tierOf` is the same rule
+      // `entitlementFor` applies, without a round trip for each of them.
+      subscription: true,
       weeklyCheckIns: { where: { weekOf: startOfWeek(new Date()) }, take: 1 },
     },
   })

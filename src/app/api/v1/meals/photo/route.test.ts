@@ -110,6 +110,24 @@ describe('POST /api/v1/meals/photo', () => {
     expect(mockPut).not.toHaveBeenCalled()
   })
 
+  it('answers a lapsed subscription with 402, not 429', async () => {
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+    mockAnalyze.mockRejectedValue(
+      new UsageLimitError('that needs a subscription', 'subscription_required')
+    )
+
+    const res = await POST(request({ image: IMAGE, mimeType: 'image/jpeg' }))
+
+    // 429 means come back tomorrow; 402 means this costs money now. The client
+    // shows an inline message for one and a paywall for the other, and cannot
+    // tell them apart from the prose.
+    expect(res.status).toBe(402)
+    expect(await res.json()).toEqual({
+      error: 'that needs a subscription',
+      code: 'subscription_required',
+    })
+  })
+
   it('passes the daily cap message through with a 429', async () => {
     mockAuth.mockResolvedValue({ id: 'user-1' } as never)
     mockAnalyze.mockRejectedValue(new UsageLimitError("That's plenty of photos for today."))

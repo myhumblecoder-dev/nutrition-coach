@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { toCalendarDate } from '@/lib/time'
 import { authenticateBearer } from '@/lib/apiAuth'
+import { denialFor, recordUsage, UsageLimitError } from '@/lib/limits'
+import { denialResponse } from '@/lib/denialResponse'
 import { requireAttestation } from '@/lib/attest'
 import { generate } from '@/lib/llm'
 import {
@@ -65,6 +67,17 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }
+
+  // Two model calls happen below — the answer summary and the probe reply — so
+  // this is a paid path and has to go through the same gate as chat and
+  // photos. It did not, until subscriptions arrived: this was the one route
+  // that spent money without ever importing limits.
+  const denial = await denialFor(user.id, 'chat')
+  if (denial) {
+    return denialResponse(new UsageLimitError(denial.userMessage, denial.reason))
+  }
+  // Before the call, like everywhere else: a timeout still costs money.
+  await recordUsage(user.id, 'chat')
 
   const current = await getOrCreateCheckIn(user.id)
   const field = nextUnansweredField(current)

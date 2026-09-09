@@ -8,10 +8,8 @@ import { caffeineStatus } from '@/lib/caffeine'
 // The cap has its own tests; here it is stubbed off so the existing cases
 // exercise the reply path rather than the limit.
 vi.mock('@/lib/limits', () => ({
-  isOverLimit: vi.fn().mockResolvedValue(false),
+  denialFor: vi.fn().mockResolvedValue(null),
   recordUsage: vi.fn().mockResolvedValue(undefined),
-  todaySuccesses: vi.fn().mockResolvedValue(null),
-  limitMessage: vi.fn(() => 'limit reached'),
 }))
 
 vi.mock('@/lib/db', () => ({
@@ -282,12 +280,14 @@ describe('chat', () => {
     expect(prompt).not.toContain('Caffeine:')
   })
 
-  it('returns the limit message without calling the model or writing a row', async () => {
-    // The cap exists to stop spending. Persisting the exchange would let an
+  it('returns the refusal without calling the model or writing a row', async () => {
+    // The gate exists to stop spending. Persisting the exchange would let an
     // abusive client keep growing the table for free.
-    const { isOverLimit, todaySuccesses } = await import('@/lib/limits')
-    vi.mocked(isOverLimit).mockResolvedValue(true)
-    vi.mocked(todaySuccesses).mockResolvedValue('3 meals and a lift')
+    const { denialFor } = await import('@/lib/limits')
+    vi.mocked(denialFor).mockResolvedValue({
+      reason: 'capped',
+      userMessage: 'limit reached',
+    })
 
     const result = await coachReply('u1', 'hello again')
 
@@ -298,5 +298,20 @@ describe('chat', () => {
 
     const { recordUsage } = await import('@/lib/limits')
     expect(recordUsage).not.toHaveBeenCalled()
+  })
+
+  it('says the subscription is the problem when it is', async () => {
+    // Same shape of refusal, different remedy — a lapsed user is not someone
+    // who should be told to come back tomorrow.
+    const { denialFor } = await import('@/lib/limits')
+    vi.mocked(denialFor).mockResolvedValue({
+      reason: 'subscription_required',
+      userMessage: 'that needs a subscription',
+    })
+
+    const result = await coachReply('u1', 'hello again')
+
+    expect(result.assistantReply).toBe('that needs a subscription')
+    expect(generate).not.toHaveBeenCalled()
   })
 })

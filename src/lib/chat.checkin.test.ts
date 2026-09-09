@@ -9,10 +9,8 @@ import { QUESTIONS, awaitingCheckInAnswer, recordAnswer } from '@/lib/checkin'
 // nothing in the product could record an answer to.
 
 vi.mock('@/lib/limits', () => ({
-  isOverLimit: vi.fn().mockResolvedValue(false),
+  denialFor: vi.fn().mockResolvedValue(null),
   recordUsage: vi.fn(),
-  todaySuccesses: vi.fn().mockResolvedValue(0),
-  limitMessage: vi.fn(() => 'capped'),
 }))
 vi.mock('@/lib/db', () => ({
   prisma: {

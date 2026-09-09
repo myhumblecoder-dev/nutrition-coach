@@ -1,12 +1,6 @@
 import { analyzePhoto } from '@/lib/llm'
 import { z } from 'zod'
-import {
-  isOverLimit,
-  recordUsage,
-  todaySuccesses,
-  photoLimitMessage,
-  UsageLimitError,
-} from '@/lib/limits'
+import { denialFor, recordUsage, UsageLimitError } from '@/lib/limits'
 
 // Vision models return fractional estimates despite integer instructions;
 // round rather than reject.
@@ -43,8 +37,12 @@ function extractJson(response: string): string {
  * be forgotten by the next one.
  */
 export async function analyzeMeal(userId: string, photoUrl: string, hint?: string) {
-  if (await isOverLimit(userId, 'vision')) {
-    throw new UsageLimitError(photoLimitMessage(await todaySuccesses(userId)))
+  // Entitlement and cap in one question. The thrown reason is what lets a
+  // route answer 402 rather than 429 — a paywall and "come back tomorrow" are
+  // not the same refusal.
+  const denial = await denialFor(userId, 'vision')
+  if (denial) {
+    throw new UsageLimitError(denial.userMessage, denial.reason)
   }
 
   // Recorded before the call, not after: a timeout or a 500 still cost money,
