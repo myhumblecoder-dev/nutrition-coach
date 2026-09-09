@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db'
 import { startOfToday } from '@/lib/time'
 import { isEntitled } from '@/lib/entitlement'
+import { zoneFor } from '@/lib/userZone'
 import type { TokenUsage } from '@/lib/llm'
 
 // Model calls are the app's only real marginal cost, so they are counted
@@ -83,10 +84,12 @@ export function dailyMessageLimit(): number {
 export async function isOverLimit(
   userId: string,
   kind: UsageKind = 'chat',
-  now: Date = new Date()
+  now: Date = new Date(),
+  /** The user's own day boundary; the app zone when they have not reported one. */
+  timeZone?: string | null
 ): Promise<boolean> {
   const count = await prisma.usageEvent.count({
-    where: { userId, kind, createdAt: { gte: startOfToday(now) } },
+    where: { userId, kind, createdAt: { gte: startOfToday(now, timeZone) } },
   })
   return count >= dailyLimit(kind)
 }
@@ -128,8 +131,12 @@ const TRAINING_WORDS: Record<string, string> = {
  * you have run out of model calls would be absurd. Returns null when there is
  * nothing to report, so the caller can stay quiet instead of saying "nothing".
  */
-export async function todaySuccesses(userId: string, now: Date = new Date()): Promise<string | null> {
-  const since = startOfToday(now)
+export async function todaySuccesses(
+  userId: string,
+  now: Date = new Date(),
+  timeZone?: string | null
+): Promise<string | null> {
+  const since = startOfToday(now, timeZone)
   const scope = { userId, loggedAt: { gte: since } }
 
   const [meals, training, recovery, mood, measurement] = await Promise.all([
@@ -165,15 +172,23 @@ export async function todaySuccesses(userId: string, now: Date = new Date()): Pr
 }
 
 export function limitMessage(successes: string | null): string {
-  const opening = "This isn't a therapy app, hon. That's your lot for today — we can talk more tomorrow."
+  // "Witness" rather than "coach" on purpose: it is the one word that names
+  // what this product actually claims — every number on Today traces back to
+  // something the user said, and the receipts feed is the evidence. Saying it
+  // out loud at the moment of refusal is better than apologising.
+  const opening =
+    "I'm not an armchair therapist, hon — I'm your fitness witness. That's us done for today; come back tomorrow."
   // No successes means say nothing about it. Tacking "you logged nothing" onto
-  // a refusal is the shaming this product exists to avoid.
-  return successes ? `${opening} For what it's worth, you got down ${successes}.` : opening
+  // a refusal is the shaming this product exists to avoid. And the tail stays
+  // dry: the persona says say it once, plainly, and move on — "you did great"
+  // is the gushing it explicitly rules out.
+  return successes ? `${opening} You got down ${successes}. That'll do.` : opening
 }
 
 export function photoLimitMessage(successes: string | null): string {
-  const opening = "Easy with the camera, hon. That's enough photos for today — bring me more tomorrow."
-  return successes ? `${opening} You got down ${successes}.` : opening
+  const opening =
+    "Easy with the camera, hon. I've witnessed plenty for one day — bring me more tomorrow."
+  return successes ? `${opening} You got down ${successes}. That'll do.` : opening
 }
 
 /**
@@ -225,9 +240,14 @@ export async function denialFor(
     return { reason: 'subscription_required', userMessage: subscriptionRequiredMessage() }
   }
 
+  // Resolved once and passed down, rather than looked up by each of them: the
+  // cap and the "you got down..." tail have to agree about when today started,
+  // or a refusal could list successes from a day it is not counting.
+  const timeZone = await zoneFor(userId)
+
   // Daily cap first, then the month's bill.
-  if (await isOverLimit(userId, kind, now)) {
-    const successes = await todaySuccesses(userId, now)
+  if (await isOverLimit(userId, kind, now, timeZone)) {
+    const successes = await todaySuccesses(userId, now, timeZone)
     return {
       reason: 'capped',
       userMessage: kind === 'vision' ? photoLimitMessage(successes) : limitMessage(successes),

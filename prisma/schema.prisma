@@ -21,6 +21,11 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  /// IANA zone reported by the phone, e.g. "Europe/London". Decides when this
+  /// user's day begins — which is when their daily caps reset and what the
+  /// rings on Today measure. Null until a client reports one, and the app-wide
+  /// APP_TIMEZONE stands in until then.
+  timezone      String?
   accounts      Account[]
   sessions      Session[]
   dailyTarget   DailyTarget?

@@ -137,6 +137,25 @@ final class APIClient {
         return response.target
     }
 
+    /// Which timezone this account's day is measured in.
+    ///
+    /// The server decides the default, so this reads rather than assumes: what
+    /// Settings shows has to be the zone the caps and the rings are actually
+    /// using, not a guess made on the device.
+    func timezone() async throws -> String {
+        let response: TimezoneResponse = try await send("/api/v1/timezone", method: "GET", body: nil)
+        return response.timezone
+    }
+
+    /// Returns the zone the server stored, which is the one that took effect.
+    @discardableResult
+    func setTimezone(_ identifier: String) async throws -> String {
+        let response: TimezoneResponse = try await send(
+            "/api/v1/timezone", method: "PUT", body: ["timezone": .string(identifier)]
+        )
+        return response.timezone
+    }
+
     func chatHistory() async throws -> [ChatMessage] {
         let response: ChatHistoryResponse = try await send("/api/v1/chat", method: "GET", body: nil)
         return response.messages

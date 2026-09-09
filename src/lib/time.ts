@@ -11,16 +11,45 @@ export function appTimeZone(): string {
   }
 }
 
-const timeFormatOptions = (): Intl.DateTimeFormatOptions => ({
-  timeZone: appTimeZone(),
+/**
+ * A timezone that is definitely usable.
+ *
+ * The zone reaches this from a client — the phone reports where it is — so it
+ * is not to be trusted. An unrecognised one degrades to the app default rather
+ * than throwing, because a formatter that throws here fails the request the
+ * user actually made, and a wrong day boundary is a much smaller problem than
+ * a 500.
+ */
+export function resolveTimeZone(timeZone?: string | null): string {
+  if (!timeZone) return appTimeZone();
+
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone });
+    return timeZone;
+  } catch {
+    return appTimeZone();
+  }
+}
+
+const timeFormatOptions = (timeZone?: string | null): Intl.DateTimeFormatOptions => ({
+  timeZone: resolveTimeZone(timeZone),
   hourCycle: 'h23',
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
 });
 
-export function startOfToday(now: Date): Date {
-  const parts = new Intl.DateTimeFormat('en-US', timeFormatOptions()).formatToParts(now);
+/**
+ * When the user's day began.
+ *
+ * Takes the zone rather than reading one global setting, because "today" is
+ * the boundary a daily cap resets on and the rings on Today measure against —
+ * and both of those belong to the person, not to the server. Omitting it keeps
+ * the old app-wide behaviour, which is what every caller without a user in
+ * hand still wants.
+ */
+export function startOfToday(now: Date, timeZone?: string | null): Date {
+  const parts = new Intl.DateTimeFormat('en-US', timeFormatOptions(timeZone)).formatToParts(now);
   const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
 
   const hour = parseInt(getPart('hour') || '0', 10);

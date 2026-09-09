@@ -161,6 +161,7 @@ enum DemoFixtures {
             return DemoMode.isFirstRun ? #"{"target":null}"# : #"{"target":{"calories":2000,"protein":150}}"#
         case "/api/v1/chat" where method == "GET": return chat
         case "/api/v1/checkins" where method == "GET": return checkIns
+        case "/api/v1/timezone": return #"{"timezone":"America/New_York"}"#
         case "/api/v1/meals/photo" where method == "POST": return mealAnalysis
         // A correction re-reads the same photo, so it answers in the same
         // shape — with different numbers, which is the point of it.

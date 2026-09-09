@@ -11,6 +11,9 @@ struct SettingsView: View {
     @State private var savingTargets = false
     @State private var targetsMessage: String?
     @FocusState private var targetFieldFocused: Bool
+    @State private var timezone = "America/New_York"
+    @State private var timezoneError: String?
+
     @State private var confirmingDelete = false
     @State private var deleting = false
     @State private var deleteError: String?
@@ -60,6 +63,28 @@ struct SettingsView: View {
                         Text(targetsMessage)
                     } else {
                         Text("What the rings on Today measure against. You can also just tell the coach.")
+                    }
+                }
+
+                Section {
+                    NavigationLink {
+                        TimeZonePicker(selected: timezone) { picked in
+                            Task { await saveTimezone(picked) }
+                        }
+                    } label: {
+                        HStack {
+                            Text("Timezone")
+                            Spacer()
+                            Text(timezone).foregroundStyle(Theme.faint)
+                        }
+                    }
+                } header: {
+                    Text("Your day")
+                } footer: {
+                    if let timezoneError {
+                        Text(timezoneError)
+                    } else {
+                        Text("When your day starts and ends — it decides when Today resets and when your daily limits refresh.")
                     }
                 }
 
@@ -121,6 +146,7 @@ struct SettingsView: View {
         .task {
             status = await PushRegistrar.shared.currentAuthorizationStatus()
             await loadTargets()
+            await loadTimezone()
         }
     }
 
@@ -128,6 +154,32 @@ struct SettingsView: View {
         guard let existing = try? await state.client.targets() else { return }
         calories = String(existing.calories)
         protein = String(existing.protein)
+    }
+
+    /// Read rather than assumed from the device: what this row shows has to be
+    /// the zone the caps and the rings are actually using, and only the server
+    /// knows that.
+    private func loadTimezone() async {
+        guard let existing = try? await state.client.timezone() else { return }
+        timezone = existing
+    }
+
+    private func saveTimezone(_ identifier: String) async {
+        let previous = timezone
+        timezoneError = nil
+        // Shown immediately, then put back if the server refuses — the list it
+        // was picked from is the device's own, so a rejection is unlikely
+        // enough that waiting on the round trip would be the worse trade.
+        timezone = identifier
+
+        do {
+            timezone = try await state.client.setTimezone(identifier)
+        } catch APIError.unauthorized {
+            state.handleUnauthorized()
+        } catch {
+            timezone = previous
+            timezoneError = "Couldn't save that timezone. Try again."
+        }
     }
 
     private func saveTargets() async {

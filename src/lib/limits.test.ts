@@ -149,9 +149,20 @@ describe('limitMessage', () => {
   it('speaks in the coach voice and points at tomorrow', () => {
     const message = limitMessage('3 meals and a lift')
 
-    expect(message).toMatch(/therapy app/i)
+    // "Witness" is the load-bearing word — it names what the app claims, and
+    // the receipts feed is the evidence for it.
+    expect(message).toMatch(/therapist/i)
+    expect(message).toMatch(/witness/i)
     expect(message).toMatch(/tomorrow/i)
     expect(message).toContain('3 meals and a lift')
+  })
+
+  it('does not gush, which the persona rules out', () => {
+    // "Brisk, dry... you do not gush." A refusal that says "great job!" is a
+    // different coach from the one doing the rest of the talking.
+    const message = limitMessage('3 meals and a lift')
+
+    expect(message).not.toMatch(/great job|amazing|well done|proud/i)
   })
 
   it('does not scold when nothing was logged', () => {
@@ -289,8 +300,11 @@ describe('denialFor', () => {
     mockEntitled.mockResolvedValue(true)
     mockPrisma.usageEvent.count.mockResolvedValue(999 as never)
 
-    expect((await denialFor('u1', 'vision'))?.userMessage).toMatch(/photo/i)
+    // The two refusals must not read the same: one is about the camera, the
+    // other about talking.
+    expect((await denialFor('u1', 'vision'))?.userMessage).toMatch(/camera/i)
     expect((await denialFor('u1', 'chat'))?.userMessage).not.toMatch(/camera/i)
+    expect((await denialFor('u1', 'chat'))?.userMessage).toMatch(/therapist/i)
   })
 })
 
