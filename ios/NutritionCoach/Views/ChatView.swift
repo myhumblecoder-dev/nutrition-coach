@@ -23,26 +23,60 @@ enum ChatItem: Identifiable {
         }
     }
 
-    /// True for the turns that exist only on this device.
-    ///
-    /// A meal photo and the card deciding its fate are not messages the server
-    /// knows about, so a history reload has nothing to say about them.
-    var isLocalToThisDevice: Bool {
+    /// When this turn happened, so a reloaded thread can be put back in order.
+    var occurredAt: Date {
         switch self {
-        case .photo, .pending: return true
-        case .message: return false
+        case .message(let message): return message.createdAt
+        case .photo(let photo): return photo.sentAt
+        case .pending(let meal): return meal.readAt
         }
     }
 
-    /// Folds freshly loaded history back into the thread without dropping a
-    /// meal that is still being decided.
+    /// True for the turns the server will never return in history.
     ///
-    /// `load()` used to assign the mapped history straight over `items`, which
-    /// meant switching to Today and back threw away the photo and its pending
-    /// card — stranding a meal mid-decision with no way back to it. Server
-    /// history owns the messages; the device owns the rest.
+    /// A meal photo, the card deciding its fate, and the coach's word on the
+    /// outcome are not persisted server-side, so a reload has nothing to say
+    /// about them and must not drop them. An optimistic `local-` chat message
+    /// is the opposite case: the server does have it and is about to send it
+    /// back, so keeping it would show it twice.
+    var isLocalToThisDevice: Bool {
+        switch self {
+        case .photo, .pending: return true
+        case .message(let message): return message.id.hasPrefix(Self.mealTurnPrefix)
+        }
+    }
+
+    /// Marks a message as part of a photo exchange rather than the ordinary
+    /// conversation — the one distinction a reload needs to make.
+    static let mealTurnPrefix = "meal-"
+
+    /// Folds freshly loaded history back into the thread, in the order things
+    /// actually happened.
+    ///
+    /// Two bugs live here. `load()` first assigned mapped history straight over
+    /// `items`, throwing away a meal mid-decision. Appending the local turns
+    /// instead fixed that and introduced a worse one: it assumed a photo was
+    /// always the most recent thing said. Carry on talking after sending one
+    /// and the server returns those newer messages in history, so the photo
+    /// was dropped underneath replies that came after it — the conversation
+    /// reordered itself the moment you left the tab.
+    ///
+    /// Sorted by timestamp instead, with the original position as a tiebreak
+    /// so two turns in the same second cannot swap around on every reload.
+    ///
+    /// The local turns are stamped by this device and the rest by the server,
+    /// so a badly wrong device clock would misplace a photo. Nothing here can
+    /// detect that, and the alternative — trusting arrival order — is what
+    /// produced the bug this replaced.
     static func merged(history: [ChatMessage], keeping existing: [ChatItem]) -> [ChatItem] {
-        history.map(ChatItem.message) + existing.filter(\.isLocalToThisDevice)
+        let items = history.map(ChatItem.message) + existing.filter(\.isLocalToThisDevice)
+        return items.enumerated()
+            .sorted {
+                $0.element.occurredAt == $1.element.occurredAt
+                    ? $0.offset < $1.offset
+                    : $0.element.occurredAt < $1.element.occurredAt
+            }
+            .map(\.element)
     }
 }
 
@@ -54,6 +88,10 @@ enum ChatItem: Identifiable {
 struct PendingMeal: Identifiable {
     let analysis: MealAnalysis
     let image: UIImage
+    /// When the coach last read the photo. Updated by a correction, so the
+    /// card follows the conversation down rather than staying pinned beside a
+    /// photo the user has since talked past.
+    let readAt: Date
 
     var id: String { analysis.mealId }
 }
@@ -64,6 +102,8 @@ struct SentPhoto: Identifiable {
     let id = UUID().uuidString
     let image: UIImage
     let caption: String
+    /// Where it belongs in the conversation once history is reloaded around it.
+    let sentAt: Date
 }
 
 /// Free conversation with the coach. Anything said here is also mined for
@@ -183,6 +223,7 @@ struct ChatView: View {
                     draft = "that was a double portion"
                     await correct(id)
                 }
+                if DemoMode.reloadsHistory { await load() }
                 if DemoMode.logsTheMeal, case .pending(let meal)? = items.last {
                     await log(
                         meal.analysis,
@@ -450,13 +491,13 @@ struct ChatView: View {
         isSending = true
         defer { isSending = false }
 
-        items.append(.photo(SentPhoto(image: image, caption: caption)))
+        items.append(.photo(SentPhoto(image: image, caption: caption, sentAt: Date())))
 
         do {
             let analysis = try await state.client.analyzeMealPhoto(
                 jpeg: jpeg, hint: caption.isEmpty ? nil : caption
             )
-            items.append(.pending(PendingMeal(analysis: analysis, image: image)))
+            items.append(.pending(PendingMeal(analysis: analysis, image: image, readAt: Date())))
             pendingMealId = analysis.mealId
         } catch APIError.unauthorized {
             state.handleUnauthorized()
@@ -483,7 +524,10 @@ struct ChatView: View {
         defer { isSending = false }
 
         items.append(
-            .message(ChatMessage(id: "local-\(UUID().uuidString)", role: "user", content: words, createdAt: Date()))
+            .message(ChatMessage(
+                id: "\(ChatItem.mealTurnPrefix)\(UUID().uuidString)",
+                role: "user", content: words, createdAt: Date()
+            ))
         )
 
         do {
@@ -496,7 +540,7 @@ struct ChatView: View {
                 return nil
             }.first
             items.removeAll { $0.id == "pending-\(mealId)" }
-            items.append(.pending(PendingMeal(analysis: revised, image: image ?? UIImage())))
+            items.append(.pending(PendingMeal(analysis: revised, image: image ?? UIImage(), readAt: Date())))
         } catch APIError.unauthorized {
             state.handleUnauthorized()
         } catch APIError.limitReached(let message) {
@@ -543,7 +587,10 @@ struct ChatView: View {
     private func replacePending(_ analysis: MealAnalysis, with reply: String) {
         items.removeAll { $0.id == "pending-\(analysis.mealId)" }
         items.append(
-            .message(ChatMessage(id: "local-\(UUID().uuidString)", role: "assistant", content: reply, createdAt: Date()))
+            .message(ChatMessage(
+                id: "\(ChatItem.mealTurnPrefix)\(UUID().uuidString)",
+                role: "assistant", content: reply, createdAt: Date()
+            ))
         )
         if pendingMealId == analysis.mealId { pendingMealId = nil }
     }
@@ -580,8 +627,14 @@ struct ChatView: View {
 
         do {
             let reply = try await state.client.sendMessage(text)
+            // "local-", not a meal turn: the server stored both sides of this
+            // exchange and will return them, so this copy must drop out on the
+            // next reload rather than sit alongside its own duplicate.
             items.append(
-                .message(ChatMessage(id: "local-\(UUID().uuidString)", role: "assistant", content: reply, createdAt: Date()))
+                .message(ChatMessage(
+                    id: "local-\(UUID().uuidString)",
+                    role: "assistant", content: reply, createdAt: Date()
+                ))
             )
         } catch APIError.unauthorized {
             state.handleUnauthorized()
