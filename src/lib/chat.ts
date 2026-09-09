@@ -3,10 +3,11 @@ import { generate } from "@/lib/llm";
 import { extractHealthFacts } from "@/lib/extraction";
 import { caffeineStatus } from "@/lib/caffeine";
 import { describeExercises } from "@/lib/dashboard";
-import { startOfWeek, appTimeZone, nowLine } from "@/lib/time";
+import { startOfWeek, appTimeZone, nowLine, startOfToday } from "@/lib/time";
 import { COACH_PREAMBLE } from "@/lib/voice";
 import { attributeTokens, denialFor, recordUsage } from "@/lib/limits";
 import { redactIdentifiers } from "@/lib/redact";
+import { zoneFor } from "@/lib/userZone";
 import {
   awaitingCheckInAnswer,
   buildProbePrompt,
@@ -15,24 +16,6 @@ import {
   QUESTIONS,
 } from "@/lib/checkin";
 import { z } from "zod";
-
-function startOfToday(now: Date): Date {
-  const tz = appTimeZone();
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hourCycle: 'h23',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  const parts = formatter.formatToParts(now);
-  const partMap: Record<string, string> = {};
-  for (const part of parts) {
-    partMap[part.type] = part.value;
-  }
-  const elapsedMs = (parseInt(partMap.hour, 10) * 3600000) + (parseInt(partMap.minute, 10) * 60000) + (parseInt(partMap.second, 10) * 1000) + now.getMilliseconds();
-  return new Date(now.getTime() - elapsedMs);
-}
 
 export async function coachReply(userId: string, userText: string): Promise<{ assistantReply: string }> {
   const validation = z.string().trim().min(1).safeParse(userText);
@@ -50,6 +33,11 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   // Health data is NOT filtered. It is the entire input to this app; removing
   // it would leave nothing to read.
   const modelText = redactIdentifiers(cleanText);
+
+  // The user's own day. Resolved once here and threaded down, so the meals
+  // seeded into the prompt, the caffeine still in them, and the caps all agree
+  // about when today started.
+  const timeZone = await zoneFor(userId);
 
   // Enforced here rather than in the routes so no future caller can bypass it:
   // the Telegram webhook, the v1 API and any later surface all land on this
@@ -124,7 +112,7 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   }
 
   if (target) {
-    const today = startOfToday(new Date());
+    const today = startOfToday(new Date(), timeZone);
     const meals = await prisma.mealEntry.findMany({
       where: {
         userId,
@@ -180,7 +168,7 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   // Caffeine still in the system shapes sleep and training advice, so the
   // coach gets the live level rather than the raw doses.
   const caffeineRows = await prisma.recoveryEntry.findMany({
-    where: { userId, kind: 'caffeine', loggedAt: { gte: startOfToday(new Date()) } },
+    where: { userId, kind: 'caffeine', loggedAt: { gte: startOfToday(new Date(), timeZone) } },
   });
   if (caffeineRows.length > 0) {
     const status = caffeineStatus(

@@ -8,10 +8,12 @@ import {
   getActivityForUser,
   getCoachMessageForUser,
 } from '@/lib/dashboard'
+import { zoneFor } from '@/lib/userZone'
 
 vi.mock('@/lib/apiAuth', () => ({ authenticateBearer: vi.fn() }))
 vi.mock('@/lib/attest', () => ({ requireAttestation: vi.fn() }))
 vi.mock('@/lib/onboarding', () => ({ ensureOpeningMessage: vi.fn() }))
+vi.mock('@/lib/userZone', () => ({ zoneFor: vi.fn().mockResolvedValue('Europe/London') }))
 vi.mock('@/lib/dashboard', async (importOriginal) => ({
   // parseFoodItems is pure and is exercised for real: the route's job is to
   // hand a native client structured items instead of a JSON string, and
@@ -47,6 +49,9 @@ describe('GET /api/v1/dashboard', () => {
     vi.mocked(getWeekForUser).mockResolvedValue(emptyWeek as never)
     vi.mocked(getActivityForUser).mockResolvedValue([] as never)
     vi.mocked(getCoachMessageForUser).mockResolvedValue(null)
+    // resetAllMocks clears implementations, not just calls — without this the
+    // route gets `undefined` for the zone.
+    vi.mocked(zoneFor).mockResolvedValue('Europe/London')
   })
 
   it('401s without a bearer and reads nothing', async () => {
@@ -77,9 +82,12 @@ describe('GET /api/v1/dashboard', () => {
     const body = await res.json()
 
     expect(Object.keys(body).sort()).toEqual(['activity', 'coachMessage', 'today', 'week'])
-    for (const fn of [getTodayForUser, getWeekForUser, getActivityForUser, getCoachMessageForUser]) {
-      expect(fn).toHaveBeenCalledWith('u1')
+    // The three day-scoped sections also receive the user's timezone; the
+    // coach message has no day boundary of its own.
+    for (const fn of [getTodayForUser, getWeekForUser, getActivityForUser]) {
+      expect(fn).toHaveBeenCalledWith('u1', expect.any(String))
     }
+    expect(getCoachMessageForUser).toHaveBeenCalledWith('u1')
   })
 
   it('parses foodItems into structured items rather than a JSON string', async () => {
@@ -153,3 +161,28 @@ describe('GET /api/v1/dashboard', () => {
   })
 })
 
+describe('the whole screen agrees about when today started', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    vi.mocked(requireAttestation).mockResolvedValue({ blocked: null, keyId: null })
+    vi.mocked(authenticateBearer).mockResolvedValue({ id: 'u1' } as never)
+    vi.mocked(zoneFor).mockResolvedValue('Europe/London')
+    vi.mocked(getTodayForUser).mockResolvedValue({ meals: [], target: null, consumed: { calories: 0, protein: 0 } } as never)
+    vi.mocked(getWeekForUser).mockResolvedValue(emptyWeek as never)
+    vi.mocked(getActivityForUser).mockResolvedValue([] as never)
+    vi.mocked(getCoachMessageForUser).mockResolvedValue(null)
+  })
+
+  it('resolves the timezone once and gives every section the same one', async () => {
+    // Three lookups of the same value on the main screen load would be waste,
+    // and sections disagreeing about the day boundary would show rings and
+    // receipts from different days.
+
+    await GET(req())
+
+    expect(zoneFor).toHaveBeenCalledTimes(1)
+    for (const fn of [getTodayForUser, getWeekForUser, getActivityForUser]) {
+      expect(fn).toHaveBeenCalledWith('u1', 'Europe/London')
+    }
+  })
+})

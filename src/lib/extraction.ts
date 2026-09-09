@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { generate, type UsageReporter } from '@/lib/llm';
+import { zoneFor } from '@/lib/userZone';
 import { startOfToday } from '@/lib/time';
 import { setTargetForUser, getTargetForUser } from '@/lib/targets';
 import { estimateTargets } from '@/lib/onboarding';
@@ -282,7 +283,7 @@ export async function extractHealthFacts(
   } = {}
 ) {
   try {
-    const since = startOfToday(new Date());
+    const since = startOfToday(new Date(), await zoneFor(userId));
     const [meals, training, recovery] = await Promise.all([
       prisma.mealEntry.findMany({ where: { userId, loggedAt: { gte: since } } }),
       prisma.trainingEntry.findMany({ where: { userId, loggedAt: { gte: since } } }),
