@@ -64,6 +64,12 @@ enum DemoMode {
     /// that used to reorder the conversation. Catches what the merge's unit
     /// tests cannot: whether the call sites tag their turns correctly, so
     /// nothing is dropped and nothing arrives twice.
+    /// Opens the past-conversations screen on launch, so it can be looked at
+    /// without a tap. Inert without the argument.
+    static var showsChatHistory: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demo-chat-history")
+    }
+
     static var reloadsHistory: Bool {
         ProcessInfo.processInfo.arguments.contains("-demo-reload")
     }
@@ -162,6 +168,7 @@ enum DemoFixtures {
         case "/api/v1/chat" where method == "GET": return chat
         case "/api/v1/checkins" where method == "GET": return checkIns
         case "/api/v1/timezone": return #"{"timezone":"America/New_York"}"#
+        case "/api/v1/chat/days": return chatDays
         case "/api/v1/meals/photo" where method == "POST": return mealAnalysis
         // A correction re-reads the same photo, so it answers in the same
         // shape — with different numbers, which is the point of it.
@@ -192,6 +199,13 @@ enum DemoFixtures {
        {"name":"black beans","portion":"1.5 cups","calories":341,"protein":23},
        {"name":"pico de gallo","portion":"2 tbsp","calories":11,"protein":1}],
      "totalCalories":817,"totalProtein":111}
+    """
+
+    /// Past days for the history screen.
+    private static let chatDays = """
+    {"days":[{"date":"2026-09-05","messageCount":8},
+             {"date":"2026-09-04","messageCount":12},
+             {"date":"2026-09-03","messageCount":4}]}
     """
 
     /// A brand-new account: nothing logged, no targets set.

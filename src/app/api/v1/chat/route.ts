@@ -17,7 +17,14 @@ export async function GET(request: Request) {
   const user = await authenticateBearer(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const messages = await getChatHistoryForUser(user.id)
+  // `?date=YYYY-MM-DD` reads one past day; without it the chat opens on today
+  // only, which is the point — a day's talking is a day's log.
+  const date = new URL(request.url).searchParams.get('date') ?? undefined
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return Response.json({ error: 'Invalid date' }, { status: 400 })
+  }
+
+  const messages = await getChatHistoryForUser(user.id, { date })
 
   return Response.json({
     messages: messages.map((m) => ({

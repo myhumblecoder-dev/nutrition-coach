@@ -136,6 +136,8 @@ struct ChatView: View {
     /// While set, the composer corrects this meal instead of saying something
     /// new.
     @State private var pendingMealId: String?
+    @State private var isLoadingThread = true
+    @State private var showingHistory = false
 
     var body: some View {
         NavigationStack {
@@ -149,6 +151,17 @@ struct ChatView: View {
                 composer
             }
             .navigationTitle("Coach")
+            .navigationDestination(isPresented: $showingHistory) { ChatHistoryView() }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        ChatHistoryView()
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                    }
+                    .accessibilityLabel("Past conversations")
+                }
+            }
             .confirmationDialog(
                 "Report this reply?",
                 isPresented: .init(
@@ -210,6 +223,7 @@ struct ChatView: View {
         .task {
             await load()
             #if DEBUG
+            if DemoMode.showsChatHistory { showingHistory = true }
             // Drives the real attach-and-send path against DemoTransport's
             // fixture, so the composer's attachment strip and the pending card
             // can be inspected on a Simulator with no camera. Inert without
@@ -465,6 +479,7 @@ struct ChatView: View {
     }
 
     private func load() async {
+        defer { isLoadingThread = false }
         do {
             items = ChatItem.merged(history: try await state.client.chatHistory(), keeping: items)
         } catch APIError.unauthorized {

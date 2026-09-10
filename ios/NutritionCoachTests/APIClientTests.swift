@@ -730,6 +730,37 @@ extension APIClientTests {
         }
     }
 
+    // MARK: - Conversation history
+
+    func testChatOpensOnTodayWithNoDateParameter() async throws {
+        respond(200, #"{"messages":[]}"#)
+
+        _ = try await client.chatHistory()
+
+        // No query string: the server decides what "today" means, using the
+        // zone it holds rather than the device's.
+        XCTAssertEqual(StubURLProtocol.lastRequest?.url?.path, "/api/v1/chat")
+        XCTAssertNil(StubURLProtocol.lastRequest?.url?.query)
+    }
+
+    func testReadingAPastDayPassesTheDate() async throws {
+        respond(200, #"{"messages":[]}"#)
+
+        _ = try await client.chatHistory(date: "2026-09-08")
+
+        XCTAssertEqual(StubURLProtocol.lastRequest?.url?.query, "date=2026-09-08")
+    }
+
+    func testChatDaysDecodesNewestFirst() async throws {
+        respond(200, #"{"days":[{"date":"2026-09-10","messageCount":4},{"date":"2026-09-09","messageCount":12}]}"#)
+
+        let days = try await client.chatDays()
+
+        XCTAssertEqual(days.map(\.date), ["2026-09-10", "2026-09-09"])
+        XCTAssertEqual(days.first?.messageCount, 4)
+        XCTAssertEqual(StubURLProtocol.lastRequest?.url?.path, "/api/v1/chat/days")
+    }
+
     private static func bodyData(from request: URLRequest) -> Data? {
         StubURLProtocol.bodyData(from: request)
     }

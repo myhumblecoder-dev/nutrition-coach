@@ -32,13 +32,13 @@ describe('GET /api/v1/chat', () => {
     const at = new Date('2026-09-02T12:00:00.000Z')
     mockAuth.mockResolvedValue({ id: 'user-1' } as never)
     mockHistory.mockResolvedValue([
-      { id: 'c1', role: 'user', content: 'hi', createdAt: at },
-      { id: 'c2', role: 'assistant', content: 'hello', createdAt: at },
+      { id: 'c1', userId: 'user-1', role: 'user', content: 'hi', createdAt: at },
+      { id: 'c2', userId: 'user-1', role: 'assistant', content: 'hello', createdAt: at },
     ])
 
     const body = await (await GET(new Request('http://test/api/v1/chat'))).json()
 
-    expect(mockHistory).toHaveBeenCalledWith('user-1')
+    expect(mockHistory).toHaveBeenCalledWith('user-1', { date: undefined })
     expect(body.messages.map((m: { id: string }) => m.id)).toEqual(['c1', 'c2'])
     expect(body.messages[0].createdAt).toBe(at.toISOString())
   })
@@ -120,5 +120,29 @@ describe('attestation gate', () => {
     // of attestation: the token says someone signed in once, not that this
     // request came from the app.
     expect(mockAuth).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/v1/chat, one past day at a time', () => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('reads the day it is asked for', async () => {
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+    mockHistory.mockResolvedValue([])
+
+    await GET(new Request('http://test/api/v1/chat?date=2026-09-08'))
+
+    expect(mockHistory).toHaveBeenCalledWith('user-1', { date: '2026-09-08' })
+  })
+
+  it('refuses a date it cannot parse rather than reading everything', async () => {
+    // Without the shape check an unparseable date becomes an invalid Date and
+    // the day bounds go to NaN, which returns the whole conversation.
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+
+    const res = await GET(new Request('http://test/api/v1/chat?date=yesterday'))
+
+    expect(res.status).toBe(400)
+    expect(mockHistory).not.toHaveBeenCalled()
   })
 })

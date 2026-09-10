@@ -60,6 +60,18 @@ struct ChatMessage: Codable, Equatable, Identifiable {
     var isFromCoach: Bool { role == "assistant" }
 }
 
+/// One day the user has a conversation on. Feeds the history list.
+struct ChatDay: Codable, Equatable, Identifiable {
+    let date: String
+    let messageCount: Int
+
+    var id: String { date }
+}
+
+struct ChatDaysResponse: Codable, Equatable {
+    let days: [ChatDay]
+}
+
 struct TimezoneResponse: Codable, Equatable {
     let timezone: String
 }

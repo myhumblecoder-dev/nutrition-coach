@@ -72,12 +72,12 @@ export function startOfToday(now: Date, timeZone?: string | null): Date {
  * Sending the date itself removes the ambiguity at the source, rather than
  * asking every client to remember to undo it.
  */
-export function toCalendarDate(date: Date): string {
+export function toCalendarDate(date: Date, timeZone?: string | null): string {
   // formatToParts rather than a locale that happens to emit YYYY-MM-DD:
   // assembling the parts explicitly is not at the mercy of ICU changing what
   // en-CA formats like.
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: appTimeZone(),
+    timeZone: resolveTimeZone(timeZone),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
