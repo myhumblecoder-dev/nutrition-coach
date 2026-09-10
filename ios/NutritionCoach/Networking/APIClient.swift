@@ -161,6 +161,31 @@ final class APIClient {
     /// Today by default, which is what the chat screen opens on — a day's
     /// talking is a day's log, and yesterday's breakfast above today's is
     /// noise. Pass a date to read a past day from the history screen.
+    // MARK: - Subscription
+
+    /// What the server thinks of this account's subscription.
+    ///
+    /// Safe to call whether or not enforcement is on — status reporting is
+    /// honest either way, which is what lets Settings show the truth before
+    /// the gate is ever closed.
+    func subscription() async throws -> Entitlement {
+        try await send("/api/v1/subscription", method: "GET", body: nil)
+    }
+
+    /// Records a purchase StoreKit has just verified.
+    ///
+    /// Sends the transaction's own signed representation and nothing else: the
+    /// signature is the proof, and nothing the client claims about what it
+    /// bought is trusted. Idempotent server-side, which matters because
+    /// StoreKit replays unfinished transactions on every launch.
+    @discardableResult
+    func submitTransaction(_ signedTransaction: String) async throws -> Entitlement {
+        try await send(
+            "/api/v1/subscription", method: "POST",
+            body: ["signedTransaction": .string(signedTransaction)]
+        )
+    }
+
     func chatHistory(date: String? = nil) async throws -> [ChatMessage] {
         let path = date.map { "/api/v1/chat?date=\($0)" } ?? "/api/v1/chat"
         let response: ChatHistoryResponse = try await send(path, method: "GET", body: nil)
@@ -339,6 +364,13 @@ final class APIClient {
         }
         if status == 429, let message = Self.errorMessage(in: data) {
             throw APIError.limitReached(message)
+        }
+        // 402 means this will never succeed until something changes, so the
+        // app raises a paywall rather than printing a sentence. Without this
+        // it fell through to .badStatus and the chat told someone their
+        // perfectly good photo was unreadable.
+        if status == 402, let message = Self.errorMessage(in: data) {
+            throw APIError.subscriptionRequired(message)
         }
         guard (200..<300).contains(status) else { throw APIError.badStatus(status) }
     }

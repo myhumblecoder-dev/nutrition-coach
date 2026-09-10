@@ -1,0 +1,75 @@
+{
+  "identifier": "A1B2C3D4",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {},
+  "subscriptionGroups": [
+    {
+      "id": "21520728",
+      "localizations": [
+        {
+          "description": "Roughly",
+          "displayName": "Roughly",
+          "locale": "en_US"
+        }
+      ],
+      "name": "Roughly",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "7.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6499001001",
+          "introductoryOffer": {
+            "internalID": "6499002001",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P1W"
+          },
+          "localizations": [
+            {
+              "description": "The coach, meal photos and the weekly check-in.",
+              "displayName": "Roughly Monthly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "dev.myhumblecoder.nutritioncoach.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Roughly Monthly",
+          "subscriptionGroupID": "21520728",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "79.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6499001002",
+          "introductoryOffer": {
+            "internalID": "6499002002",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P1W"
+          },
+          "localizations": [
+            {
+              "description": "The coach, meal photos and the weekly check-in.",
+              "displayName": "Roughly Annual",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "dev.myhumblecoder.nutritioncoach.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Roughly Annual",
+          "subscriptionGroupID": "21520728",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

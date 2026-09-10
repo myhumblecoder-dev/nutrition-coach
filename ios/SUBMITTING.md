@@ -212,6 +212,57 @@ Then, in the sidebar:
 
 Select the build, then Add for Review.
 
+## Subscriptions
+
+### The StoreKit configuration must come from Xcode, not from a text editor
+
+`ios/Configuration.storekit` is referenced by `project.yml` (the scheme's Run
+action) so the paywall can be exercised in the Simulator without touching App
+Store Connect. **The file currently in the repo is hand-written and does not
+work** — StoreKit parses it without complaining and then reports zero products,
+which is indistinguishable from an inactive Paid Applications agreement. The
+undocumented parts of the format are not worth guessing at.
+
+Replace it once the products exist in App Store Connect:
+
+1. Xcode → **File → New → File → StoreKit Configuration File**
+2. Tick **Sync this file with an app in App Store Connect**, pick Roughly
+3. Save it as `ios/Configuration.storekit`, replacing the existing file
+4. `xcodegen generate` — the scheme reference is already in `project.yml`
+
+A synced file is worth the extra step over a local one: prices, the trial and
+the localisations come from the real products, so what the paywall shows in the
+Simulator is what it will show on a device.
+
+With a working configuration:
+
+- `PaywallView` shows real `displayPrice` values instead of "Subscriptions
+  aren't available right now"
+- The purchase flow can be driven end to end in the Simulator
+- `StoreTests` can be rewritten against `SKTestSession` to cover purchase,
+  restore, and cancellation — today it only covers what does not need StoreKit
+
+### What has to be true in App Store Connect
+
+- **Paid Applications agreement Active.** Until it is, `Product.products(for:)`
+  returns an empty array and throws nothing — a blank paywall with no error.
+- Subscription group with both products:
+  `dev.myhumblecoder.nutritioncoach.monthly` and `.annual`
+- A localisation per subscription (display name and description) — the paywall
+  reads `displayName` from these
+- The 1-week introductory free trial, set at group level
+- A Sandbox tester account for on-device verification
+- App Privacy → **Purchases** declared
+- Pricing and Availability set to **Free** (the app is free; the subscription
+  is the purchase)
+
+### Turning enforcement on
+
+`SUBSCRIPTIONS_ENFORCED` is off in production. Do not turn it on before a
+purchase is actually possible, or every account is locked out with no way to
+pay. The order is: ship a build that can buy → buy one → confirm the
+entitlement lands → then set the flag.
+
 ## Regenerating anything
 
 ```bash

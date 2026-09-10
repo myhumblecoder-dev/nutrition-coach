@@ -5,7 +5,7 @@ import { caffeineStatus } from "@/lib/caffeine";
 import { describeExercises } from "@/lib/dashboard";
 import { startOfWeek, appTimeZone, nowLine, startOfToday } from "@/lib/time";
 import { COACH_PREAMBLE } from "@/lib/voice";
-import { attributeTokens, denialFor, recordUsage } from "@/lib/limits";
+import { attributeTokens, denialFor, recordUsage, type DenialReason } from "@/lib/limits";
 import { redactIdentifiers } from "@/lib/redact";
 import { zoneFor } from "@/lib/userZone";
 import {
@@ -17,7 +17,17 @@ import {
 } from "@/lib/checkin";
 import { z } from "zod";
 
-export async function coachReply(userId: string, userText: string): Promise<{ assistantReply: string }> {
+/**
+ * The coach's answer, and — when there wasn't one — why.
+ *
+ * `denialReason` exists so the route can tell a spent cap from an absent
+ * subscription. Both read as an ordinary coach reply to a person, but one is
+ * answered by waiting until tomorrow and the other by a paywall, and prose
+ * cannot be branched on. Undefined when the coach actually replied.
+ */
+export type CoachReply = { assistantReply: string; denialReason?: DenialReason };
+
+export async function coachReply(userId: string, userText: string): Promise<CoachReply> {
   const validation = z.string().trim().min(1).safeParse(userText);
   if (!validation.success) {
     throw new Error("Message cannot be empty");
@@ -45,7 +55,7 @@ export async function coachReply(userId: string, userText: string): Promise<{ as
   // an abusive client must not be able to grow the table either.
   const denial = await denialFor(userId, "chat");
   if (denial) {
-    return { assistantReply: denial.userMessage };
+    return { assistantReply: denial.userMessage, denialReason: denial.reason };
   }
 
   // Recorded before the call: a timeout still costs money, and counting only
