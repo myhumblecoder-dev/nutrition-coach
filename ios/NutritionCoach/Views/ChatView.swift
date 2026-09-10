@@ -255,6 +255,17 @@ struct ChatView: View {
     private var thread: some View {
         ScrollViewReader { proxy in
             ScrollView {
+                // A fresh page has to say it is fresh. The chat opens on today
+                // only now, so a new morning is legitimately empty — and an
+                // empty scroll with no explanation reads as a failure to load.
+                if items.isEmpty && !isLoadingThread {
+                    Text("New day. Tell me what you're eating.")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.muted)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                }
+
                 LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(items) { item in
                         row(for: item).id(item.id)

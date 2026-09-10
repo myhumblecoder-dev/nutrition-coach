@@ -135,6 +135,18 @@ describe('GET /api/v1/chat, one past day at a time', () => {
     expect(mockHistory).toHaveBeenCalledWith('user-1', { date: '2026-09-08' })
   })
 
+  it('refuses a date that is the right shape but not a real day', async () => {
+    // "2026-13-45" passes a shape check, becomes an Invalid Date, and throws
+    // RangeError inside the formatter — a 500 where a 400 was intended.
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+
+    for (const bad of ['2026-13-45', '2026-02-30', '0000-00-00']) {
+      const res = await GET(new Request(`http://test/api/v1/chat?date=${bad}`))
+      expect(res.status).toBe(400)
+    }
+    expect(mockHistory).not.toHaveBeenCalled()
+  })
+
   it('refuses a date it cannot parse rather than reading everything', async () => {
     // Without the shape check an unparseable date becomes an invalid Date and
     // the day bounds go to NaN, which returns the whole conversation.

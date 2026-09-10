@@ -126,3 +126,21 @@ export function nowLine(now: Date = new Date()): string {
   }).format(now);
   return `Today is ${date}, ${time} (${tz}).`;
 }
+
+/**
+ * Whether a string is a calendar date that actually exists.
+ *
+ * A shape check is not enough: "2026-13-45" matches the pattern, becomes an
+ * Invalid Date, and `formatToParts` throws `RangeError` on one of those — so a
+ * malformed query parameter became a 500 rather than the 400 it was meant to
+ * be. Round-tripping through the formatter rejects 2026-02-30 too, which
+ * `Date` would silently roll forward to March.
+ */
+export function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+
+  const parsed = new Date(`${value}T12:00:00.000Z`)
+  if (Number.isNaN(parsed.getTime())) return false
+
+  return toCalendarDate(parsed, 'UTC') === value
+}

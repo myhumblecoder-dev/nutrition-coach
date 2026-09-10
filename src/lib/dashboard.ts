@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db'
 import { startOfToday, startOfWeek, toCalendarDate } from '@/lib/time'
+
+const DAY_MS = 24 * 60 * 60 * 1000
 import { caffeineStatus } from '@/lib/caffeine'
 import { ensureOpeningMessage, OPENING_MESSAGE } from '@/lib/onboarding'
 import { zoneFor } from '@/lib/userZone'
@@ -108,8 +110,11 @@ export async function getChatDaysForUser(
 ): Promise<{ date: string; messageCount: number }[]> {
   const timeZone = await zoneFor(userId)
 
+  // Bounded to a year. Unbounded, this scanned every message the account had
+  // ever written, on every open of the history screen, growing for as long as
+  // someone kept using the app.
   const messages = await prisma.chatMessage.findMany({
-    where: { userId },
+    where: { userId, createdAt: { gte: new Date(Date.now() - 365 * DAY_MS) } },
     select: { createdAt: true },
     orderBy: { createdAt: 'desc' },
   })
@@ -150,12 +155,25 @@ export function parseFoodItems(raw: string): FoodItem[] {
 function dayBounds(date: string | undefined, timeZone: string): { gte: Date; lt?: Date } {
   if (!date) return { gte: startOfToday(new Date(), timeZone) }
 
-  // Noon avoids the edges: midnight local on a DST boundary can land on the
-  // previous or next date depending on which way the clocks went.
-  const noon = new Date(`${date}T12:00:00.000Z`)
-  const gte = startOfToday(noon, timeZone)
+  // Noon UTC is only a starting guess. It lands on the right local date for
+  // most of the world, but at UTC+12 and beyond — Auckland, Fiji, Kiritimati —
+  // 12:00Z is already tomorrow, so asking for the 8th would return the 9th.
+  // Nudge a day at a time until the local calendar date is the one asked for.
+  let candidate = new Date(`${date}T12:00:00.000Z`)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const local = toCalendarDate(candidate, timeZone)
+    if (local === date) break
+    candidate = new Date(candidate.getTime() + (local < date ? 1 : -1) * DAY_MS)
+  }
 
-  return { gte, lt: new Date(gte.getTime() + 24 * 60 * 60 * 1000) }
+  const gte = startOfToday(candidate, timeZone)
+
+  // The next local midnight, not gte + 24h. A fall-back day is 25 hours and
+  // would lose its last hour; a spring-forward day is 23 and would bleed the
+  // next day's first hour in — the exact bleed this bound exists to stop.
+  // 36 hours always lands inside the following day, whichever way the clocks
+  // went, and startOfToday walks it back to that day's midnight.
+  return { gte, lt: startOfToday(new Date(gte.getTime() + 36 * 60 * 60 * 1000), timeZone) }
 }
 
 export async function getWeekForUser(userId: string, timeZone?: string) {

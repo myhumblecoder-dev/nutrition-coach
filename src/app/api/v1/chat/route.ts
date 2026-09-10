@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { authenticateBearer } from '@/lib/apiAuth'
 import { requireAttestation } from '@/lib/attest'
 import { getChatHistoryForUser } from '@/lib/dashboard'
+import { isCalendarDate } from '@/lib/time'
 import { coachReply } from '@/lib/chat'
 
 // coachReply makes an LLM call and then runs extraction, so this needs more
@@ -20,7 +21,9 @@ export async function GET(request: Request) {
   // `?date=YYYY-MM-DD` reads one past day; without it the chat opens on today
   // only, which is the point — a day's talking is a day's log.
   const date = new URL(request.url).searchParams.get('date') ?? undefined
-  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  // Not just the shape: "2026-13-45" matches it, becomes an Invalid Date, and
+  // throws RangeError inside the formatter — a 500 where a 400 was intended.
+  if (date && !isCalendarDate(date)) {
     return Response.json({ error: 'Invalid date' }, { status: 400 })
   }
 

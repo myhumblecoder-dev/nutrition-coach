@@ -64,14 +64,14 @@ enum DemoMode {
     /// that used to reorder the conversation. Catches what the merge's unit
     /// tests cannot: whether the call sites tag their turns correctly, so
     /// nothing is dropped and nothing arrives twice.
+    static var reloadsHistory: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demo-reload")
+    }
+
     /// Opens the past-conversations screen on launch, so it can be looked at
     /// without a tap. Inert without the argument.
     static var showsChatHistory: Bool {
         ProcessInfo.processInfo.arguments.contains("-demo-chat-history")
-    }
-
-    static var reloadsHistory: Bool {
-        ProcessInfo.processInfo.arguments.contains("-demo-reload")
     }
 
     /// Stands in for a camera roll the Simulator does not have. Drawn rather
@@ -165,7 +165,10 @@ enum DemoFixtures {
             return DemoMode.isFirstRun ? emptyDashboard : dashboard
         case "/api/v1/targets" where method == "GET":
             return DemoMode.isFirstRun ? #"{"target":null}"# : #"{"target":{"calories":2000,"protein":150}}"#
-        case "/api/v1/chat" where method == "GET": return chat
+        // -demo-first-run stands in for a fresh morning: today has nothing in
+        // it yet, which is the state the empty copy exists for.
+        case "/api/v1/chat" where method == "GET":
+            return DemoMode.isFirstRun ? #"{"messages":[]}"# : chat
         case "/api/v1/checkins" where method == "GET": return checkIns
         case "/api/v1/timezone": return #"{"timezone":"America/New_York"}"#
         case "/api/v1/chat/days": return chatDays

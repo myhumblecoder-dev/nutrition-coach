@@ -3,6 +3,7 @@ import { getChatHistoryForUser, getChatDaysForUser } from './dashboard'
 import { prisma } from '@/lib/db'
 import { ensureOpeningMessage } from '@/lib/onboarding'
 import { zoneFor } from '@/lib/userZone'
+import { toCalendarDate } from '@/lib/time'
 
 vi.mock('@/lib/db', () => ({
   prisma: { chatMessage: { findMany: vi.fn() } },
@@ -47,10 +48,43 @@ describe('a day-scoped conversation', () => {
     }
     expect(where.createdAt?.gte).toBeInstanceOf(Date)
     expect(where.createdAt?.lt).toBeInstanceOf(Date)
-    // Exactly 24 hours apart, so a day cannot bleed into its neighbour.
+    // Between 23 and 25 hours: a real day, not a fixed 24. Asserting exactly
+    // 24 encoded the bug — a fall-back day loses its last hour, a
+    // spring-forward day bleeds the next day's first hour in.
     const span =
       (where.createdAt!.lt!.getTime() - where.createdAt!.gte!.getTime()) / 3_600_000
-    expect(span).toBeCloseTo(24, 1)
+    expect(span).toBeGreaterThanOrEqual(23)
+    expect(span).toBeLessThanOrEqual(25)
+  })
+
+  it('returns the day asked for even at UTC+13', async () => {
+    // Noon UTC is already tomorrow in Auckland and Kiritimati, so anchoring
+    // there returned the 9th when asked for the 8th. Every zone past UTC+12
+    // was reading the wrong day.
+    vi.mocked(zoneFor).mockResolvedValue('Pacific/Kiritimati')
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([] as never)
+
+    await getChatHistoryForUser('u1', { date: '2026-09-08' })
+
+    const where = vi.mocked(prisma.chatMessage.findMany).mock.calls[0][0]?.where as {
+      createdAt?: { gte: Date; lt?: Date }
+    }
+    // Midnight on the 8th in Kiritimati is 10:00 UTC on the 7th.
+    expect(toCalendarDate(where.createdAt!.gte, 'Pacific/Kiritimati')).toBe('2026-09-08')
+    // And the bound stops before the 9th begins.
+    const lastMoment = new Date(where.createdAt!.lt!.getTime() - 1)
+    expect(toCalendarDate(lastMoment, 'Pacific/Kiritimati')).toBe('2026-09-08')
+  })
+
+  it('bounds the day-list scan rather than reading everything ever written', async () => {
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([] as never)
+
+    await getChatDaysForUser('u1')
+
+    const where = vi.mocked(prisma.chatMessage.findMany).mock.calls[0][0]?.where as {
+      createdAt?: { gte: Date }
+    }
+    expect(where.createdAt?.gte).toBeInstanceOf(Date)
   })
 
   it('seeds the opening message so a brand-new account is not a blank page', async () => {
