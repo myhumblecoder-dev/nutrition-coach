@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db'
-import { startOfToday, startOfWeek } from '@/lib/time'
+import { startOfToday, startOfWeek, toCalendarDate } from '@/lib/time'
+
+const DAY_MS = 24 * 60 * 60 * 1000
 import { caffeineStatus } from '@/lib/caffeine'
 import { ensureOpeningMessage, OPENING_MESSAGE } from '@/lib/onboarding'
 import { zoneFor } from '@/lib/userZone'
@@ -44,29 +46,86 @@ export async function getTodayForUser(userId: string, timeZone?: string) {
   }
 }
 
-export async function getChatHistoryForUser(userId: string, take = 20) {
+/**
+ * One day's conversation.
+ *
+ * The chat opens fresh each morning rather than as an endless scroll: a day's
+ * talking is a day's log, which is the premise the whole product rests on, and
+ * yesterday's breakfast on screen above today's is noise. Past days are read
+ * by passing `date` — the history screen asks for them one at a time.
+ *
+ * Scoped to the user's own day, so a London account turns over at London
+ * midnight rather than the server's.
+ */
+export async function getChatHistoryForUser(
+  userId: string,
+  options: {
+    date?: string
+    take?: number
+    /**
+     * Ignore the day boundary and just return the most recent messages.
+     *
+     * The web chat has no history screen yet, so day-scoping it would silently
+     * take past conversations away on a surface that has no way to get back to
+     * them. It opts out until it grows one.
+     */
+    recent?: boolean
+  } = {}
+) {
   // A new account opens to an empty conversation and no targets, so there is
   // nothing to mirror on Today and nothing to read here. The coach starts,
   // rather than the app opening a form. Seeded on the read path so both
   // clients get it without either knowing about onboarding.
   await ensureOpeningMessage(userId)
 
+  const timeZone = await zoneFor(userId)
+  const { gte, lt } = options.recent ? {} as { gte?: Date; lt?: Date } : dayBounds(options.date, timeZone)
+
   const messages = await prisma.chatMessage.findMany({
-    where: { userId },
+    where: {
+      userId,
+      // Bounded at both ends when a specific day is asked for: without the
+      // upper bound, "the 8th" would return the 8th and everything since.
+      ...(gte ? { createdAt: lt ? { gte, lt } : { gte } } : {}),
+    },
     // id as a tiebreak: rows written before exchanges carried explicit
     // timestamps can still share a millisecond, and cuid is time-prefixed, so
     // it orders those consistently instead of arbitrarily.
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take,
+    take: options.take ?? 200,
   })
 
-  // Newest-first from the database, reversed to chronological for display.
-  return messages.reverse().map((m) => ({
-    id: m.id,
-    role: m.role,
-    content: m.content,
-    createdAt: m.createdAt,
-  }))
+  return messages.reverse()
+}
+
+/**
+ * Which days this account has a conversation on, newest first.
+ *
+ * Grouped in the user's own zone, not by raw timestamp. 23:30 UTC on the 8th
+ * is already the 9th in London, and filing it under the 8th would make the
+ * history list disagree with the chat page it links to.
+ */
+export async function getChatDaysForUser(
+  userId: string
+): Promise<{ date: string; messageCount: number }[]> {
+  const timeZone = await zoneFor(userId)
+
+  // Bounded to a year. Unbounded, this scanned every message the account had
+  // ever written, on every open of the history screen, growing for as long as
+  // someone kept using the app.
+  const messages = await prisma.chatMessage.findMany({
+    where: { userId, createdAt: { gte: new Date(Date.now() - 365 * DAY_MS) } },
+    select: { createdAt: true },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  const counts = new Map<string, number>()
+  for (const message of messages) {
+    const day = toCalendarDate(message.createdAt, timeZone)
+    counts.set(day, (counts.get(day) ?? 0) + 1)
+  }
+
+  return [...counts.entries()].map(([date, messageCount]) => ({ date, messageCount }))
 }
 
 export type FoodItem = { name: string; portion: string; calories: number; protein: number }
@@ -88,13 +147,35 @@ export function parseFoodItems(raw: string): FoodItem[] {
 }
 
 /**
- * The week's training, recovery, mood, measurements and logging streak.
+ * The instant a day begins and the instant the next one does.
  *
- * Lifted out of `getWeek()` unchanged so the native client reads exactly what
- * the web dashboard reads. Two implementations of "what did this week look
- * like" would drift, and the whole point of the iOS Today screen is that it
- * mirrors the web one.
+ * `lt` is undefined for today, so the query stays open-ended and a message
+ * written while the screen is open still appears.
  */
+function dayBounds(date: string | undefined, timeZone: string): { gte: Date; lt?: Date } {
+  if (!date) return { gte: startOfToday(new Date(), timeZone) }
+
+  // Noon UTC is only a starting guess. It lands on the right local date for
+  // most of the world, but at UTC+12 and beyond — Auckland, Fiji, Kiritimati —
+  // 12:00Z is already tomorrow, so asking for the 8th would return the 9th.
+  // Nudge a day at a time until the local calendar date is the one asked for.
+  let candidate = new Date(`${date}T12:00:00.000Z`)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const local = toCalendarDate(candidate, timeZone)
+    if (local === date) break
+    candidate = new Date(candidate.getTime() + (local < date ? 1 : -1) * DAY_MS)
+  }
+
+  const gte = startOfToday(candidate, timeZone)
+
+  // The next local midnight, not gte + 24h. A fall-back day is 25 hours and
+  // would lose its last hour; a spring-forward day is 23 and would bleed the
+  // next day's first hour in — the exact bleed this bound exists to stop.
+  // 36 hours always lands inside the following day, whichever way the clocks
+  // went, and startOfToday walks it back to that day's midnight.
+  return { gte, lt: startOfToday(new Date(gte.getTime() + 36 * 60 * 60 * 1000), timeZone) }
+}
+
 export async function getWeekForUser(userId: string, timeZone?: string) {
   const now = new Date()
   const weekStart = startOfWeek(now)
