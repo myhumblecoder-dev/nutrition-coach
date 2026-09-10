@@ -68,6 +68,12 @@ enum DemoMode {
         ProcessInfo.processInfo.arguments.contains("-demo-reload")
     }
 
+    /// Opens the past-conversations screen on launch, so it can be looked at
+    /// without a tap. Inert without the argument.
+    static var showsChatHistory: Bool {
+        ProcessInfo.processInfo.arguments.contains("-demo-chat-history")
+    }
+
     /// Stands in for a camera roll the Simulator does not have. Drawn rather
     /// than bundled so no binary asset ships for a debug-only path.
     static func stubMealPhoto() -> UIImage {
@@ -159,9 +165,13 @@ enum DemoFixtures {
             return DemoMode.isFirstRun ? emptyDashboard : dashboard
         case "/api/v1/targets" where method == "GET":
             return DemoMode.isFirstRun ? #"{"target":null}"# : #"{"target":{"calories":2000,"protein":150}}"#
-        case "/api/v1/chat" where method == "GET": return chat
+        // -demo-first-run stands in for a fresh morning: today has nothing in
+        // it yet, which is the state the empty copy exists for.
+        case "/api/v1/chat" where method == "GET":
+            return DemoMode.isFirstRun ? #"{"messages":[]}"# : chat
         case "/api/v1/checkins" where method == "GET": return checkIns
         case "/api/v1/timezone": return #"{"timezone":"America/New_York"}"#
+        case "/api/v1/chat/days": return chatDays
         case "/api/v1/meals/photo" where method == "POST": return mealAnalysis
         // A correction re-reads the same photo, so it answers in the same
         // shape — with different numbers, which is the point of it.
@@ -192,6 +202,13 @@ enum DemoFixtures {
        {"name":"black beans","portion":"1.5 cups","calories":341,"protein":23},
        {"name":"pico de gallo","portion":"2 tbsp","calories":11,"protein":1}],
      "totalCalories":817,"totalProtein":111}
+    """
+
+    /// Past days for the history screen.
+    private static let chatDays = """
+    {"days":[{"date":"2026-09-05","messageCount":8},
+             {"date":"2026-09-04","messageCount":12},
+             {"date":"2026-09-03","messageCount":4}]}
     """
 
     /// A brand-new account: nothing logged, no targets set.

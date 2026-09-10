@@ -156,9 +156,23 @@ final class APIClient {
         return response.timezone
     }
 
-    func chatHistory() async throws -> [ChatMessage] {
-        let response: ChatHistoryResponse = try await send("/api/v1/chat", method: "GET", body: nil)
+    /// One day's conversation.
+    ///
+    /// Today by default, which is what the chat screen opens on — a day's
+    /// talking is a day's log, and yesterday's breakfast above today's is
+    /// noise. Pass a date to read a past day from the history screen.
+    func chatHistory(date: String? = nil) async throws -> [ChatMessage] {
+        let path = date.map { "/api/v1/chat?date=\($0)" } ?? "/api/v1/chat"
+        let response: ChatHistoryResponse = try await send(path, method: "GET", body: nil)
         return response.messages
+    }
+
+    /// The days there is anything to read, newest first.
+    func chatDays() async throws -> [ChatDay] {
+        let response: ChatDaysResponse = try await send(
+            "/api/v1/chat/days", method: "GET", body: nil
+        )
+        return response.days
     }
 
     func sendMessage(_ text: String) async throws -> String {
@@ -263,7 +277,13 @@ final class APIClient {
         _ path: String, method: String, body: [String: JSONValue]?,
         authenticated: Bool, attested: Bool
     ) async throws -> URLRequest {
-        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        // Resolved as a relative reference rather than appended as a path
+        // component: `appendingPathComponent` percent-encodes the "?", so a
+        // query string would arrive as part of the path and be ignored.
+        guard let url = URL(string: path, relativeTo: baseURL) else {
+            throw APIError.badStatus(0)
+        }
+        var request = URLRequest(url: url)
         request.httpMethod = method
 
         if authenticated {
