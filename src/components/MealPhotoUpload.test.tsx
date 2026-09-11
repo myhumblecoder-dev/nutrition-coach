@@ -8,9 +8,19 @@ vi.mock('@/app/actions/uploadMealPhoto', () => ({ uploadMealPhoto: vi.fn() }))
 vi.mock('@/app/actions/analyzeMeal', () => ({ analyzeMeal: vi.fn() }))
 
 const analysis = {
-  foodItems: [{ name: 'Grilled chicken', portion: '200g', calories: 330, protein: 62 }],
+  foodItems: [
+    {
+      name: 'Grilled chicken',
+      portion: '200g',
+      calories: 330,
+      protein: 62,
+      fat: 7,
+      fatSource: 'whole' as const,
+    },
+  ],
   totalCalories: 330,
   totalProtein: 62,
+  totalFat: 7,
 }
 
 function selectFile() {

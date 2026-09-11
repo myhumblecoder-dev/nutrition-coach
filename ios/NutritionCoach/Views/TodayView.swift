@@ -105,13 +105,17 @@ struct TodayView: View {
         let today = data.today
         return Group {
         if let target = today.target {
+            // 112, not the default 148: `size` drives the fonts as well as the
+            // circle, so three at 148 overflowed the screen and clipped the
+            // outer two. Measured against the narrowest supported iPhone.
             HStack(spacing: 0) {
                 RingGauge(
                     value: Double(today.consumed.calories),
                     max: Double(target.calories),
                     centerText: today.consumed.calories.formatted(),
-                    subText: "of \(target.calories.formatted()) kcal",
-                    label: "Calories"
+                    subText: "\(target.calories.formatted()) kcal",
+                    label: "Calories",
+                    size: 112
                 )
                 .frame(maxWidth: .infinity)
 
@@ -119,8 +123,26 @@ struct TodayView: View {
                     value: Double(today.consumed.protein),
                     max: Double(target.protein),
                     centerText: "\(today.consumed.protein)g",
-                    subText: "of \(target.protein)g protein",
-                    label: "Protein"
+                    subText: "\(target.protein)g protein",
+                    label: "Protein",
+                    size: 112
+                )
+                .frame(maxWidth: .infinity)
+
+                // No max: fat has no target, so the circle is always whole and
+                // the colour is the content. The sub-label repeats the reading
+                // in words — green and yellow are among the hardest pairs to
+                // separate with red-green colour vision deficiency, so hue
+                // cannot be the only channel.
+                RingGauge(
+                    value: Double(today.consumed.fatGrams),
+                    max: 0,
+                    centerText: "\(today.consumed.fatGrams)g",
+                    subText: today.fatQuality?.label ?? "no fat logged",
+                    label: "Fat",
+                    size: 112,
+                    color: FatColour.forShare(today.fatQuality?.wholeFoodShare),
+                    full: true
                 )
                 .frame(maxWidth: .infinity)
             }
@@ -178,7 +200,7 @@ struct TodayView: View {
                             .stroke(Theme.accentWashBorder, lineWidth: 1)
                     )
             } else {
-                Text("The rings measure what you have eaten against a daily calorie and protein goal. Nothing else on this screen needs them.")
+                Text("The rings measure what you have eaten against a daily calorie and protein goal. Fat has no goal — it shows the amount, coloured by where the fat came from. Nothing else on this screen needs them.")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)

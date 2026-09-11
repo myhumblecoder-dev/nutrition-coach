@@ -12,11 +12,24 @@ struct RingGauge: View {
     let centerText: String
     let subText: String
     let label: String
+    /// Drives the fonts as well as the circle, so it is the real width — a
+    /// ring cannot be shrunk by its container without its numbers shrinking
+    /// too. Three-up needs about 112; two-up fits the original 148.
     var size: CGFloat = 148
+    /// Overrides the arc colour. The fat ring uses it to say quality in hue.
+    var color: Color = Theme.accent
+    /// Draws the arc all the way round regardless of value.
+    ///
+    /// The fat ring has no target — fat guidance is a range, and a denominator
+    /// would read as failure for something the app only estimates. Its fill is
+    /// not progress towards anything; the circle is whole and the colour is
+    /// the content.
+    var full: Bool = false
 
     /// Clamped at 1: the arc stops at a full circle rather than lapping, which
     /// would render 2,400 of 2,000 as a nearly-empty ring.
     private var fraction: Double {
+        if full { return 1 }
         guard max > 0 else { return 0 }
         return Swift.min(1, value / max)
     }
@@ -30,7 +43,7 @@ struct RingGauge: View {
                 Circle()
                     .trim(from: 0, to: fraction)
                     .stroke(
-                        Theme.accent,
+                        color,
                         style: StrokeStyle(lineWidth: size / 12, lineCap: .round)
                     )
                     // Start at twelve o'clock, like the web's rotate(-90).
@@ -43,6 +56,11 @@ struct RingGauge: View {
                     Text(subText)
                         .font(.system(size: size * 0.09))
                         .foregroundStyle(Theme.muted)
+                        // A backstop, not the plan. Labels are written short
+                        // enough to fit (see `fatQualityLabel`); this keeps a
+                        // longer one legible instead of clipped.
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
             }
             .frame(width: size * 0.848, height: size * 0.848)

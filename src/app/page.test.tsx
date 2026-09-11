@@ -56,7 +56,8 @@ describe('Home', () => {
   it('renders the app for a signed-in user', async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: 'u1' } } as never)
     vi.mocked(getToday).mockResolvedValue({
-      meals: [], target: null, consumed: { calories: 0, protein: 0 },
+      meals: [], target: null, consumed: { calories: 0, protein: 0, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
     } as never)
 
     render(await Home())
@@ -80,7 +81,8 @@ describe('Home', () => {
   it('a signed-in user does not get an inline sign-out (it lives in the nav)', async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: 'u1' } } as never)
     vi.mocked(getToday).mockResolvedValue({
-      meals: [], target: null, consumed: { calories: 0, protein: 0 },
+      meals: [], target: null, consumed: { calories: 0, protein: 0, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
     } as never)
 
     render(await Home())

@@ -22,7 +22,8 @@ interface HomeClientProps {
       source?: string
     }>
     target: { calories: number; protein: number } | null
-    consumed: { calories: number; protein: number }
+    consumed: { calories: number; protein: number; fat: number }
+    fatQuality: { wholeFoodShare: number | null; label: string | null }
   }
   week: {
     training: {
@@ -105,6 +106,7 @@ export default function HomeClient({ today, week, activity, coachMessage }: Home
             consumed={today.consumed}
             target={today.target}
             meals={today.meals}
+            fatQuality={today.fatQuality}
           />
         </div>
         <div className="lg:col-span-4">

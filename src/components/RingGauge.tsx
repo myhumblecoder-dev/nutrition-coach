@@ -9,6 +9,17 @@ interface RingGaugeProps {
   subText: string;
   label: string;
   size?: number;
+  /** Overrides the arc colour. The fat ring uses it to say quality in hue. */
+  color?: string;
+  /**
+   * Draws the arc all the way round regardless of value.
+   *
+   * The fat ring has no target — fat guidance is a range, and a denominator
+   * would read as failure for something the app only estimates. So its fill is
+   * not progress towards anything; the whole circle is drawn and the colour is
+   * the content.
+   */
+  full?: boolean;
 }
 
 export default function RingGauge({
@@ -18,10 +29,12 @@ export default function RingGauge({
   subText,
   label,
   size = 148,
+  color = '#059669',
+  full = false,
 }: RingGaugeProps) {
   const radius = size * 0.424;
   const circumference = 2 * Math.PI * radius;
-  const fraction = Math.min(1, max > 0 ? value / max : 0);
+  const fraction = full ? 1 : Math.min(1, max > 0 ? value / max : 0);
   const filled = fraction * circumference;
   const remaining = circumference - filled;
   const sw = size / 12;
@@ -51,7 +64,7 @@ export default function RingGauge({
           cx={mid}
           cy={mid}
           r={radius}
-          stroke="#059669"
+          stroke={color}
           strokeWidth={sw}
           strokeLinecap="round"
           strokeDasharray={`${filled} ${remaining}`}

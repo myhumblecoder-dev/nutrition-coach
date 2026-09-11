@@ -186,7 +186,16 @@ describe('extraction', () => {
 
   it('creates carry the source text', async () => {
     const facts = {
-      meals: [{ name: 'Baozi', portion: '5 pieces', calories: 600, protein: 25 }],
+      meals: [
+        {
+          name: 'Baozi',
+          portion: '5 pieces',
+          calories: 600,
+          protein: 25,
+          fat: 18,
+          fatSource: 'refined' as const,
+        },
+      ],
       training: [{ kind: 'resistance' as const, minutes: 30 }],
       recovery: [],
       mood: [],

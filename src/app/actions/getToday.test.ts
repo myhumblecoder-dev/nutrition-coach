@@ -63,7 +63,7 @@ describe('getToday', () => {
 
     const result = await getToday()
 
-    expect(result.consumed).toEqual({ calories: 800, protein: 60 })
+    expect(result.consumed).toEqual({ calories: 800, protein: 60, fat: 0 })
     expect(result.target).toEqual({ calories: 2000, protein: 150 })
     expect(prisma.mealEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
@@ -83,7 +83,7 @@ describe('getToday', () => {
 
     const result = await getToday()
 
-    expect(result.consumed).toEqual({ calories: 0, protein: 0 })
+    expect(result.consumed).toEqual({ calories: 0, protein: 0, fat: 0 })
     expect(result.target).toBeNull()
   })
 
@@ -145,5 +145,88 @@ describe('getToday', () => {
     
     const mealWithSource = result.meals.find(m => m.id === 'm1') as any
     expect(mealWithSource.source).toBe('extracted')
+  })
+})
+
+describe('fat quality', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockAuth.mockResolvedValue({ user: { id: 'u1' } } as never)
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(
+      makeDailyTarget({ calories: 2000, protein: 150 })
+    )
+  })
+
+  it('weights the day by grams of fat across every item', async () => {
+    // Per item, not per meal: a salad with olive oil and croutons carries fat
+    // from both sides at once, and only the items know which gram was which.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      makeMealEntry({
+        totalCalories: 300,
+        totalFat: 20,
+        foodItems: JSON.stringify([
+          { name: 'avocado', fat: 15, fatSource: 'whole' },
+          { name: 'croutons', fat: 5, fatSource: 'refined' },
+        ]),
+      }),
+      makeMealEntry({
+        totalCalories: 150,
+        totalFat: 10,
+        foodItems: JSON.stringify([{ name: 'crisps', fat: 10, fatSource: 'refined' }]),
+      }),
+    ])
+
+    const result = await getToday()
+
+    expect(result.consumed.fat).toBe(30)
+    expect(result.fatQuality.wholeFoodShare).toBeCloseTo(0.5)
+    expect(result.fatQuality.label).toBe('mixed')
+  })
+
+  it('reports no reading at all on a day with no fat', async () => {
+    // Not the worst colour — no colour. A day of dry toast has nothing to say
+    // about fat quality, and rendering it as fully refined would be a lie.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      makeMealEntry({
+        totalCalories: 80,
+        totalFat: 0,
+        foodItems: JSON.stringify([{ name: 'toast', fat: 0 }]),
+      }),
+    ])
+
+    const result = await getToday()
+
+    expect(result.fatQuality.wholeFoodShare).toBeNull()
+    expect(result.fatQuality.label).toBeNull()
+  })
+
+  it('survives a meal logged before fat existed', async () => {
+    // Every row already in the database looks like this. Throwing on them
+    // would take Today out for every existing user at once.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      makeMealEntry({
+        totalCalories: 500,
+        totalProtein: 30,
+        foodItems: JSON.stringify([
+          { name: 'chicken', portion: '200g', calories: 330, protein: 62 },
+        ]),
+      }),
+    ])
+
+    const result = await getToday()
+
+    expect(result.consumed.calories).toBe(500)
+    expect(result.fatQuality.wholeFoodShare).toBeNull()
+  })
+
+  it('survives foodItems that is not parseable JSON', async () => {
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      makeMealEntry({ totalCalories: 200, totalFat: 8, foodItems: 'not json at all' }),
+    ])
+
+    const result = await getToday()
+
+    expect(result.consumed.fat).toBe(8)
+    expect(result.fatQuality.wholeFoodShare).toBeNull()
   })
 })

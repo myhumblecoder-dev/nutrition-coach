@@ -18,6 +18,8 @@ interface FoodItem {
 interface MealAnalysis {
   photoUrl: string
   foodItems: FoodItem[]
+  /** Optional: meals analysed before fat existed have none. */
+  totalFat?: number
   totalCalories: number
   totalProtein: number
 }
@@ -97,6 +99,14 @@ export default function MealConfirmCard({
             />
           </div>
         </div>
+
+        {/* Shown, not editable. Fat has no target, so a field for it would be
+            precision this app does not want — but what got logged should still
+            be visible. Correcting it in words still works: "that was fried,
+            not grilled" re-reads the photo and moves this with it. */}
+        <p className="text-sm text-muted-foreground">
+          Fat: {analysis.totalFat ?? 0}g
+        </p>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
       </CardContent>

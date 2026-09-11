@@ -13,7 +13,8 @@ describe('TodayDashboard', () => {
 
   it('only extracted meals get the via chat chip', async () => {
     const props = {
-      consumed: { calories: 800, protein: 60 },
+      consumed: { calories: 800, protein: 60, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
       target: { calories: 2000, protein: 150 },
       meals: [
         {
@@ -48,7 +49,8 @@ describe('TodayDashboard', () => {
 
   it('TodayDashboard renders', async () => {
     const props = {
-      consumed: { calories: 800, protein: 60 },
+      consumed: { calories: 800, protein: 60, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
       target: { calories: 2000, protein: 150 },
       meals: [
         {
@@ -88,7 +90,8 @@ describe('TodayDashboard', () => {
 
   it('renders the fallback label for unparseable foodItems', () => {
     const props = {
-      consumed: { calories: 100, protein: 5 },
+      consumed: { calories: 100, protein: 5, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
       target: null,
       meals: [
         { id: '1', foodItems: 'not json', totalCalories: 100, totalProtein: 5 },
@@ -102,7 +105,8 @@ describe('TodayDashboard', () => {
 
   it('each meal row renders a delete button', () => {
     const props = {
-      consumed: { calories: 800, protein: 60 },
+      consumed: { calories: 800, protein: 60, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
       target: null,
       meals: [
         { id: '1', foodItems: '[]', totalCalories: 300, totalProtein: 20 },
@@ -117,7 +121,8 @@ describe('TodayDashboard', () => {
 
   it('TodayDashboard prompts when no target is set', async () => {
     const props = {
-      consumed: { calories: 0, protein: 0 },
+      consumed: { calories: 0, protein: 0, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
       target: null,
       meals: [],
     }
@@ -130,7 +135,8 @@ describe('TodayDashboard', () => {
 
   it('TodayDashboard shows the empty state', async () => {
     const props = {
-      consumed: { calories: 0, protein: 0 },
+      consumed: { calories: 0, protein: 0, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
       target: { calories: 2000, protein: 150 },
       meals: [],
     }
@@ -143,7 +149,8 @@ describe('TodayDashboard', () => {
 
   it('a photo meal renders its thumbnail', () => {
     const props = {
-      consumed: { calories: 485, protein: 37 },
+      consumed: { calories: 485, protein: 37, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
       target: null,
       meals: [
         {
@@ -161,5 +168,56 @@ describe('TodayDashboard', () => {
     const img = document.querySelector('img')
     expect(img).not.toBeNull()
     expect(img?.getAttribute('src')).toBe('https://blob/x.jpg')
+  })
+})
+
+describe('the fat ring', () => {
+  const meals = [
+    { id: 'm1', foodItems: '[{"name":"Avocado"}]', totalCalories: 300, totalProtein: 5 },
+  ]
+
+  it('draws full, because fat has no target', () => {
+    // Not progress towards anything — fat guidance is a range, and a
+    // denominator would read as failure for something only estimated. The
+    // whole circle is drawn and the colour carries the meaning.
+    render(
+      <TodayDashboard
+        consumed={{ calories: 300, protein: 5, fat: 20 }}
+        fatQuality={{ wholeFoodShare: 1, label: 'whole food' }}
+        target={{ calories: 2000, protein: 150 }}
+        meals={meals}
+      />
+    )
+
+    expect(screen.getByText('20g')).toBeInTheDocument()
+    expect(screen.getByText('whole food')).toBeInTheDocument()
+  })
+
+  it('says the reading in words, not only in colour', () => {
+    // Green and amber are among the hardest pairs to separate with red-green
+    // colour vision deficiency, so hue cannot be the only channel.
+    render(
+      <TodayDashboard
+        consumed={{ calories: 450, protein: 7, fat: 30 }}
+        fatQuality={{ wholeFoodShare: 0.1, label: 'mostly refined' }}
+        target={{ calories: 2000, protein: 150 }}
+        meals={meals}
+      />
+    )
+
+    expect(screen.getByText('mostly refined')).toBeInTheDocument()
+  })
+
+  it('says so plainly when no fat was logged', () => {
+    render(
+      <TodayDashboard
+        consumed={{ calories: 80, protein: 3, fat: 0 }}
+        fatQuality={{ wholeFoodShare: null, label: null }}
+        target={{ calories: 2000, protein: 150 }}
+        meals={meals}
+      />
+    )
+
+    expect(screen.getByText('no fat logged')).toBeInTheDocument()
   })
 })
