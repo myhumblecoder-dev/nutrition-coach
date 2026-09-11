@@ -33,7 +33,7 @@ export default function ProcessingGauge({ naturalShare, label }: ProcessingGauge
       <div className="space-y-2">
         <div className="flex justify-between text-[12.5px]">
           <span className="font-medium text-[#52525b]">Processed</span>
-          <span className="text-[#a1a1aa]">nothing logged yet</span>
+          <span className="text-[#a1a1aa]">no reading yet</span>
           <span className="font-medium text-[#52525b]">Natural</span>
         </div>
         <div className="h-2 rounded-full bg-[#f0f0f1]" />

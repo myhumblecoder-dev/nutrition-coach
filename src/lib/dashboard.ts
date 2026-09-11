@@ -452,7 +452,3 @@ export function describeExercises(raw: string | null): string {
     })
     .join(', ')
 }
-
-
-
-

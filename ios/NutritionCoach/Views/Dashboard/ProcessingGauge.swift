@@ -32,7 +32,7 @@ struct ProcessingGauge: View {
                 // Nil is "nothing to say". Parking the marker at an end would
                 // be a claim about the day that is not true, and every meal
                 // already in the database names no group.
-                Text(label ?? "nothing logged yet")
+                Text(label ?? "no reading yet")
                     .font(.system(size: 12.5))
                     .foregroundStyle(label == nil ? Theme.faint : Theme.ink)
                 Spacer()

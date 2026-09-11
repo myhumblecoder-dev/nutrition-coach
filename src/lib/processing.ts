@@ -33,20 +33,36 @@ export function naturalShare(items: ProcessedBearing[]): number | null {
   // An unclassified item does not vote. Unlike fat, where silence counts
   // against, a missing group here would drag the marker somewhere arbitrary
   // rather than towards a known answer.
-  const classified = items.filter(
-    (item) => item.processingGroup != null && item.calories > 0
-  )
+  const classified = items.filter((item) => item.processingGroup != null)
 
-  const total = classified.reduce((sum, item) => sum + item.calories, 0)
+  const total = classified.reduce((sum, item) => sum + weightOf(item), 0)
   if (total === 0) return null
 
   const weighted = classified.reduce(
-    (sum, item) => sum + item.calories * (item.processingGroup as number),
+    (sum, item) => sum + weightOf(item) * (item.processingGroup as number),
     0
   )
 
   // Groups run 1..4; map the weighted mean onto 1..0 so 1 is the natural end.
   return (4 - weighted / total) / 3
+}
+
+/**
+ * A floor under the calorie weighting, so a zero-calorie item still counts for
+ * something.
+ *
+ * Weighting purely by calories silently excluded the most processed things a
+ * person eats: diet soda, sugar-free gum, zero-calorie energy drinks are all
+ * group 4 and all round to nothing. A day of them returned no reading at all,
+ * and one beside a real meal read as a perfect whole-food day.
+ *
+ * Small enough that it cannot outweigh food — twenty of them still lose to one
+ * 400-calorie plate — but large enough to register.
+ */
+const MINIMUM_WEIGHT = 15
+
+function weightOf(item: ProcessedBearing): number {
+  return Math.max(MINIMUM_WEIGHT, item.calories)
 }
 
 /**

@@ -91,20 +91,38 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
 
   let coachPersona = nowLine() + " " + COACH_PREAMBLE + " ";
 
-  // Extraction normally runs after the reply, so a failure cannot cost the
-  // user their message. During onboarding it has to run first: the coach's
-  // whole job that turn is to state the target it just worked out, and it
-  // cannot state something that has not happened yet.
-  const hadTargetBefore = (await prisma.dailyTarget.findUnique({ where: { userId } })) !== null;
-  if (!hadTargetBefore) {
-    try {
-      await extractHealthFacts(userId, modelText, {
+  // Extraction runs first, before anything below reads the day's state.
+  //
+  // It used to run *after* the reply, which made "Logged." theatre: the model
+  // said it because a statement gets a statement back, with no idea whether a
+  // row had been written. "Log 40g healthy fats" got a confident "Logged." and
+  // stored nothing, because fat is a property of a meal and there was no meal
+  // in that sentence. An app whose whole claim is that every number came from
+  // the conversation cannot invent having saved one.
+  //
+  // One call, unconditional. It used to be two — an onboarding copy that ran
+  // early because the coach has to state the target it just worked out, and a
+  // post-reply copy guarded so the same meal was not logged twice. Now that
+  // both want the same position, the guards are gone and with them the bug
+  // they caused: the onboarding branch dropped its result, so on exactly the
+  // turn that wrote a measurement and a target the prompt said both "state the
+  // numbers you have set" and "nothing was saved".
+  //
+  // Still wrapped. A failed extraction must never cost the user their reply,
+  // and leaving the counts at zero tells the coach nothing was saved rather
+  // than leaving it free to guess.
+  let recorded = { meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 };
+  try {
+    // Coalesced rather than assigned: a throw is caught below, but a call
+    // that resolves to nothing is not, and it would leave `recorded`
+    // undefined for `storageNote` to index.
+    recorded =
+      (await extractHealthFacts(userId, modelText, {
         sourceText: cleanText,
         onUsage: (usage) => void attributeTokens(usageEventId, usage),
-      });
-    } catch {
-      // A failed extraction must not cost the reply.
-    }
+      })) ?? recorded;
+  } catch {
+    // Deliberately silent — see above.
   }
 
   const target = await prisma.dailyTarget.findUnique({
@@ -231,19 +249,6 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
   // order changed — and still wrapped, because extraction must never break a
   // reply. Skipped when onboarding already ran it above; twice would log the
   // same meal twice.
-  let recorded = { meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 };
-  if (hadTargetBefore) {
-    try {
-      recorded = await extractHealthFacts(userId, modelText, {
-        sourceText: cleanText,
-        onUsage: (usage) => void attributeTokens(usageEventId, usage),
-      });
-    } catch {
-      // Leaves the counts at zero, so the coach is told nothing was saved
-      // rather than being left free to guess.
-    }
-  }
-
   coachPersona += storageNote(recorded);
 
   const prompt = [
@@ -256,6 +261,13 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
     void attributeTokens(usageEventId, usage);
   });
 
+  // After the reply, so a failed `generate` does not leave a user message with
+  // nothing answering it — at the cost that a failure leaves an extracted row
+  // with no exchange in the chat history. That is the better trade: the row
+  // carries its own `sourceText`, the user's own words, which is exactly what
+  // the activity feed shows, so the meal explains itself. Persisting the user
+  // message first would only swap an unexplained row for a duplicated message
+  // on the retry.
   await persistExchange(userId, cleanText, reply);
 
   return { assistantReply: reply };
@@ -357,16 +369,26 @@ async function persistExchange(userId: string, userText: string, reply: string):
  * a bare number, because every row here hangs off a named food, session or
  * measurement.
  */
-function storageNote(recorded: {
-  meals: number;
-  training: number;
-  recovery: number;
-  mood: number;
-  measurement: number;
-}): string {
-  const written = Object.entries(recorded)
-    .filter(([, count]) => count > 0)
-    .map(([kind, count]) => `${count} ${kind}`);
+function storageNote(recorded: Record<string, number> | undefined): string {
+  // An explicit map, not Object.entries over whatever came back.
+  // `recordHealthFacts` returns a sixth key — `targets` — which TypeScript
+  // erases at the assignment and which a blind iteration picked up at runtime,
+  // so asking to change a calorie goal told the coach "1 targets" was
+  // recorded. The labels also carry their own plurals: "1 meals" is the kind
+  // of thing a model will faithfully repeat.
+  const LABELS: Array<[string, [string, string]]> = [
+    ['meals', ['meal', 'meals']],
+    ['training', ['training session', 'training sessions']],
+    ['recovery', ['recovery entry', 'recovery entries']],
+    ['mood', ['mood note', 'mood notes']],
+    ['measurement', ['measurement', 'measurements']],
+    ['targets', ['daily target', 'daily targets']],
+  ];
+
+  const written = LABELS.flatMap(([key, [one, many]]) => {
+    const count = recorded?.[key] ?? 0;
+    return count > 0 ? [`${count} ${count === 1 ? one : many}`] : [];
+  });
 
   if (written.length > 0) {
     return `\nRecorded from this message: ${written.join(', ')}. You may say it is logged.\n`;

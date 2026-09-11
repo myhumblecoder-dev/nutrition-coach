@@ -29,7 +29,11 @@ describe('ProcessingGauge', () => {
     render(<ProcessingGauge naturalShare={null} label={null} />)
 
     expect(screen.queryByTestId('processing-marker')).toBeNull()
-    expect(screen.getByText('nothing logged yet')).toBeInTheDocument()
+    expect(screen.getByText('no reading yet')).toBeInTheDocument()
+    // Not "nothing logged": a day can have meals and no groups — every row
+    // written before groups existed — and the gauge must not contradict the
+    // meal list beside it.
+    expect(document.body.textContent).not.toContain('nothing logged')
   })
 
   it('never shows a percentage', () => {

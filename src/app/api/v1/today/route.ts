@@ -26,5 +26,10 @@ export async function GET(request: Request) {
     })),
     target: today.target,
     consumed: today.consumed,
+    // Carried here as well as on /api/v1/dashboard. No client calls this
+    // route today, but two endpoints serving the same object in different
+    // shapes is the kind of divergence that costs an afternoon later.
+    fatQuality: today.fatQuality,
+    processing: today.processing,
   })
 }

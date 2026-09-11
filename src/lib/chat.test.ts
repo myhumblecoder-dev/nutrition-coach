@@ -537,7 +537,8 @@ describe('the coach only claims what was actually written', () => {
     await coachReply('u1', 'steak and sweet potato, and I lifted')
 
     const prompt = vi.mocked(generate).mock.calls[0][0]
-    expect(prompt).toContain('Recorded from this message: 1 meals, 1 training')
+    // Singular labels, not "1 meals": a model repeats what it is given.
+    expect(prompt).toContain('Recorded from this message: 1 meal, 1 training session')
     expect(prompt).toContain('You may say it is logged')
   })
 
@@ -550,5 +551,58 @@ describe('the coach only claims what was actually written', () => {
 
     const prompt = vi.mocked(generate).mock.calls[0][0]
     expect(prompt).toContain('Nothing in this message was recorded')
+  })
+})
+
+describe('what the coach is told was recorded', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('Logged.')
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue({
+      id: 't1',
+      userId: 'u1',
+      calories: 2000,
+      protein: 150,
+      createdAt: new Date(Date.UTC(2024, 0, 1)),
+      updatedAt: new Date(Date.UTC(2024, 0, 1)),
+    } as never)
+  })
+
+  it('names a changed target rather than saying "1 targets"', async () => {
+    // `recordHealthFacts` returns a sixth key TypeScript erases at the
+    // assignment. Iterating the object blindly picked it up at runtime and
+    // told the coach "1 targets" had been recorded.
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 0,
+      training: 0,
+      recovery: 0,
+      mood: 0,
+      measurement: 0,
+      targets: 1,
+    } as never)
+
+    await coachReply('u1', 'make my target 2200 calories')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('1 daily target')
+    expect(prompt).not.toContain('1 targets')
+  })
+
+  it('pluralises properly', async () => {
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 2,
+      training: 0,
+      recovery: 3,
+      mood: 0,
+      measurement: 0,
+    })
+
+    await coachReply('u1', 'two meals and some water')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('2 meals, 3 recovery entries')
   })
 })
