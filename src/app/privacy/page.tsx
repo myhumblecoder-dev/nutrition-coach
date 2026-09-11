@@ -42,6 +42,12 @@ export default function PrivacyPage() {
             <strong>An App Attest key identifier,</strong> which Apple issues to prove the requests
             come from a real, unmodified copy of the app. It identifies the app instance, not you.
           </li>
+          <li>
+            <strong>Your subscription, if you buy one.</strong> Which plan, whether it is in its
+            free trial, when it renews or ends, and the identifier Apple uses for it. Roughly
+            never sees your card — Apple takes the payment and hands back only a signed receipt.
+            This is kept because it is what decides whether the coach answers.
+          </li>
         </ul>
         <p>
           There is no analytics SDK, no advertising identifier, no tracking across other apps or
@@ -59,7 +65,9 @@ export default function PrivacyPage() {
             <strong>Vercel</strong> hosts the service and stores meal photos.
           </li>
           <li>
-            <strong>Apple</strong> delivers push notifications and verifies App Attest.
+            <strong>Apple</strong> delivers push notifications, verifies App Attest, and is the
+            merchant for subscriptions — it processes the payment and tells Roughly only that a
+            valid subscription exists and when it expires.
           </li>
           <li>
             <strong>Telegram,</strong> only if you deliberately link a Telegram account on the web,

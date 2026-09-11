@@ -56,10 +56,9 @@ function DotRow({
 }
 
 export default function TrainingCard({ training }: TrainingCardProps) {
-  const { resistance, hiit, core, stepsToday, days } = training
+  const { resistance, hiit, core, days } = training
   // Monday-first index of the current weekday.
   const todayIndex = (new Date().getDay() + 6) % 7
-  const stepsPct = Math.min(100, (stepsToday / 10000) * 100)
 
   return (
     <Card>
@@ -80,17 +79,6 @@ export default function TrainingCard({ training }: TrainingCardProps) {
               </div>
             ))}
             <div />
-          </div>
-        </div>
-        <div className="space-y-2 border-t border-[#f0f0f1] pt-4">
-          <div className="flex justify-between text-[12.5px]">
-            <div className="font-medium text-[#52525b]">Steps today</div>
-            <div className="text-[#71717a]">
-              <span className="font-semibold text-[#18181b]">{stepsToday.toLocaleString()}</span> / 10,000
-            </div>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[#f0f0f1]">
-            <div className="h-2 rounded-full bg-[#059669]" style={{ width: `${stepsPct}%` }} />
           </div>
         </div>
       </CardContent>

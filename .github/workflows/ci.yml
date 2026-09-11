@@ -1,9 +1,10 @@
 name: CI
 
 on:
-  # ios/** is Swift only — running install/lint/build/typecheck/test against a
-  # change no JavaScript can see is pure cost. The iOS workflow mirrors this
-  # with the inverse filter.
+  # ios/** is Swift and store metadata — running install/lint/build/typecheck/
+  # test against a change no JavaScript can see is pure cost. The iOS workflow
+  # mirrors this with the inverse filter, and owns the one Node check that does
+  # read a file under ios/ (scripts/check-listing.mjs against ios/LISTING.md).
   pull_request:
     branches: [main, develop, dispatch/integration]
     paths-ignore:
