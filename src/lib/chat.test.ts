@@ -189,7 +189,7 @@ describe('chat', () => {
     await coachReply(userId, userText)
 
     const promptCall = vi.mocked(generate).mock.calls[0][0]
-    expect(promptCall).toContain('Today so far: 485 of 2000 cal, 37g of 150g protein.')
+    expect(promptCall).toContain('Today so far: 485 of 2000 cal, 37g of 150g protein, 0g fat.')
   })
 
   it('the prompt omits the context line without a target', async () => {
@@ -371,5 +371,238 @@ describe('chat', () => {
     vi.mocked(generate).mockResolvedValue('Right.')
 
     expect((await coachReply('u1', 'had eggs')).denialReason).toBeUndefined()
+  })
+})
+
+describe('quality readings in the coach prompt', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(generate).mockResolvedValue('Logged.')
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue({
+      id: 't1',
+      userId: 'u1',
+      calories: 2000,
+      protein: 150,
+      createdAt: new Date(Date.UTC(2024, 0, 1)),
+      updatedAt: new Date(Date.UTC(2024, 0, 1)),
+    } as never)
+  })
+
+  it('tells the coach not to treat ultra-processed as a verdict', async () => {
+    // The gauge can only show a position. It cannot say that a protein shake
+    // is ultra-processed *and* fine — which is the case where a bare marker
+    // would contradict the coach's own advice to hit a protein target. So the
+    // nuance is the coach's job, and it has to be told that.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      {
+        totalCalories: 400,
+        totalProtein: 40,
+        totalFat: 10,
+        foodItems: JSON.stringify([
+          { name: 'protein shake', calories: 200, processingGroup: 4, fat: 3, fatSource: 'refined' },
+          { name: 'eggs', calories: 200, processingGroup: 1, fat: 7, fatSource: 'whole' },
+        ]),
+      },
+    ] as never)
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(
+      { calories: 2000, protein: 150 } as never
+    )
+    vi.mocked(generate).mockResolvedValue('Logged.')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'shake and eggs')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('How processed today was:')
+    expect(prompt).toContain('Ultra-processed is not a verdict')
+    expect(prompt).toContain('Never imply they should feel bad about it')
+  })
+
+  it('describes fat quality as source rather than saturation', async () => {
+    // The distinction the whole feature rests on. A coach told "saturated"
+    // would talk about butter being the problem, which is the opposite of
+    // what the numbers mean.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      {
+        totalCalories: 300,
+        totalProtein: 5,
+        totalFat: 20,
+        foodItems: JSON.stringify([
+          { name: 'avocado', calories: 300, processingGroup: 1, fat: 20, fatSource: 'whole' },
+        ]),
+      },
+    ] as never)
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(
+      { calories: 2000, protein: 150 } as never
+    )
+    vi.mocked(generate).mockResolvedValue('Logged.')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'avocado')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('not saturated versus unsaturated')
+  })
+
+  it('says nothing about quality on a day with nothing classified', async () => {
+    // Every meal already in the database. Silence beats a claim.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      {
+        totalCalories: 300,
+        totalProtein: 20,
+        totalFat: 0,
+        foodItems: JSON.stringify([{ name: 'chicken', calories: 300, protein: 20 }]),
+      },
+    ] as never)
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(
+      { calories: 2000, protein: 150 } as never
+    )
+    vi.mocked(generate).mockResolvedValue('Logged.')
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+
+    await coachReply('u1', 'chicken')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).not.toContain('How processed today was:')
+    expect(prompt).not.toContain('Fat quality:')
+  })
+})
+
+describe('the coach only claims what was actually written', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('Logged.')
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue({
+      id: 't1',
+      userId: 'u1',
+      calories: 2000,
+      protein: 150,
+      createdAt: new Date(Date.UTC(2024, 0, 1)),
+      updatedAt: new Date(Date.UTC(2024, 0, 1)),
+    } as never)
+  })
+
+  it('extracts before replying, so the reply can know', async () => {
+    // The ordering IS the fix. Replying first meant "Logged." was said with no
+    // knowledge of whether a row existed.
+    const order: string[] = []
+    vi.mocked(extractHealthFacts).mockImplementation(async () => {
+      order.push('extract')
+      return { meals: 1, training: 0, recovery: 0, mood: 0, measurement: 0 }
+    })
+    vi.mocked(generate).mockImplementation(async () => {
+      order.push('generate')
+      return 'Logged.'
+    })
+
+    await coachReply('u1', 'two eggs')
+
+    expect(order).toEqual(['extract', 'generate'])
+  })
+
+  it('forbids saying "logged" when nothing was stored', async () => {
+    // "Log 40g healthy fats" — the case that exposed this. Fat hangs off a
+    // meal, there was no meal in the sentence, nothing was written, and the
+    // coach answered "Logged." anyway.
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 0,
+      training: 0,
+      recovery: 0,
+      mood: 0,
+      measurement: 0,
+    })
+
+    await coachReply('u1', 'log 40g healthy fats')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('Nothing in this message was recorded')
+    expect(prompt).toContain('Do NOT say "logged"')
+    expect(prompt).toContain('no way to log fat on its own')
+  })
+
+  it('tells the coach what it may claim when something was stored', async () => {
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 1,
+      training: 1,
+      recovery: 0,
+      mood: 0,
+      measurement: 0,
+    })
+
+    await coachReply('u1', 'steak and sweet potato, and I lifted')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    // Singular labels, not "1 meals": a model repeats what it is given.
+    expect(prompt).toContain('Recorded from this message: 1 meal, 1 training session')
+    expect(prompt).toContain('You may say it is logged')
+  })
+
+  it('treats a failed extraction as nothing stored', async () => {
+    // Failing open would be the worst of both: the coach free to claim a save
+    // that did not happen, and no error anywhere.
+    vi.mocked(extractHealthFacts).mockRejectedValue(new Error('model down'))
+
+    await coachReply('u1', 'two eggs')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('Nothing in this message was recorded')
+  })
+})
+
+describe('what the coach is told was recorded', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('Logged.')
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue({
+      id: 't1',
+      userId: 'u1',
+      calories: 2000,
+      protein: 150,
+      createdAt: new Date(Date.UTC(2024, 0, 1)),
+      updatedAt: new Date(Date.UTC(2024, 0, 1)),
+    } as never)
+  })
+
+  it('names a changed target rather than saying "1 targets"', async () => {
+    // `recordHealthFacts` returns a sixth key TypeScript erases at the
+    // assignment. Iterating the object blindly picked it up at runtime and
+    // told the coach "1 targets" had been recorded.
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 0,
+      training: 0,
+      recovery: 0,
+      mood: 0,
+      measurement: 0,
+      targets: 1,
+    } as never)
+
+    await coachReply('u1', 'make my target 2200 calories')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('1 daily target')
+    expect(prompt).not.toContain('1 targets')
+  })
+
+  it('pluralises properly', async () => {
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 2,
+      training: 0,
+      recovery: 3,
+      mood: 0,
+      measurement: 0,
+    })
+
+    await coachReply('u1', 'two meals and some water')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('2 meals, 3 recovery entries')
   })
 })

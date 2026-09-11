@@ -15,6 +15,7 @@ describe('TodayDashboard', () => {
     const props = {
       consumed: { calories: 800, protein: 60, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
       target: { calories: 2000, protein: 150 },
       meals: [
         {
@@ -51,6 +52,7 @@ describe('TodayDashboard', () => {
     const props = {
       consumed: { calories: 800, protein: 60, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
       target: { calories: 2000, protein: 150 },
       meals: [
         {
@@ -92,6 +94,7 @@ describe('TodayDashboard', () => {
     const props = {
       consumed: { calories: 100, protein: 5, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
       target: null,
       meals: [
         { id: '1', foodItems: 'not json', totalCalories: 100, totalProtein: 5 },
@@ -107,6 +110,7 @@ describe('TodayDashboard', () => {
     const props = {
       consumed: { calories: 800, protein: 60, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
       target: null,
       meals: [
         { id: '1', foodItems: '[]', totalCalories: 300, totalProtein: 20 },
@@ -123,6 +127,7 @@ describe('TodayDashboard', () => {
     const props = {
       consumed: { calories: 0, protein: 0, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
       target: null,
       meals: [],
     }
@@ -137,6 +142,7 @@ describe('TodayDashboard', () => {
     const props = {
       consumed: { calories: 0, protein: 0, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
       target: { calories: 2000, protein: 150 },
       meals: [],
     }
@@ -151,6 +157,7 @@ describe('TodayDashboard', () => {
     const props = {
       consumed: { calories: 485, protein: 37, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
       target: null,
       meals: [
         {
@@ -184,6 +191,7 @@ describe('the fat ring', () => {
       <TodayDashboard
         consumed={{ calories: 300, protein: 5, fat: 20 }}
         fatQuality={{ wholeFoodShare: 1, label: 'whole food' }}
+        processing={{ naturalShare: null, label: null }}
         target={{ calories: 2000, protein: 150 }}
         meals={meals}
       />
@@ -200,6 +208,7 @@ describe('the fat ring', () => {
       <TodayDashboard
         consumed={{ calories: 450, protein: 7, fat: 30 }}
         fatQuality={{ wholeFoodShare: 0.1, label: 'mostly refined' }}
+        processing={{ naturalShare: null, label: null }}
         target={{ calories: 2000, protein: 150 }}
         meals={meals}
       />
@@ -213,6 +222,7 @@ describe('the fat ring', () => {
       <TodayDashboard
         consumed={{ calories: 80, protein: 3, fat: 0 }}
         fatQuality={{ wholeFoodShare: null, label: null }}
+        processing={{ naturalShare: null, label: null }}
         target={{ calories: 2000, protein: 150 }}
         meals={meals}
       />

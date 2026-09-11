@@ -63,3 +63,33 @@ export function fatQualityLabel(share: number | null): string | null {
   if (share > 0) return 'mostly refined'
   return 'refined'
 }
+
+/**
+ * Pulls the fat-bearing items out of a meal's stored `foodItems` JSON.
+ *
+ * Tolerant on purpose. That column is a JSON string written by several
+ * generations of prompt, so rows predate fat entirely and a malformed one must
+ * cost a ring its colour rather than fail whatever is reading it.
+ */
+export function fatItemsFromJson(foodItems: string): FatBearing[] {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(foodItems)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+
+  return parsed.flatMap((item) => {
+    if (typeof item !== 'object' || item === null) return []
+    const { fat, fatSource } = item as { fat?: unknown; fatSource?: unknown }
+    if (typeof fat !== 'number' || !Number.isFinite(fat) || fat <= 0) return []
+
+    return [
+      {
+        fat,
+        fatSource: fatSource === 'whole' || fatSource === 'refined' ? fatSource : null,
+      },
+    ]
+  })
+}

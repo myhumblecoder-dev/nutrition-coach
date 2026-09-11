@@ -61,6 +61,7 @@ export async function GET(request: Request) {
       // apart with red-green colour vision deficiency. Both come from the
       // server so the copy has one home rather than one per client.
       fatQuality: today.fatQuality,
+      processing: today.processing,
     },
     week: {
       training: week.training,

@@ -230,3 +230,83 @@ describe('fat quality', () => {
     expect(result.fatQuality.wholeFoodShare).toBeNull()
   })
 })
+
+describe('how processed the day was', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockAuth.mockResolvedValue({ user: { id: 'u1' } } as never)
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue(
+      makeDailyTarget({ calories: 2000, protein: 150 })
+    )
+  })
+
+  it('weights the position by calories', async () => {
+    // The condiment case: a trace of something ultra-processed on a plate of
+    // real food is not half a processed day. Counting items would say it was.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      makeMealEntry({
+        totalCalories: 405,
+        foodItems: JSON.stringify([
+          { name: 'chicken and vegetables', calories: 400, processingGroup: 1 },
+          { name: 'stock powder', calories: 5, processingGroup: 4 },
+        ]),
+      }),
+    ])
+
+    const result = await getToday()
+
+    expect(result.processing.naturalShare).toBeGreaterThan(0.95)
+    expect(result.processing.label).toBe('real food')
+  })
+
+  it('puts a day of packaged food at the processed end', async () => {
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      makeMealEntry({
+        totalCalories: 600,
+        foodItems: JSON.stringify([
+          { name: 'crisps', calories: 300, processingGroup: 4 },
+          { name: 'energy drink', calories: 300, processingGroup: 4 },
+        ]),
+      }),
+    ])
+
+    const result = await getToday()
+
+    expect(result.processing.naturalShare).toBe(0)
+    expect(result.processing.label).toBe('packaged')
+  })
+
+  it('does not count cooking oil against a whole-food day', async () => {
+    // Group 2 is oil, butter and salt — part of cooking real food. A day of
+    // it must not read as processed, or the gauge punishes cooking.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      makeMealEntry({
+        totalCalories: 800,
+        foodItems: JSON.stringify([
+          { name: 'salmon and greens', calories: 600, processingGroup: 1 },
+          { name: 'olive oil', calories: 200, processingGroup: 2 },
+        ]),
+      }),
+    ])
+
+    const result = await getToday()
+
+    expect(result.processing.naturalShare).toBeGreaterThan(0.8)
+  })
+
+  it('has no position for meals logged before groups existed', async () => {
+    // Which is every row already in the database. No marker beats a marker in
+    // the wrong place.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      makeMealEntry({
+        totalCalories: 500,
+        foodItems: JSON.stringify([{ name: 'chicken', calories: 500, protein: 62 }]),
+      }),
+    ])
+
+    const result = await getToday()
+
+    expect(result.processing.naturalShare).toBeNull()
+    expect(result.processing.label).toBeNull()
+  })
+})

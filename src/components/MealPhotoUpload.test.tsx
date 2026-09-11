@@ -16,6 +16,7 @@ const analysis = {
       protein: 62,
       fat: 7,
       fatSource: 'whole' as const,
+      processingGroup: 1 as const,
     },
   ],
   totalCalories: 330,

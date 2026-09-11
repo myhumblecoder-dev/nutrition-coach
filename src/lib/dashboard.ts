@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
-import { fatQualityLabel, wholeFoodFatShare, type FatBearing } from '@/lib/fat'
+import { fatItemsFromJson, fatQualityLabel, wholeFoodFatShare } from '@/lib/fat'
+import { naturalShare, processedItemsFromJson, processingLabel } from '@/lib/processing'
 import { startOfToday, startOfWeek, toCalendarDate } from '@/lib/time'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -36,7 +37,11 @@ export async function getTodayForUser(userId: string, timeZone?: string) {
 
   // Per item, not per meal: a meal's fat can come from both sides at once —
   // salad with olive oil and croutons — and only the items know which.
-  const share = wholeFoodFatShare(meals.flatMap((meal) => fatBearingItems(meal.foodItems)))
+  const share = wholeFoodFatShare(meals.flatMap((meal) => fatItemsFromJson(meal.foodItems)))
+
+  // Calorie-weighted across every item that named a group: a pinch of stock
+  // powder on a plate of vegetables is not half a processed day.
+  const natural = naturalShare(meals.flatMap((meal) => processedItemsFromJson(meal.foodItems)))
 
   return {
     // foodItems stays a JSON string here because that is what the web
@@ -57,6 +62,9 @@ export async function getTodayForUser(userId: string, timeZone?: string) {
     // through colour, with the label carrying the same reading for anyone who
     // cannot separate green from yellow.
     fatQuality: { wholeFoodShare: share, label: fatQualityLabel(share) },
+    // A position, not a target. Nothing to reach, so no denominator and no
+    // percentage — "where you sit" is the whole idea.
+    processing: { naturalShare: natural, label: processingLabel(natural) },
   }
 }
 
@@ -443,35 +451,4 @@ export function describeExercises(raw: string | null): string {
       return text
     })
     .join(', ')
-}
-
-
-/**
- * Pulls the fat-bearing items out of a meal's stored `foodItems` JSON.
- *
- * Tolerant on purpose. That column is a JSON string written by several
- * generations of prompt, so rows predate fat entirely and a malformed one must
- * cost a ring its colour rather than fail the whole dashboard.
- */
-function fatBearingItems(foodItems: string): FatBearing[] {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(foodItems)
-  } catch {
-    return []
-  }
-  if (!Array.isArray(parsed)) return []
-
-  return parsed.flatMap((item) => {
-    if (typeof item !== 'object' || item === null) return []
-    const { fat, fatSource } = item as { fat?: unknown; fatSource?: unknown }
-    if (typeof fat !== 'number' || !Number.isFinite(fat) || fat <= 0) return []
-
-    return [
-      {
-        fat,
-        fatSource: fatSource === 'whole' || fatSource === 'refined' ? fatSource : null,
-      },
-    ]
-  })
 }
