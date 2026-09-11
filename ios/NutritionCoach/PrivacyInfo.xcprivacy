@@ -109,6 +109,26 @@
 			</array>
 		</dict>
 		<dict>
+			<!-- The subscription itself: which product, its status and expiry,
+			     and Apple's originalTransactionId. Kept because entitlement is
+			     decided from it on every gated request, and because Apple's
+			     renewal and refund notifications arrive keyed on it. No card
+			     details ever reach this app — Apple is the merchant, and the
+			     only thing it hands back is a signed transaction. Added when
+			     subscriptions shipped; before that this binary genuinely
+			     could not take money. -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePurchaseHistory</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
 			<!-- The APNs device token, stored only if notifications are on,
 			     and the App Attest key identifier. -->
 			<key>NSPrivacyCollectedDataType</key>

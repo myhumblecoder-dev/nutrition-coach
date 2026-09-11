@@ -252,7 +252,10 @@ With a working configuration:
   reads `displayName` from these
 - The 1-week introductory free trial, set at group level
 - A Sandbox tester account for on-device verification
-- App Privacy → **Purchases** declared
+- App Privacy → **Purchase History** declared, Linked, not used for Tracking,
+  purpose App Functionality. It must match `PrivacyInfo.xcprivacy` and
+  `/privacy` on the web — a disagreement between the three is a routine
+  rejection, and App Review does check.
 - Pricing and Availability set to **Free** (the app is free; the subscription
   is the purchase)
 
