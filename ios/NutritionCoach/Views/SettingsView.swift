@@ -14,6 +14,10 @@ struct SettingsView: View {
     @State private var timezone = "America/New_York"
     @State private var timezoneError: String?
 
+    @State private var showingPaywall = false
+    @State private var restoring = false
+    @State private var subscriptionMessage: String?
+
     @State private var confirmingDelete = false
     @State private var deleting = false
     @State private var deleteError: String?
@@ -88,8 +92,13 @@ struct SettingsView: View {
                     }
                 }
 
+                subscriptionSection
+
                 Section {
                     Link("Privacy policy", destination: AppState.privacyPolicyURL)
+                    // Guideline 3.1.2 wants the EULA reachable from inside the
+                    // app, not only from the paywall.
+                    Link("Terms of use", destination: AppState.termsURL)
                     Link("Support", destination: AppState.supportURL)
                 }
 
@@ -143,11 +152,69 @@ struct SettingsView: View {
                 }
             }
         }
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView(reason: nil)
+            }
         .task {
             status = await PushRegistrar.shared.currentAuthorizationStatus()
             await loadTargets()
             await loadTimezone()
+            await state.refreshEntitlement()
         }
+    }
+
+    /// Manage and Restore are not optional extras: App Review looks for both
+    /// the day in-app purchase ships, and their absence is a rejection on its
+    /// own.
+    @ViewBuilder
+    private var subscriptionSection: some View {
+        Section {
+            if state.isEntitled {
+                // Apple's own page, not a screen of ours — cancelling has to
+                // work even if this app is broken, and Apple requires the
+                // link rather than an imitation of it.
+                Link("Manage subscription", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
+            } else {
+                Button("Subscribe") { showingPaywall = true }
+            }
+
+            Button(restoring ? "Restoring…" : "Restore purchases") {
+                Task { await restorePurchases() }
+            }
+            .disabled(restoring)
+        } header: {
+            Text("Subscription")
+        } footer: {
+            if let subscriptionMessage {
+                Text(subscriptionMessage)
+            } else {
+                Text(statusLine)
+            }
+        }
+    }
+
+    private var statusLine: String {
+        guard let entitlement = state.entitlement else { return "Checking…" }
+        guard let expires = entitlement.expiresAt else {
+            return entitlement.isEntitled ? "Active." : "No active subscription."
+        }
+        let when = expires.formatted(date: .abbreviated, time: .omitted)
+        if entitlement.isTrialing { return "Free trial — full access until \(when)." }
+        if entitlement.isEntitled { return "Renews \(when)." }
+        return "Ended \(when). Your history is still here, read-only."
+    }
+
+    private func restorePurchases() async {
+        restoring = true
+        defer { restoring = false }
+        subscriptionMessage = nil
+
+        await state.store.restore()
+        await state.refreshEntitlement()
+
+        subscriptionMessage = state.isEntitled
+            ? "Restored."
+            : "No subscription found for this Apple Account."
     }
 
     private func loadTargets() async {

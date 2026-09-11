@@ -139,6 +139,10 @@ struct ChatView: View {
     @State private var isLoadingThread = true
     @State private var showingHistory = false
 
+    /// Set from a 402, in the server's own words. Non-nil raises the paywall,
+    /// so the sheet opens by answering whatever was just refused.
+    @State private var paywallReason: PaywallReason?
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -197,6 +201,12 @@ struct ChatView: View {
                 Button("Cancel", role: .cancel) {}
             }
             .photosPicker(isPresented: $isPickingFromLibrary, selection: $libraryItem, matching: .images)
+            // `item:` rather than `isPresented:` — the sheet needs the reason
+            // that came with the refusal, and a separate Bool could show it
+            // before the text arrived.
+            .sheet(item: $paywallReason) { reason in
+                PaywallView(reason: reason.text)
+            }
             .fullScreenCover(isPresented: $showingCamera) {
                 CameraPicker(
                     onPicked: { attach($0) },
@@ -532,6 +542,11 @@ struct ChatView: View {
             // someone to retake a picture that was fine sends them round a
             // loop.
             error = message
+        } catch APIError.subscriptionRequired(let message) {
+            // The photo bubble stays: it was taken, and pulling it back out
+            // from under the sheet would read as the app losing it. Only the
+            // reading is missing, and that is what the paywall is about.
+            paywallReason = PaywallReason(text: message)
         } catch {
             self.error = "I couldn't read that as a meal photo — try a clearer, closer shot."
         }
@@ -571,6 +586,8 @@ struct ChatView: View {
             state.handleUnauthorized()
         } catch APIError.limitReached(let message) {
             error = message
+        } catch APIError.subscriptionRequired(let message) {
+            paywallReason = PaywallReason(text: message)
         } catch APIError.badStatus(404) {
             pendingMealId = nil
             error = "That meal's no longer pending."
@@ -647,8 +664,9 @@ struct ChatView: View {
 
         // Shown immediately so the conversation does not appear to stall
         // during the LLM round trip; the id is replaced when history reloads.
+        let optimisticID = "local-\(UUID().uuidString)"
         items.append(
-            .message(ChatMessage(id: "local-\(UUID().uuidString)", role: "user", content: text, createdAt: Date()))
+            .message(ChatMessage(id: optimisticID, role: "user", content: text, createdAt: Date()))
         )
 
         do {
@@ -664,8 +682,22 @@ struct ChatView: View {
             )
         } catch APIError.unauthorized {
             state.handleUnauthorized()
+        } catch APIError.subscriptionRequired(let message) {
+            // Nothing was sent, so nothing should look sent: the optimistic
+            // bubble comes back out and the text goes back in the composer,
+            // ready to go the moment the sheet is dismissed with a
+            // subscription behind it.
+            items.removeAll { $0.id == optimisticID }
+            draft = text
+            paywallReason = PaywallReason(text: message)
         } catch {
             self.error = "Couldn't send that. Try again."
         }
     }
+}
+
+/// A refusal message, made `Identifiable` so `.sheet(item:)` can carry it.
+struct PaywallReason: Identifiable {
+    let text: String
+    var id: String { text }
 }

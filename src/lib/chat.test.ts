@@ -338,4 +338,38 @@ describe('chat', () => {
     expect(modelText).toBe('burrito bowl, text me on [redacted]')
     expect(options?.sourceText).toBe('burrito bowl, text me on 555-123-4567')
   })
+
+  it('surfaces WHY it refused, not just the words', async () => {
+    // The prose is for the user; the reason is for the route, which has to
+    // choose between 402 and a plain reply. Without it, a lapsed user's
+    // refusal arrives as an ordinary coach message and the app never learns
+    // it should raise a paywall — on the most-used gated action there is.
+    const { denialFor } = await import('@/lib/limits')
+    vi.mocked(denialFor).mockResolvedValue({
+      reason: 'subscription_required',
+      userMessage: 'that needs a subscription',
+    })
+
+    const result = await coachReply('u1', 'hello again')
+
+    expect(result.assistantReply).toBe('that needs a subscription')
+    expect(result.denialReason).toBe('subscription_required')
+  })
+
+  it('marks a spent cap as capped, which is answered differently', async () => {
+    const { denialFor } = await import('@/lib/limits')
+    vi.mocked(denialFor).mockResolvedValue({ reason: 'capped', userMessage: 'enough' })
+
+    expect((await coachReply('u1', 'hi')).denialReason).toBe('capped')
+  })
+
+  it('reports no reason at all when nothing was refused', async () => {
+    const { denialFor } = await import('@/lib/limits')
+    vi.mocked(denialFor).mockResolvedValue(null)
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(generate).mockResolvedValue('Right.')
+
+    expect((await coachReply('u1', 'had eggs')).denialReason).toBeUndefined()
+  })
 })

@@ -117,3 +117,65 @@ describe('POST /api/appstore/notifications', () => {
     expect(mockVerify).not.toHaveBeenCalled()
   })
 })
+
+describe('family-shared notifications', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockUpdate.mockResolvedValue({ count: 1 } as never)
+  })
+
+  it('applies a renewal to the whole household', async () => {
+    // The buyer renewed, so everyone Apple gave access to keeps it. Scoping
+    // this to the purchaser's own row would quietly expire the family a month
+    // after they were let in.
+    mockVerify.mockResolvedValue(notification('DID_RENEW') as never)
+
+    await POST(request())
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { originalTransactionId: 'ot-1' } })
+    )
+  })
+
+  it('keeps a withdrawn family share off the purchaser', async () => {
+    // REVOKE arrives with the buyer's originalTransactionId even when it is
+    // only a family member losing access. Without narrowing by ownership the
+    // person who is actually paying would be cut off by someone else leaving
+    // their family.
+    mockVerify.mockResolvedValue(
+      notification('REVOKE', {
+        inAppOwnershipType: 'FAMILY_SHARED',
+        revocationDate: Date.UTC(2026, 9, 1),
+      }) as never
+    )
+
+    await POST(request())
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { originalTransactionId: 'ot-1', ownershipType: 'FAMILY_SHARED' },
+      })
+    )
+  })
+})
+
+describe('ownership is not rewritten by notifications', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockUpdate.mockResolvedValue({ count: 2 } as never)
+  })
+
+  it('leaves family rows as family when the purchase renews', async () => {
+    // A renewal matches the whole household by design. Writing the
+    // notification's own ownership type into all of them would stamp the
+    // family rows PURCHASED — and then a later REVOKE for a family member,
+    // which narrows by FAMILY_SHARED, would match nothing and leave someone
+    // removed from the family with access forever.
+    mockVerify.mockResolvedValue(notification('DID_RENEW') as never)
+
+    await POST(request())
+
+    const [{ data }] = mockUpdate.mock.calls[0] as [{ data: Record<string, unknown> }]
+    expect(data).not.toHaveProperty('ownershipType')
+  })
+})

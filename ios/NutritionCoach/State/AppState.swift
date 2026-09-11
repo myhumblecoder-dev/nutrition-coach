@@ -15,10 +15,23 @@ final class AppState {
     /// fields, and a reviewer checks that the in-app links match them.
     static let privacyPolicyURL = productionURL.appendingPathComponent("privacy")
     static let supportURL = productionURL.appendingPathComponent("support")
+    /// The EULA. Required on the paywall by Guideline 3.1.2 and in the App
+    /// Store Connect listing; a reviewer taps it in both places.
+    static let termsURL = productionURL.appendingPathComponent("terms")
 
     let client: APIClient
+    let store: Store
     private(set) var isSignedIn: Bool
     var signInError: String?
+
+    /// What the server says this account is entitled to. Nil until asked —
+    /// which is not the same as lapsed, and must not raise a paywall.
+    private(set) var entitlement: Entitlement?
+
+    /// Read by the gated screens. Unknown counts as entitled: enforcement is
+    /// the server's job, and guessing "no" here would lock out a paying user
+    /// whose entitlement call merely timed out.
+    var isEntitled: Bool { entitlement?.isEntitled ?? true }
 
     init(client: APIClient? = nil) {
         #if DEBUG
@@ -30,7 +43,26 @@ final class AppState {
         #endif
         let resolved = client ?? fallback
         self.client = resolved
+        self.store = Store(client: resolved)
         self.isSignedIn = resolved.isSignedIn
+    }
+
+    /// Starts the transaction listener. Called once at launch, before
+    /// anything else: StoreKit replays transactions it finished while the app
+    /// was closed — a renewal, a purchase made on another device — and they
+    /// are delivered only to a listener that is already running.
+    func startObservingTransactions() {
+        store.listenForUpdates()
+    }
+
+    /// Asks the server what this account is entitled to.
+    ///
+    /// Failures leave the previous answer in place rather than clearing it. A
+    /// dropped connection is not a cancelled subscription, and treating it as
+    /// one would put a paywall in front of someone who is paying.
+    func refreshEntitlement() async {
+        guard let fresh = try? await client.subscription() else { return }
+        entitlement = fresh
     }
 
     private static func liveClient() -> APIClient {
@@ -75,6 +107,7 @@ final class AppState {
         // user cannot turn off from inside the app.
         MealReminders.cancel()
         await client.signOut()
+        entitlement = nil
         isSignedIn = false
     }
 
@@ -85,6 +118,7 @@ final class AppState {
         do {
             try await client.deleteAccount()
             MealReminders.cancel()
+            entitlement = nil
             isSignedIn = false
             return nil
         } catch {

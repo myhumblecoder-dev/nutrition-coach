@@ -158,3 +158,58 @@ describe('GET /api/v1/chat, one past day at a time', () => {
     expect(mockHistory).not.toHaveBeenCalled()
   })
 })
+
+describe('POST /api/v1/chat, refusing in a way the app can act on', () => {
+  const post = (message: string) =>
+    new Request('http://test/api/v1/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    })
+
+  beforeEach(() => vi.resetAllMocks())
+
+  it('answers a lapsed subscription with 402 so the app can raise a paywall', async () => {
+    // This is the most-used gated action. Returning the refusal as an ordinary
+    // coach reply meant the app printed "that needs a subscription" as a chat
+    // bubble and never showed the paywall.
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+    mockCoach.mockResolvedValue({
+      assistantReply: 'that needs a subscription',
+      denialReason: 'subscription_required',
+    })
+
+    const res = await POST(post('hello'))
+
+    expect(res.status).toBe(402)
+    expect(await res.json()).toEqual({
+      error: 'that needs a subscription',
+      code: 'subscription_required',
+    })
+  })
+
+  it('keeps a spent cap as an ordinary reply', async () => {
+    // "Come back tomorrow" reads correctly as something the coach said. A
+    // paywall would be the wrong answer to it, and 402 would be a lie —
+    // tomorrow the same request succeeds.
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+    mockCoach.mockResolvedValue({
+      assistantReply: "That's your lot for today.",
+      denialReason: 'capped',
+    })
+
+    const res = await POST(post('hello'))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ assistantReply: "That's your lot for today." })
+  })
+
+  it('is unchanged for a reply that was not refused', async () => {
+    mockAuth.mockResolvedValue({ id: 'user-1' } as never)
+    mockCoach.mockResolvedValue({ assistantReply: 'Logged.' })
+
+    const res = await POST(post('had eggs'))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ assistantReply: 'Logged.' })
+  })
+})
