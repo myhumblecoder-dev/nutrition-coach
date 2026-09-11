@@ -58,6 +58,7 @@ describe('Home', () => {
     vi.mocked(getToday).mockResolvedValue({
       meals: [], target: null, consumed: { calories: 0, protein: 0, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
     } as never)
 
     render(await Home())
@@ -83,6 +84,7 @@ describe('Home', () => {
     vi.mocked(getToday).mockResolvedValue({
       meals: [], target: null, consumed: { calories: 0, protein: 0, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
     } as never)
 
     render(await Home())

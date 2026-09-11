@@ -11,6 +11,12 @@ const foodItemSchema = z.object({
   // why the source is whole-versus-refined rather than saturation.
   fat: z.number().nonnegative().optional(),
   fatSource: z.enum(["whole", "refined"]).nullable().optional(),
+  // Must be listed here or it is silently dropped: this is a plain z.object,
+  // so unknown keys are stripped, and `logMealForUser` writes the *parsed*
+  // value. Leaving it out meant every photo-logged meal lost its group before
+  // the row was written, and the processing gauge could only ever be lit by
+  // chat-extracted meals.
+  processingGroup: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).nullable().optional(),
 });
 
 const saveMealEntrySchema = z.object({

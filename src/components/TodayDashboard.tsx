@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import RingGauge from '@/components/RingGauge'
 import DeleteMealButton from '@/components/DeleteMealButton'
 import { fatColour } from '@/lib/fatColour'
+import ProcessingGauge from '@/components/ProcessingGauge'
 
 interface TodayDashboardProps {
   consumed: {
@@ -15,6 +16,10 @@ interface TodayDashboardProps {
   }
   fatQuality: {
     wholeFoodShare: number | null
+    label: string | null
+  }
+  processing: {
+    naturalShare: number | null
     label: string | null
   }
   target: {
@@ -50,6 +55,7 @@ export default function TodayDashboard({
   target,
   meals,
   fatQuality,
+  processing,
 }: TodayDashboardProps) {
   return (
     <div className="space-y-6">
@@ -97,6 +103,23 @@ export default function TodayDashboard({
             </div>
           ) : (
             <p className="text-muted-foreground">Set your daily targets</p>
+          )}
+
+          {/* Beneath the rings and full width: a different shape because it
+              means a different thing. The rings measure against a target;
+              this is a position with nothing to reach.
+
+              Hidden with them when no target is set. It needs no target of its
+              own, but the no-target state is an onboarding screen telling the
+              user what is missing, and a lone gauge under "Set your daily
+              targets" reads as debris. iOS does the same. */}
+          {target && (
+            <div className="mt-6 border-t border-[#f0f0f1] pt-4">
+              <ProcessingGauge
+                naturalShare={processing.naturalShare}
+                label={processing.label}
+              />
+            </div>
           )}
         </CardContent>
       </Card>

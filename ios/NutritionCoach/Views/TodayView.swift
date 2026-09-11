@@ -105,46 +105,59 @@ struct TodayView: View {
         let today = data.today
         return Group {
         if let target = today.target {
-            // 112, not the default 148: `size` drives the fonts as well as the
-            // circle, so three at 148 overflowed the screen and clipped the
-            // outer two. Measured against the narrowest supported iPhone.
-            HStack(spacing: 0) {
-                RingGauge(
-                    value: Double(today.consumed.calories),
-                    max: Double(target.calories),
-                    centerText: today.consumed.calories.formatted(),
-                    subText: "\(target.calories.formatted()) kcal",
-                    label: "Calories",
-                    size: 112
-                )
-                .frame(maxWidth: .infinity)
+            VStack(spacing: 12) {
+                // 112, not the default 148: `size` drives the fonts as well as
+                // the circle, so three at 148 overflowed the screen and
+                // clipped the outer two. Measured against the narrowest
+                // supported iPhone.
+                HStack(spacing: 0) {
+                    RingGauge(
+                        value: Double(today.consumed.calories),
+                        max: Double(target.calories),
+                        centerText: today.consumed.calories.formatted(),
+                        subText: "\(target.calories.formatted()) kcal",
+                        label: "Calories",
+                        size: 112
+                    )
+                    .frame(maxWidth: .infinity)
 
-                RingGauge(
-                    value: Double(today.consumed.protein),
-                    max: Double(target.protein),
-                    centerText: "\(today.consumed.protein)g",
-                    subText: "\(target.protein)g protein",
-                    label: "Protein",
-                    size: 112
-                )
-                .frame(maxWidth: .infinity)
+                    RingGauge(
+                        value: Double(today.consumed.protein),
+                        max: Double(target.protein),
+                        centerText: "\(today.consumed.protein)g",
+                        subText: "\(target.protein)g protein",
+                        label: "Protein",
+                        size: 112
+                    )
+                    .frame(maxWidth: .infinity)
 
-                // No max: fat has no target, so the circle is always whole and
-                // the colour is the content. The sub-label repeats the reading
-                // in words — green and yellow are among the hardest pairs to
-                // separate with red-green colour vision deficiency, so hue
-                // cannot be the only channel.
-                RingGauge(
-                    value: Double(today.consumed.fatGrams),
-                    max: 0,
-                    centerText: "\(today.consumed.fatGrams)g",
-                    subText: today.fatQuality?.label ?? "no fat logged",
-                    label: "Fat",
-                    size: 112,
-                    color: FatColour.forShare(today.fatQuality?.wholeFoodShare),
-                    full: true
+                    // No max: fat has no target, so the circle is always whole
+                    // and the colour is the content. The sub-label repeats the
+                    // reading in words — green and yellow are among the hardest
+                    // pairs to separate with red-green colour vision
+                    // deficiency, so hue cannot be the only channel.
+                    RingGauge(
+                        value: Double(today.consumed.fatGrams),
+                        max: 0,
+                        centerText: "\(today.consumed.fatGrams)g",
+                        subText: today.fatQuality?.label ?? "no fat logged",
+                        label: "Fat",
+                        size: 112,
+                        color: FatColour.forShare(today.fatQuality?.wholeFoodShare),
+                        full: true
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+
+                // Beneath the rings and full width: a different shape because
+                // it means a different thing. The rings measure against a
+                // target; this is a position with nothing to reach.
+                Divider()
+
+                ProcessingGauge(
+                    naturalShare: today.processing?.naturalShare,
+                    label: today.processing?.label
                 )
-                .frame(maxWidth: .infinity)
             }
             .dashboardCard()
         } else {

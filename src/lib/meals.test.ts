@@ -218,3 +218,40 @@ describe('revising a pending meal', () => {
     expect(updated).toBe(false)
   })
 })
+
+describe('what survives the write', () => {
+  it('keeps fat, its source and the processing group', async () => {
+    // `foodItemSchema` is a plain z.object, so unknown keys are stripped and
+    // the *parsed* value is what gets written. A field missing from that
+    // schema is a field silently lost — which is exactly what happened to
+    // processingGroup, leaving the gauge unlit for every photo-logged meal.
+    vi.mocked(prisma.mealEntry.create).mockResolvedValue({ id: 'm1' } as never)
+
+    await logMealForUser('u1', {
+      photoUrl: 'https://blob/m.jpg',
+      foodItems: [
+        {
+          name: 'crisps',
+          portion: 'small bag',
+          calories: 150,
+          protein: 2,
+          fat: 10,
+          fatSource: 'refined',
+          processingGroup: 4,
+        },
+      ],
+      totalCalories: 150,
+      totalProtein: 2,
+      totalFat: 10,
+    })
+
+    const written = vi.mocked(prisma.mealEntry.create).mock.calls[0][0]
+      .data as { foodItems: string; totalFat: number }
+    const items = JSON.parse(written.foodItems)
+
+    expect(items[0].fat).toBe(10)
+    expect(items[0].fatSource).toBe('refined')
+    expect(items[0].processingGroup).toBe(4)
+    expect(written.totalFat).toBe(10)
+  })
+})

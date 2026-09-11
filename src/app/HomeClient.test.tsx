@@ -19,6 +19,7 @@ const today = {
   target: { calories: 2000, protein: 150 },
   consumed: { calories: 800, protein: 60, fat: 0 },
       fatQuality: { wholeFoodShare: null, label: null },
+      processing: { naturalShare: null, label: null },
 }
 
 const noDays = [false, false, false, false, false, false, false]
@@ -60,7 +61,7 @@ describe('HomeClient', () => {
     vi.mocked(uploadMealPhoto).mockResolvedValue({ url: 'https://blob/m.jpg' })
     vi.mocked(analyzeMeal).mockResolvedValue({
       foodItems: [
-        { name: 'Eggs', portion: '2', calories: 140, protein: 12, fat: 10, fatSource: 'whole' },
+        { name: 'Eggs', portion: '2', calories: 140, protein: 12, fat: 10, fatSource: 'whole', processingGroup: 1 },
       ],
       totalCalories: 140,
       totalProtein: 12,
