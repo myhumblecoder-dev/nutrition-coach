@@ -232,14 +232,6 @@ struct TodayView: View {
             StatBar(label: "Resistance", value: week.training.resistance, target: 5, targetText: "/ 3–5")
             StatBar(label: "HIIT", value: week.training.hiit, target: 2, targetText: "/ 2")
             StatBar(label: "Core", value: week.training.core, target: 3, targetText: "/ 3")
-            StatBar(
-                label: "Steps today",
-                value: week.training.stepsToday,
-                target: 10_000,
-                targetText: "/ 10,000",
-                valueText: week.training.stepsToday.formatted()
-            )
-
             VStack(alignment: .leading, spacing: 6) {
                 Text("Days with a session")
                     .font(.system(size: 12))
