@@ -180,7 +180,7 @@ describe('fat quality', () => {
 
     expect(result.consumed.fat).toBe(30)
     expect(result.fatQuality.wholeFoodShare).toBeCloseTo(0.5)
-    expect(result.fatQuality.label).toBe('half and half')
+    expect(result.fatQuality.label).toBe('mixed')
   })
 
   it('reports no reading at all on a day with no fat', async () => {

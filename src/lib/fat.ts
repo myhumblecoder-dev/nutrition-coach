@@ -55,9 +55,11 @@ export function wholeFoodFatShare(items: FatBearing[]): number | null {
  */
 export function fatQualityLabel(share: number | null): string | null {
   if (share === null) return null
+  // Kept short because this renders inside the ring, where the inner diameter
+  // at three-up is about 90pt. "mostly whole food" overflowed and clipped.
   if (share >= 1) return 'whole food'
-  if (share >= 0.7) return 'mostly whole food'
-  if (share > 0.3) return 'half and half'
+  if (share >= 0.7) return 'mostly whole'
+  if (share > 0.3) return 'mixed'
   if (share > 0) return 'mostly refined'
   return 'refined'
 }

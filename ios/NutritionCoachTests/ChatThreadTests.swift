@@ -15,7 +15,8 @@ final class ChatThreadTests: XCTestCase {
         photoUrl: "https://blob/x.jpg",
         foodItems: [FoodItem(name: "eggs", portion: "2", calories: 140, protein: 12)],
         totalCalories: 140,
-        totalProtein: 12
+        totalProtein: 12,
+        totalFat: 10
     )
 
     private var pendingMeal: PendingMeal {

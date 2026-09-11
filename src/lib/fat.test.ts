@@ -49,12 +49,20 @@ describe('fatQualityLabel', () => {
     expect(fatQualityLabel(null)).toBeNull()
   })
 
+  it('stays short enough to sit inside the ring', () => {
+    // The inner diameter at three-up is about 90pt. The first version said
+    // "mostly whole food" and clipped on a real device.
+    for (const share of [0, 0.2, 0.5, 0.9, 1]) {
+      expect(fatQualityLabel(share)!.length).toBeLessThanOrEqual(14)
+    }
+  })
+
   it('carries the reading without relying on colour', () => {
     // Green and yellow are among the hardest pairs for red-green colour
     // vision deficiency, so the ring cannot say this with hue alone.
     expect(fatQualityLabel(1)).toBe('whole food')
-    expect(fatQualityLabel(0.9)).toBe('mostly whole food')
-    expect(fatQualityLabel(0.5)).toBe('half and half')
+    expect(fatQualityLabel(0.9)).toBe('mostly whole')
+    expect(fatQualityLabel(0.5)).toBe('mixed')
     expect(fatQualityLabel(0.2)).toBe('mostly refined')
     expect(fatQualityLabel(0)).toBe('refined')
   })

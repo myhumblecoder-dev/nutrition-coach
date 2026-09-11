@@ -17,7 +17,8 @@ vi.mock('@/components/ActivityFeed', () => ({ default: vi.fn(() => <div data-tes
 const today = {
   meals: [],
   target: { calories: 2000, protein: 150 },
-  consumed: { calories: 800, protein: 60 },
+  consumed: { calories: 800, protein: 60, fat: 0 },
+      fatQuality: { wholeFoodShare: null, label: null },
 }
 
 const noDays = [false, false, false, false, false, false, false]
