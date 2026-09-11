@@ -4,6 +4,8 @@ import { requireAttestation } from '@/lib/attest'
 import { getChatHistoryForUser } from '@/lib/dashboard'
 import { isCalendarDate } from '@/lib/time'
 import { coachReply } from '@/lib/chat'
+import { UsageLimitError } from '@/lib/limits'
+import { denialResponse } from '@/lib/denialResponse'
 
 // coachReply makes an LLM call and then runs extraction, so this needs more
 // than the platform default. Matches the Telegram webhook's budget.
@@ -58,7 +60,14 @@ export async function POST(request: Request) {
 
   // coachReply persists both sides of the exchange and runs extraction, so
   // the whole conversational-logging path comes along for free.
-  const { assistantReply } = await coachReply(user.id, message)
+  const { assistantReply, denialReason } = await coachReply(user.id, message)
+
+  // An absent subscription is 402, so the app raises a paywall. A spent cap
+  // stays an ordinary reply: "come back tomorrow" reads correctly as something
+  // the coach said, and 402 would be a lie — tomorrow the same request works.
+  if (denialReason === 'subscription_required') {
+    return denialResponse(new UsageLimitError(assistantReply, denialReason))
+  }
 
   return Response.json({ assistantReply })
 }

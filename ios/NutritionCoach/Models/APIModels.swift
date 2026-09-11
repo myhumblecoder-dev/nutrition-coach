@@ -72,6 +72,21 @@ struct ChatDaysResponse: Codable, Equatable {
     let days: [ChatDay]
 }
 
+/// What the server thinks of this account's subscription.
+///
+/// `tier` is a bare string rather than an enum: the server may add a state
+/// this build has never heard of, and an unknown tier should read as "not
+/// entitled" rather than fail to decode the whole response.
+struct Entitlement: Codable, Equatable {
+    let tier: String
+    /// Null when there has never been a subscription, which is every account
+    /// before its first purchase.
+    let expiresAt: Date?
+
+    var isEntitled: Bool { tier == "active" || tier == "trialing" }
+    var isTrialing: Bool { tier == "trialing" }
+}
+
 struct TimezoneResponse: Codable, Equatable {
     let timezone: String
 }
@@ -111,6 +126,10 @@ enum APIError: Error, Equatable {
     /// because "that's plenty of photos for today" and "that photo didn't
     /// work" ask for completely different things from the person reading it.
     case limitReached(String)
+    /// The server refused because there is no subscription. Distinct from
+    /// `limitReached`: a cap is answered by waiting until tomorrow, this by a
+    /// paywall, and the two read almost the same to a person.
+    case subscriptionRequired(String)
 }
 
 struct TargetResponse: Codable, Equatable {

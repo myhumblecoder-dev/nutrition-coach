@@ -31,6 +31,16 @@ struct NutritionCoachApp: App {
             RootView()
                 .environment(state)
                 .task {
+                    // Before everything, including attestation: StoreKit
+                    // delivers transactions it finished while the app was
+                    // closed — a renewal, a purchase made on another device —
+                    // and only to a listener that is already running.
+                    //
+                    // Safe this early because a post has to succeed before the
+                    // transaction is finished. One arriving before there is a
+                    // session gets a 401, stays unfinished, and is redelivered
+                    // next launch rather than being consumed unacknowledged.
+                    state.startObservingTransactions()
                     // Before the sign-in check: the sign-in endpoint is itself
                     // attested, so an unregistered device could never get past
                     // it if this waited for a session.
@@ -41,6 +51,7 @@ struct NutritionCoachApp: App {
                     // up here. Same identifiers, so it replaces rather than
                     // stacks.
                     await state.scheduleMealReminders()
+                    await state.refreshEntitlement()
                     await PushRegistrar.shared.registerIfAuthorized(with: state.client)
                 }
         }

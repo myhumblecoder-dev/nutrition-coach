@@ -68,6 +68,12 @@ enum DemoMode {
         ProcessInfo.processInfo.arguments.contains("-demo-reload")
     }
 
+    /// Serves a 402 from the gated routes, so the paywall — and the path that
+    /// raises it — can be inspected without App Store Connect.
+    static var isPaywalled: Bool {
+        isActive && ProcessInfo.processInfo.arguments.contains("-demo-paywall")
+    }
+
     /// Opens the past-conversations screen on launch, so it can be looked at
     /// without a tap. Inert without the argument.
     static var showsChatHistory: Bool {
@@ -133,9 +139,10 @@ final class DemoURLProtocol: URLProtocol {
 
     override func startLoading() {
         let path = request.url?.path ?? ""
-        let body = Data(DemoFixtures.json(for: path, method: request.httpMethod ?? "GET").utf8)
+        let (status, json) = DemoFixtures.response(for: path, method: request.httpMethod ?? "GET")
+        let body = Data(json.utf8)
         let response = HTTPURLResponse(
-            url: request.url!, statusCode: 200, httpVersion: nil,
+            url: request.url!, statusCode: status, httpVersion: nil,
             headerFields: ["Content-Type": "application/json"]
         )!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
@@ -158,6 +165,28 @@ enum DemoFixtures {
     private static let thisWeek = "2026-08-31"
     private static let lastWeek = "2026-08-24"
     private static let weekBefore = "2026-08-17"
+
+    /// Status alongside the body, because a refusal is a status: a 402 served
+    /// as 200 would decode as a coach reply and the paywall would never
+    /// appear — which is the exact bug this fixture exists to catch.
+    static func response(for path: String, method: String) -> (Int, String) {
+        if DemoMode.isPaywalled, method == "POST", isGated(path) {
+            return (402, #"{"error":"Honey, the free ride's over. Subscribe and I'll keep reading your plates.","code":"subscription_required"}"#)
+        }
+        if DemoMode.isPaywalled, path == "/api/v1/subscription" {
+            return (200, #"{"tier":"lapsed","expiresAt":"2026-09-01T00:00:00.000Z"}"#)
+        }
+        return (200, json(for: path, method: method))
+    }
+
+    /// The routes that actually cost money to serve, and so the ones the
+    /// server answers with 402.
+    private static func isGated(_ path: String) -> Bool {
+        path == "/api/v1/chat"
+            || path == "/api/v1/meals/photo"
+            || path.hasSuffix("/revise")
+            || path == "/api/v1/checkins"
+    }
 
     static func json(for path: String, method: String) -> String {
         switch path {

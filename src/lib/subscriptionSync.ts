@@ -17,6 +17,12 @@ export type AppleTransaction = {
   environment?: string
   /** 1 is the introductory offer — the free week. */
   offerType?: number
+  /**
+   * 'PURCHASED' | 'FAMILY_SHARED'. Apple signs this along with everything
+   * else, so it is the one trustworthy way to tell a family member apart from
+   * someone replaying a receipt they were given.
+   */
+  inAppOwnershipType?: string
 }
 
 export type SubscriptionFields = {
@@ -25,11 +31,18 @@ export type SubscriptionFields = {
   status: string
   expiresAt: Date
   isTrial: boolean
+  ownershipType: string
   environment: string
 }
 
 /** Thrown when a verified transaction is not something we can entitle from. */
 export class UnusableTransactionError extends Error {}
+
+/**
+ * How many people may share one purchase, beside the person who bought it.
+ * Apple's own limit: an organiser plus five.
+ */
+const MAX_FAMILY_MEMBERS = 5
 
 /**
  * Reduces a verified transaction to the six fields entitlement is decided from.
@@ -61,6 +74,10 @@ export function subscriptionFieldsFrom(transaction: AppleTransaction): Subscript
     status: transaction.revocationDate ? 'revoked' : 'active',
     expiresAt: new Date(expiresDate),
     isTrial: transaction.offerType === 1,
+    // Defaulted to a purchase, never to a share: an absent field must fail
+    // towards the stricter rule, because the other direction hands out access
+    // on the strength of a value that was not there.
+    ownershipType: transaction.inAppOwnershipType === 'FAMILY_SHARED' ? 'FAMILY_SHARED' : 'PURCHASED',
     environment,
   }
 }
@@ -76,17 +93,53 @@ export function subscriptionFieldsFrom(transaction: AppleTransaction): Subscript
 export async function syncSubscription(userId: string, transaction: AppleTransaction) {
   const fields = subscriptionFieldsFrom(transaction)
 
-  // One Apple ID cannot fund two accounts. Without this, a receipt pasted into
-  // a second account would entitle both, and the unique constraint would fail
-  // at the database with an error nobody could act on.
-  const existing = await prisma.subscription.findUnique({
-    where: { originalTransactionId: fields.originalTransactionId },
-    select: { userId: true },
-  })
-  if (existing && existing.userId !== userId) {
-    throw new UnusableTransactionError(
-      'That subscription is already attached to another account'
-    )
+  // One Apple ID cannot fund two accounts — but Family Sharing is Apple
+  // deliberately doing exactly that, and up to five family members legitimately
+  // carry the buyer's `originalTransactionId`. So the collision rule applies
+  // between *purchases* only.
+  //
+  // That is safe because Apple signs `inAppOwnershipType`: a receipt moved to
+  // another account arrives as PURCHASED and still collides. Only a transaction
+  // Apple itself marked FAMILY_SHARED gets past, and Apple only marks one that
+  // way for someone actually in the buyer's family.
+  if (fields.ownershipType === 'PURCHASED') {
+    // Scoped to other accounts in the query rather than fetched and compared.
+    // `originalTransactionId` is no longer unique, so `findFirst` returns an
+    // arbitrary matching row — one that could be the caller's own, which would
+    // refuse the buyer the account he bought it on.
+    const claimedByAnother = await prisma.subscription.findFirst({
+      where: {
+        originalTransactionId: fields.originalTransactionId,
+        ownershipType: 'PURCHASED',
+        userId: { not: userId },
+      },
+      select: { userId: true },
+    })
+    if (claimedByAnother) {
+      throw new UnusableTransactionError(
+        'That subscription is already attached to another account'
+      )
+    }
+  } else {
+    // Apple's family is the organiser plus five, but nothing inside a signed
+    // transaction says which Apple ID it was issued to. Without a bound, one
+    // family member's JWS posted to any number of accounts would entitle every
+    // one of them, each costing real model spend against a single fee.
+    //
+    // Excludes this user so re-posting an existing share stays idempotent
+    // rather than being counted as another seat.
+    const others = await prisma.subscription.count({
+      where: {
+        originalTransactionId: fields.originalTransactionId,
+        ownershipType: 'FAMILY_SHARED',
+        userId: { not: userId },
+      },
+    })
+    if (others >= MAX_FAMILY_MEMBERS) {
+      throw new UnusableTransactionError(
+        'That family subscription is already in use by the maximum number of people'
+      )
+    }
   }
 
   return prisma.subscription.upsert({

@@ -74,6 +74,11 @@ targets:
     platform: iOS
     sources:
       - path: NutritionCoachTests
+      # SKTestSession(configurationFileNamed:) looks inside the test bundle,
+      # not the project directory — without this it fails with a bare
+      # "File not found" that says nothing about where it looked.
+      - path: Configuration.storekit
+        buildPhase: resources
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
@@ -88,6 +93,12 @@ schemes:
       targets:
         NutritionCoach: all
         NutritionCoachTests: [test]
+    # The local StoreKit configuration, so the paywall and a purchase can be
+    # exercised in the Simulator with no App Store Connect at all. Declared
+    # here rather than in the .xcscheme because XcodeGen generates that file —
+    # hand-editing it is wiped by the next `xcodegen generate`.
+    run:
+      storeKitConfiguration: Configuration.storekit
     test:
       targets:
         - NutritionCoachTests

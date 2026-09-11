@@ -761,6 +761,85 @@ extension APIClientTests {
         XCTAssertEqual(StubURLProtocol.lastRequest?.url?.path, "/api/v1/chat/days")
     }
 
+    // MARK: - Subscription
+
+    func testALapsedSubscriptionSurfacesAsItsOwnErrorNotAGenericFailure() async {
+        // Without this the paywall never appears: a 402 fell through to
+        // .badStatus and the chat printed "try a clearer, closer shot" at
+        // someone whose photo was fine.
+        respond(402, #"{"error":"that needs a subscription","code":"subscription_required"}"#)
+
+        do {
+            _ = try await client.analyzeMealPhoto(jpeg: Data([0xFF, 0xD8]), hint: nil)
+            XCTFail("expected subscriptionRequired")
+        } catch {
+            XCTAssertEqual(error as? APIError, .subscriptionRequired("that needs a subscription"))
+        }
+        XCTAssertEqual(store.read(), "session-abc", "needing to pay is not being signed out")
+    }
+
+    func testA402WithNoCopyStillFailsRatherThanInventingSome() async {
+        respond(402, "{}")
+
+        do {
+            _ = try await client.analyzeMealPhoto(jpeg: Data([0xFF, 0xD8]), hint: nil)
+            XCTFail("expected a thrown error")
+        } catch {
+            XCTAssertEqual(error as? APIError, .badStatus(402))
+        }
+    }
+
+    func testSendingAMessageAlsoSurfacesThePaywall() async {
+        // Chat is the most-used gated action; it used to return the refusal as
+        // an ordinary coach reply with a 200.
+        respond(402, #"{"error":"that needs a subscription","code":"subscription_required"}"#)
+
+        do {
+            _ = try await client.sendMessage("had eggs")
+            XCTFail("expected subscriptionRequired")
+        } catch {
+            XCTAssertEqual(error as? APIError, .subscriptionRequired("that needs a subscription"))
+        }
+    }
+
+    func testReadingTheEntitlement() async throws {
+        respond(200, #"{"tier":"trialing","expiresAt":"2026-10-09T12:00:00.000Z"}"#)
+
+        let entitlement = try await client.subscription()
+
+        XCTAssertEqual(entitlement.tier, "trialing")
+        XCTAssertNotNil(entitlement.expiresAt)
+        XCTAssertEqual(StubURLProtocol.lastRequest?.url?.path, "/api/v1/subscription")
+    }
+
+    func testAnAccountThatHasNeverSubscribedDecodesWithNoExpiry() async throws {
+        // expiresAt is null when there is no subscription at all, which is the
+        // state every account is in before the first purchase.
+        respond(200, #"{"tier":"lapsed","expiresAt":null}"#)
+
+        let entitlement = try await client.subscription()
+
+        XCTAssertEqual(entitlement.tier, "lapsed")
+        XCTAssertNil(entitlement.expiresAt)
+    }
+
+    func testPostingAPurchaseSendsTheSignedTransaction() async throws {
+        respond(200, #"{"tier":"trialing","expiresAt":null}"#)
+
+        let entitlement = try await client.submitTransaction("signed-jws")
+
+        XCTAssertEqual(entitlement.tier, "trialing")
+        let request = try XCTUnwrap(StubURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/subscription")
+
+        let body = try XCTUnwrap(Self.bodyData(from: request))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        // The signature is the proof. Nothing the client says about what it
+        // bought is trusted, so only the JWS goes.
+        XCTAssertEqual(json, ["signedTransaction": "signed-jws"])
+    }
+
     private static func bodyData(from request: URLRequest) -> Data? {
         StubURLProtocol.bodyData(from: request)
     }
