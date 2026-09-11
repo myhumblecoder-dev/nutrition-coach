@@ -32,6 +32,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Cheap, and it runs here rather than in ci.yml because that workflow
+      # ignores ios/** — a listing-only change would never reach it. An
+      # overlong field is not rejected by App Store Connect, it is silently
+      # truncated, so the store page ends mid-sentence and nobody finds out
+      # from a build failure.
+      - name: Check the App Store listing fits its fields
+        run: node ../scripts/check-listing.mjs
+
       # The .xcodeproj is generated, not committed: ios/project.yml is the
       # source of truth, so CI builds it before anything else.
       - name: Install XcodeGen

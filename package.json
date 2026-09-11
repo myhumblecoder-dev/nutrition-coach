@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "check:listing": "node scripts/check-listing.mjs",
     "test": "vitest",
     "postinstall": "prisma generate"
   },
