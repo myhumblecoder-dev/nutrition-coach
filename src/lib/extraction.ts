@@ -48,6 +48,9 @@ const factsSchema = z.object({
       portion: z.string().trim().min(1).catch('1 serving').default('1 serving'),
       calories: roundedInt,
       protein: roundedInt,
+      fat: roundedInt.catch(0).default(0),
+      // See `fat.ts`: where the fat came from, not whether it is saturated.
+      fatSource: z.enum(['whole', 'refined']).nullable().catch(null).default(null),
     }),
     8
   ),
@@ -137,8 +140,12 @@ export function buildExtractionPrompt(
     'entries with a name only. Never invent sets, reps or weight they did not say.\n' +
     'EVERYTHING ELSE (training, mood, measurement, and the sleep and water recovery kinds): ONLY facts the ' +
     'user EXPLICITLY stated — never infer, never invent.\n' +
-    'Return ONLY a JSON object with keys: "meals" (array of {"name","portion","calories","protein"} ' +
-    'with integer calories/protein), "training" (array of {"kind": "resistance"|"hiit"|"core"|"neat", ' +
+    'Return ONLY a JSON object with keys: "meals" (array of {"name","portion","calories","protein",' +
+    '"fat","fatSource"} with integer calories/protein/fat and fatSource "whole"|"refined"|null ' +
+    '— "whole" for fat from a whole food (avocado, nuts, eggs, dairy, butter, olive oil, meat, ' +
+    'oily fish), "refined" for fat from an industrially processed product (anything deep fried, ' +
+    'crisps, fast food, margarine, commercial baked goods), null when there is no real fat. ' +
+    'Butter is "whole"; crisps are "refined" despite being mostly unsaturated), "training" (array of {"kind": "resistance"|"hiit"|"core"|"neat", ' +
     '"minutes"?, "steps"?, "note"?, "exercises"?: [{"name","sets"?,"reps"?,"weightLb"?}]}), "recovery" (array of {"kind": "sleep"|"water"|"caffeine", ' +
     '"value": number} — sleep in hours, water in liters, caffeine in milligrams), "mood" (array of ' +
     '{"score": 1-5, "note"?}), "measurement" (array of {"weightLb"?, "waistIn"?}), ' +
@@ -173,6 +180,7 @@ export async function recordHealthFacts(
         foodItems: JSON.stringify([meal]),
         totalCalories: meal.calories,
         totalProtein: meal.protein,
+        totalFat: meal.fat,
         confirmed: true,
         source: 'extracted',
         sourceText: sourceText ?? null,

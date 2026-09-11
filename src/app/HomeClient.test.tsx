@@ -58,9 +58,12 @@ describe('HomeClient', () => {
   it('shows the confirm card once a photo is analysed', async () => {
     vi.mocked(uploadMealPhoto).mockResolvedValue({ url: 'https://blob/m.jpg' })
     vi.mocked(analyzeMeal).mockResolvedValue({
-      foodItems: [{ name: 'Eggs', portion: '2', calories: 140, protein: 12 }],
+      foodItems: [
+        { name: 'Eggs', portion: '2', calories: 140, protein: 12, fat: 10, fatSource: 'whole' },
+      ],
       totalCalories: 140,
       totalProtein: 12,
+      totalFat: 10,
     })
 
     render(<HomeClient today={today} week={week} activity={[]} coachMessage={null} />)

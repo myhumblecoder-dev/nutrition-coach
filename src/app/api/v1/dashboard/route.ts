@@ -56,6 +56,11 @@ export async function GET(request: Request) {
       })),
       target: today.target,
       consumed: today.consumed,
+      // The share is what colours the ring; the label says the same thing in
+      // words, because green and yellow are among the hardest pairs to tell
+      // apart with red-green colour vision deficiency. Both come from the
+      // server so the copy has one home rather than one per client.
+      fatQuality: today.fatQuality,
     },
     week: {
       training: week.training,

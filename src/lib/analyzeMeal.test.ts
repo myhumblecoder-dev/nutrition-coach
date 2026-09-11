@@ -72,3 +72,60 @@ describe('analyzeMeal (lib)', () => {
     )
   })
 })
+
+describe('fat', () => {
+  it('carries fat and its source through', async () => {
+    vi.mocked(analyzePhoto).mockResolvedValue(
+      JSON.stringify({
+        foodItems: [
+          { name: 'avocado', portion: 'half', calories: 160, protein: 2, fat: 15, fatSource: 'whole' },
+          { name: 'crisps', portion: 'small bag', calories: 150, protein: 2, fat: 10, fatSource: 'refined' },
+        ],
+        totalCalories: 310,
+        totalProtein: 4,
+        totalFat: 25,
+      })
+    )
+
+    const result = await analyzeMeal('u1', 'https://example.com/p.jpg')
+
+    expect(result.totalFat).toBe(25)
+    expect(result.foodItems.map((f) => f.fatSource)).toEqual(['whole', 'refined'])
+  })
+
+  it('survives a model that omits fat entirely', async () => {
+    // Every meal already stored predates this, and an older prompt cached
+    // somewhere must not start failing meals. Calories are the thing worth
+    // keeping; fat degrades to nothing rather than losing the log.
+    vi.mocked(analyzePhoto).mockResolvedValue(
+      JSON.stringify({
+        foodItems: [{ name: 'toast', portion: '1 slice', calories: 80, protein: 3 }],
+        totalCalories: 80,
+        totalProtein: 3,
+      })
+    )
+
+    const result = await analyzeMeal('u1', 'https://example.com/p.jpg')
+
+    expect(result.totalFat).toBe(0)
+    expect(result.foodItems[0].fatSource).toBeNull()
+  })
+
+  it('treats an unrecognised fatSource as unclassified rather than failing', async () => {
+    vi.mocked(analyzePhoto).mockResolvedValue(
+      JSON.stringify({
+        foodItems: [
+          { name: 'butter', portion: '1 tbsp', calories: 100, protein: 0, fat: 11, fatSource: 'saturated' },
+        ],
+        totalCalories: 100,
+        totalProtein: 0,
+        totalFat: 11,
+      })
+    )
+
+    const result = await analyzeMeal('u1', 'https://example.com/p.jpg')
+
+    expect(result.foodItems[0].fatSource).toBeNull()
+    expect(result.foodItems[0].fat).toBe(11)
+  })
+})

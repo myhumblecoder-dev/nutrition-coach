@@ -14,10 +14,17 @@ const mealSchema = z.object({
       portion: z.string().trim().min(1),
       calories: roundedInt,
       protein: roundedInt,
+      fat: roundedInt.catch(0).default(0),
+      // Absent counts as refined, decided in `fat.ts`: the model failing to say
+      // is not evidence the fat was good. `.catch` rather than a strict enum so
+      // an unexpected word degrades to null instead of throwing away the whole
+      // meal — the calories are still worth having.
+      fatSource: z.enum(['whole', 'refined']).nullable().catch(null).default(null),
     })
   ),
   totalCalories: roundedInt,
   totalProtein: roundedInt,
+  totalFat: roundedInt.catch(0).default(0),
 })
 
 // Models often wrap JSON in markdown fences or preamble despite "no prose";
@@ -62,12 +69,25 @@ export async function analyzeMeal(userId: string, photoUrl: string, hint?: strin
       "name": string,
       "portion": string,
       "calories": number,
-      "protein": number
+      "protein": number,
+      "fat": number,
+      "fatSource": "whole" | "refined" | null
     }
   ],
   "totalCalories": number,
-  "totalProtein": number
-}`
+  "totalProtein": number,
+  "totalFat": number
+}
+
+fatSource is about where the fat came from, NOT whether it is saturated:
+"whole" for fat from a whole or minimally prepared food — avocado, nuts, eggs,
+dairy, butter, olive oil, the fat on a cut of meat, oily fish.
+"refined" for fat from an industrially processed product — anything deep fried,
+crisps and packaged snacks, fast food, margarine, hydrogenated fat, or a
+commercial baked good.
+null when the item carries no meaningful fat.
+Butter is "whole". Crisps are "refined", even though their fat is mostly
+unsaturated.`
 
   // The tokens come back with the reply, so the row written above gets its
   // real cost filled in. Fire-and-forget: attributeTokens never throws, and
