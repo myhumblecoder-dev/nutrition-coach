@@ -21,6 +21,8 @@ vi.mock('@/lib/db', () => ({
     measurement: { findFirst: vi.fn() },
     userProfile: { findUnique: vi.fn() },
     recoveryEntry: { findMany: vi.fn() },
+    moodEntry: { findFirst: vi.fn() },
+    weeklyCheckIn: { findFirst: vi.fn() },
   },
 }))
 vi.mock('@/lib/llm', () => ({ generate: vi.fn() }))
@@ -50,6 +52,8 @@ describe('answering the weekly check-in in the conversation', () => {
     vi.mocked(prisma.measurement.findFirst).mockResolvedValue(null as never)
     vi.mocked(prisma.userProfile.findUnique).mockResolvedValue(null as never)
     vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.moodEntry.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.weeklyCheckIn.findFirst).mockResolvedValue(null)
     vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([
       { role: 'assistant', content: QUESTIONS.body },
     ] as never)

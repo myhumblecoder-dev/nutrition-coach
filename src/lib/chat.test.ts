@@ -36,6 +36,12 @@ vi.mock('@/lib/db', () => ({
     recoveryEntry: {
       findMany: vi.fn(),
     },
+    moodEntry: {
+      findFirst: vi.fn(),
+    },
+    weeklyCheckIn: {
+      findFirst: vi.fn(),
+    },
   },
 }))
 
@@ -56,6 +62,8 @@ describe('chat', () => {
     vi.mocked(prisma.measurement.findFirst).mockResolvedValue(null as never)
     vi.mocked(prisma.userProfile.findUnique).mockResolvedValue(null as never)
     vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.moodEntry.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.weeklyCheckIn.findFirst).mockResolvedValue(null)
     vi.mocked(extractHealthFacts).mockResolvedValue({
       meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
     })
@@ -604,5 +612,101 @@ describe('what the coach is told was recorded', () => {
 
     const prompt = vi.mocked(generate).mock.calls[0][0]
     expect(prompt).toContain('2 meals, 3 recovery entries')
+  })
+})
+
+describe('what the coach can see about today', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
+    vi.mocked(prisma.trainingEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.moodEntry.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.weeklyCheckIn.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.measurement.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.userProfile.findUnique).mockResolvedValue(null)
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
+    })
+    vi.mocked(generate).mockResolvedValue('Logged.')
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue({
+      id: 't1', userId: 'u1', calories: 2000, protein: 150,
+      createdAt: new Date(Date.UTC(2024, 0, 1)),
+      updatedAt: new Date(Date.UTC(2024, 0, 1)),
+    } as never)
+  })
+
+  it('names the food, not just the totals', async () => {
+    // The gap that caused a real confusion: asked about "the meals I have
+    // logged", the coach answered from the conversation because the item names
+    // were fetched, summed, and discarded. A photo-logged meal was invisible
+    // as content.
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([
+      {
+        totalCalories: 300,
+        totalProtein: 5,
+        totalFat: 20,
+        foodItems: JSON.stringify([{ name: 'avocado' }]),
+        loggedAt: new Date('2026-09-11T16:00:00Z'),
+      },
+    ] as never)
+
+    await coachReply('u1', 'what have I eaten')
+
+    expect(vi.mocked(generate).mock.calls[0][0]).toContain('avocado')
+  })
+
+  it('can see last night\'s sleep', async () => {
+    // Caffeine had a decay model and a sentence of context. Sleep was not read
+    // at all, despite being logged and being the bigger lever.
+    vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([
+      { kind: 'sleep', value: 6.5 },
+    ] as never)
+
+    await coachReply('u1', 'I feel rough')
+
+    expect(vi.mocked(generate).mock.calls[0][0]).toContain('6.5h sleep')
+  })
+
+  it('remembers the answers it was given at the check-in', async () => {
+    // It ran the interview and could not see the answers afterwards.
+    vi.mocked(prisma.weeklyCheckIn.findFirst).mockResolvedValue({
+      weekOf: new Date('2026-09-07T00:00:00Z'),
+      bodyAnswer: 'waist down a bit',
+      strengthAnswer: null,
+      sleepAnswer: 'rough, travelling',
+      moodAnswer: null,
+    } as never)
+
+    await coachReply('u1', 'how am I doing')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('waist down a bit')
+    expect(prompt).toContain('rough, travelling')
+  })
+
+  it('can see today\'s mood', async () => {
+    vi.mocked(prisma.moodEntry.findFirst).mockResolvedValue({
+      score: 2,
+      note: 'wiped out',
+    } as never)
+
+    await coachReply('u1', 'not great today')
+
+    expect(vi.mocked(generate).mock.calls[0][0]).toContain('wiped out')
+  })
+
+  it('adds no noise on a day with nothing logged', async () => {
+    // Empty means absent, not a placeholder. "No mood logged" in every turn of
+    // every user who never logs mood is a line of pure cost.
+    await coachReply('u1', 'hello')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).not.toContain('Eaten today')
+    expect(prompt).not.toContain('Mood today')
+    expect(prompt).not.toContain('Last check-in')
+    expect(prompt).not.toContain('Logged today')
   })
 })
