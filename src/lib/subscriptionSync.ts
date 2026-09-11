@@ -39,6 +39,12 @@ export type SubscriptionFields = {
 export class UnusableTransactionError extends Error {}
 
 /**
+ * How many people may share one purchase, beside the person who bought it.
+ * Apple's own limit: an organiser plus five.
+ */
+const MAX_FAMILY_MEMBERS = 5
+
+/**
  * Reduces a verified transaction to the six fields entitlement is decided from.
  *
  * Everything else Apple sends is either duplicated elsewhere or irrelevant to
@@ -97,16 +103,41 @@ export async function syncSubscription(userId: string, transaction: AppleTransac
   // Apple itself marked FAMILY_SHARED gets past, and Apple only marks one that
   // way for someone actually in the buyer's family.
   if (fields.ownershipType === 'PURCHASED') {
-    const existing = await prisma.subscription.findFirst({
+    // Scoped to other accounts in the query rather than fetched and compared.
+    // `originalTransactionId` is no longer unique, so `findFirst` returns an
+    // arbitrary matching row — one that could be the caller's own, which would
+    // refuse the buyer the account he bought it on.
+    const claimedByAnother = await prisma.subscription.findFirst({
       where: {
         originalTransactionId: fields.originalTransactionId,
         ownershipType: 'PURCHASED',
+        userId: { not: userId },
       },
       select: { userId: true },
     })
-    if (existing && existing.userId !== userId) {
+    if (claimedByAnother) {
       throw new UnusableTransactionError(
         'That subscription is already attached to another account'
+      )
+    }
+  } else {
+    // Apple's family is the organiser plus five, but nothing inside a signed
+    // transaction says which Apple ID it was issued to. Without a bound, one
+    // family member's JWS posted to any number of accounts would entitle every
+    // one of them, each costing real model spend against a single fee.
+    //
+    // Excludes this user so re-posting an existing share stays idempotent
+    // rather than being counted as another seat.
+    const others = await prisma.subscription.count({
+      where: {
+        originalTransactionId: fields.originalTransactionId,
+        ownershipType: 'FAMILY_SHARED',
+        userId: { not: userId },
+      },
+    })
+    if (others >= MAX_FAMILY_MEMBERS) {
+      throw new UnusableTransactionError(
+        'That family subscription is already in use by the maximum number of people'
       )
     }
   }

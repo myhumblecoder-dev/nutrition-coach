@@ -68,14 +68,14 @@ enum DemoMode {
         ProcessInfo.processInfo.arguments.contains("-demo-reload")
     }
 
-    /// Opens the past-conversations screen on launch, so it can be looked at
-    /// without a tap. Inert without the argument.
     /// Serves a 402 from the gated routes, so the paywall — and the path that
     /// raises it — can be inspected without App Store Connect.
     static var isPaywalled: Bool {
         isActive && ProcessInfo.processInfo.arguments.contains("-demo-paywall")
     }
 
+    /// Opens the past-conversations screen on launch, so it can be looked at
+    /// without a tap. Inert without the argument.
     static var showsChatHistory: Bool {
         ProcessInfo.processInfo.arguments.contains("-demo-chat-history")
     }

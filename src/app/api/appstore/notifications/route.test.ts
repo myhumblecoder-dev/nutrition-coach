@@ -158,3 +158,24 @@ describe('family-shared notifications', () => {
     )
   })
 })
+
+describe('ownership is not rewritten by notifications', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockUpdate.mockResolvedValue({ count: 2 } as never)
+  })
+
+  it('leaves family rows as family when the purchase renews', async () => {
+    // A renewal matches the whole household by design. Writing the
+    // notification's own ownership type into all of them would stamp the
+    // family rows PURCHASED — and then a later REVOKE for a family member,
+    // which narrows by FAMILY_SHARED, would match nothing and leave someone
+    // removed from the family with access forever.
+    mockVerify.mockResolvedValue(notification('DID_RENEW') as never)
+
+    await POST(request())
+
+    const [{ data }] = mockUpdate.mock.calls[0] as [{ data: Record<string, unknown> }]
+    expect(data).not.toHaveProperty('ownershipType')
+  })
+})

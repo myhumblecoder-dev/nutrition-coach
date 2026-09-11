@@ -3,7 +3,9 @@ import { subscriptionFieldsFrom, syncSubscription } from './subscriptionSync'
 import { prisma } from '@/lib/db'
 
 vi.mock('@/lib/db', () => ({
-  prisma: { subscription: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn() } },
+  prisma: {
+    subscription: { findUnique: vi.fn(), findFirst: vi.fn(), count: vi.fn(), upsert: vi.fn() },
+  },
 }))
 
 const EXPIRES = Date.UTC(2026, 9, 9, 12, 0, 0)
@@ -87,7 +89,9 @@ describe('syncSubscription', () => {
   })
 
   it('allows the same account to re-post its own transaction', async () => {
-    mockFind.mockResolvedValue({ userId: 'u1', expiresAt: new Date(EXPIRES) } as never)
+    // Null, not the caller's own row: the query excludes this user, so a hit
+    // means somebody else holds it. Re-posting simply finds nothing.
+    mockFind.mockResolvedValue(null)
 
     await syncSubscription('u1', transaction())
 
@@ -140,14 +144,64 @@ describe('family sharing', () => {
     )
   })
 
-  it('looks only at purchases when deciding whether a claim collides', async () => {
-    vi.mocked(prisma.subscription.findFirst).mockResolvedValue(null)
+})
 
+describe('family sharing limits', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.subscription.findFirst).mockReset().mockResolvedValue(null)
+    vi.mocked(prisma.subscription.count).mockReset().mockResolvedValue(0 as never)
+    vi.mocked(prisma.subscription.upsert).mockReset()
+  })
+
+  it('asks only about other accounts when checking for a collision', async () => {
+    // Scoped to someone else from the start, rather than fetched and compared.
+    // findFirst on a non-unique column returns an arbitrary row, so a query
+    // that can return the caller's own row could refuse the buyer access to
+    // the account he bought it on.
     await syncSubscription('buyer', transaction())
 
     expect(prisma.subscription.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { originalTransactionId: 'ot-1', ownershipType: 'PURCHASED' },
+        where: {
+          originalTransactionId: 'ot-1',
+          ownershipType: 'PURCHASED',
+          userId: { not: 'buyer' },
+        },
+      })
+    )
+  })
+
+  it('refuses a sixth family member', async () => {
+    // Apple's family is the organiser plus five. Nothing in a signed
+    // transaction says who it was issued to, so one shared JWS could otherwise
+    // be posted to any number of accounts — each costing real model spend
+    // against a single subscription.
+    vi.mocked(prisma.subscription.count).mockResolvedValue(5 as never)
+
+    await expect(
+      syncSubscription('stranger', transaction({ inAppOwnershipType: 'FAMILY_SHARED' }))
+    ).rejects.toThrow(/family/i)
+  })
+
+  it('admits a fifth family member', async () => {
+    vi.mocked(prisma.subscription.count).mockResolvedValue(4 as never)
+
+    await syncSubscription('cousin', transaction({ inAppOwnershipType: 'FAMILY_SHARED' }))
+
+    expect(prisma.subscription.upsert).toHaveBeenCalled()
+  })
+
+  it('does not count the family when someone re-posts their own share', async () => {
+    // A family member re-posting is idempotent, not a new seat.
+    vi.mocked(prisma.subscription.count).mockResolvedValue(5 as never)
+
+    await expect(
+      syncSubscription('cousin', transaction({ inAppOwnershipType: 'FAMILY_SHARED' }))
+    ).rejects.toThrow()
+
+    expect(prisma.subscription.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: { not: 'cousin' } }),
       })
     )
   })

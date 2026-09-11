@@ -84,7 +84,11 @@ export async function POST(request: Request) {
       status: fields.status,
       expiresAt: fields.expiresAt,
       isTrial: fields.isTrial,
-      ownershipType: fields.ownershipType,
+      // Deliberately not written. Ownership is settled when the row is created
+      // from the transaction its own user posted, and it never changes
+      // afterwards. Writing it here would stamp every family row with the
+      // notification's type — and a renewal, which correctly matches the whole
+      // household, would turn the family into purchasers.
       environment: fields.environment,
       lastVerifiedAt: new Date(),
     },

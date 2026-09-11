@@ -39,17 +39,49 @@ final class StoreTests: XCTestCase {
         // The state a paywall must survive: products failed to load, so there
         // is nothing to buy. It has to say so rather than render an empty
         // sheet with a dead button.
-        let store = Store(submit: { _ in })
+        let store = Store(submit: { _ in true })
 
         XCTAssertTrue(store.products.isEmpty)
         XCTAssertFalse(store.isPurchasing)
+    }
+
+    func testOrderingSurvivesAnUnknownProduct() {
+        // The comparator ranks by position in `productIDs`. Anything not in
+        // that list sorts last rather than making the order arbitrary.
+        let ranked = ["zzz.unknown", "dev.myhumblecoder.nutritioncoach.annual",
+                      "dev.myhumblecoder.nutritioncoach.monthly"]
+            .sorted { a, b in
+                (Store.productIDs.firstIndex(of: a) ?? .max) < (Store.productIDs.firstIndex(of: b) ?? .max)
+            }
+
+        XCTAssertEqual(ranked, [
+            "dev.myhumblecoder.nutritioncoach.monthly",
+            "dev.myhumblecoder.nutritioncoach.annual",
+            "zzz.unknown",
+        ])
+    }
+
+    func testARejectedPostLeavesTheTransactionUnfinished() async {
+        // Cannot drive a real Transaction without StoreKit, so this pins the
+        // contract `handle` depends on: submit reports success, and the whole
+        // retry story rests on that being false when the server refuses.
+        let store = Store(submit: { _ in false })
+        var reported: Bool?
+
+        reported = await store.postForTesting("jws")
+
+        XCTAssertEqual(reported, false)
+        XCTAssertTrue(store.products.isEmpty)
     }
 
     func testRestoringWithNoEntitlementsPostsNothing() async {
         // No purchase, nothing to send. Posting an empty restore would have
         // the server verify a transaction that does not exist.
         var posted: [String] = []
-        let store = Store(submit: { jws in await MainActor.run { posted.append(jws) } })
+        let store = Store(submit: { jws in
+            await MainActor.run { posted.append(jws) }
+            return true
+        })
 
         await store.restore()
 

@@ -22,6 +22,11 @@ struct PaywallView: View {
     let reason: String?
 
     @State private var loadError: String?
+    /// Separate from `loadError` on purpose: a declined card must not replace
+    /// the buttons with an error and a Try again that reloads products. The
+    /// thing that failed was the purchase, and the purchase is still there to
+    /// retry.
+    @State private var purchaseError: String?
     @State private var restoring = false
     @State private var restoreMessage: String?
 
@@ -114,9 +119,14 @@ struct PaywallView: View {
         } else if state.store.products.isEmpty {
             ProgressView().frame(maxWidth: .infinity)
         } else {
-            VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(state.store.products, id: \.id) { product in
                     productButton(product)
+                }
+                if let purchaseError {
+                    Text(purchaseError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
                 }
             }
         }
@@ -232,6 +242,7 @@ struct PaywallView: View {
     }
 
     private func buy(_ product: Product) async {
+        purchaseError = nil
         do {
             try await state.store.purchase(product)
             // The purchase posts its own transaction; this asks the server
@@ -239,7 +250,7 @@ struct PaywallView: View {
             await state.refreshEntitlement()
             if state.isEntitled { dismiss() }
         } catch {
-            loadError = "That purchase didn't go through. You haven't been charged twice — try again."
+            purchaseError = "That purchase didn't go through. You haven't been charged — try again."
         }
     }
 
