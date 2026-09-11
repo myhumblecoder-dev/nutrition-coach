@@ -26,12 +26,15 @@ describe('TrainingCard', () => {
     expect(filled).toHaveLength(2)
   })
 
-  it('renders the steps progress figure', () => {
+  it('sets no step goal', () => {
+    // Steps arrive only when someone tells the coach they walked, which nobody
+    // does daily. A 10,000 denominator against that turned Today into a
+    // standing failure for a number the app cannot actually see. The value is
+    // still logged and still shows in the feed when it is mentioned — it just
+    // is not a quota any more.
     render(<TrainingCard training={training} />)
 
-    const steps = Array.from(document.querySelectorAll('div')).filter(
-      (el) => el.textContent === '6,540 / 10,000' && el.querySelector('span')
-    )
-    expect(steps.length).toBeGreaterThan(0)
+    expect(document.body.textContent).not.toContain('10,000')
+    expect(document.body.textContent).not.toContain('Steps today')
   })
 })
