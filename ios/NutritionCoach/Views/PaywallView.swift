@@ -139,6 +139,9 @@ struct PaywallView: View {
                 Text(termsLine(for: product))
                     .font(.footnote)
                     .opacity(0.9)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
@@ -153,24 +156,30 @@ struct PaywallView: View {
     /// what it converts to rather than as a giveaway.
     private func termsLine(for product: Product) -> String {
         guard let subscription = product.subscription else { return product.displayPrice }
-        let period = describe(subscription.subscriptionPeriod)
+        let every = recurrence(of: subscription.subscriptionPeriod)
 
         if let offer = subscription.introductoryOffer, offer.paymentMode == .freeTrial {
-            return "\(describe(offer.period)) free, then \(product.displayPrice) per \(period). Renews until cancelled."
+            return "\(duration(of: offer.period)) free, then \(product.displayPrice) per \(every). Renews until cancelled."
         }
-        return "\(product.displayPrice) per \(period). Renews until cancelled."
+        return "\(product.displayPrice) per \(every). Renews until cancelled."
     }
 
-    private func describe(_ period: Product.SubscriptionPeriod) -> String {
-        let unit: String
+    private func duration(of period: Product.SubscriptionPeriod) -> String {
+        SubscriptionPeriodText.duration(value: period.value, unit: unit(of: period))
+    }
+
+    private func recurrence(of period: Product.SubscriptionPeriod) -> String {
+        SubscriptionPeriodText.recurrence(value: period.value, unit: unit(of: period))
+    }
+
+    private func unit(of period: Product.SubscriptionPeriod) -> SubscriptionPeriodText.Unit {
         switch period.unit {
-        case .day: unit = "day"
-        case .week: unit = "week"
-        case .month: unit = "month"
-        case .year: unit = "year"
-        @unknown default: unit = "period"
+        case .day: return .day
+        case .week: return .week
+        case .month: return .month
+        case .year: return .year
+        @unknown default: return .unknown
         }
-        return period.value == 1 ? unit : "\(period.value) \(unit)s"
     }
 
     private var restoreRow: some View {
