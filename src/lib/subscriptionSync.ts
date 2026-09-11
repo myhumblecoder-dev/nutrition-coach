@@ -17,6 +17,12 @@ export type AppleTransaction = {
   environment?: string
   /** 1 is the introductory offer — the free week. */
   offerType?: number
+  /**
+   * 'PURCHASED' | 'FAMILY_SHARED'. Apple signs this along with everything
+   * else, so it is the one trustworthy way to tell a family member apart from
+   * someone replaying a receipt they were given.
+   */
+  inAppOwnershipType?: string
 }
 
 export type SubscriptionFields = {
@@ -25,6 +31,7 @@ export type SubscriptionFields = {
   status: string
   expiresAt: Date
   isTrial: boolean
+  ownershipType: string
   environment: string
 }
 
@@ -61,6 +68,10 @@ export function subscriptionFieldsFrom(transaction: AppleTransaction): Subscript
     status: transaction.revocationDate ? 'revoked' : 'active',
     expiresAt: new Date(expiresDate),
     isTrial: transaction.offerType === 1,
+    // Defaulted to a purchase, never to a share: an absent field must fail
+    // towards the stricter rule, because the other direction hands out access
+    // on the strength of a value that was not there.
+    ownershipType: transaction.inAppOwnershipType === 'FAMILY_SHARED' ? 'FAMILY_SHARED' : 'PURCHASED',
     environment,
   }
 }
@@ -76,17 +87,28 @@ export function subscriptionFieldsFrom(transaction: AppleTransaction): Subscript
 export async function syncSubscription(userId: string, transaction: AppleTransaction) {
   const fields = subscriptionFieldsFrom(transaction)
 
-  // One Apple ID cannot fund two accounts. Without this, a receipt pasted into
-  // a second account would entitle both, and the unique constraint would fail
-  // at the database with an error nobody could act on.
-  const existing = await prisma.subscription.findUnique({
-    where: { originalTransactionId: fields.originalTransactionId },
-    select: { userId: true },
-  })
-  if (existing && existing.userId !== userId) {
-    throw new UnusableTransactionError(
-      'That subscription is already attached to another account'
-    )
+  // One Apple ID cannot fund two accounts — but Family Sharing is Apple
+  // deliberately doing exactly that, and up to five family members legitimately
+  // carry the buyer's `originalTransactionId`. So the collision rule applies
+  // between *purchases* only.
+  //
+  // That is safe because Apple signs `inAppOwnershipType`: a receipt moved to
+  // another account arrives as PURCHASED and still collides. Only a transaction
+  // Apple itself marked FAMILY_SHARED gets past, and Apple only marks one that
+  // way for someone actually in the buyer's family.
+  if (fields.ownershipType === 'PURCHASED') {
+    const existing = await prisma.subscription.findFirst({
+      where: {
+        originalTransactionId: fields.originalTransactionId,
+        ownershipType: 'PURCHASED',
+      },
+      select: { userId: true },
+    })
+    if (existing && existing.userId !== userId) {
+      throw new UnusableTransactionError(
+        'That subscription is already attached to another account'
+      )
+    }
   }
 
   return prisma.subscription.upsert({

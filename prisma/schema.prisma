@@ -323,12 +323,19 @@ model Subscription {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  /// Apple's stable identifier for this subscriber, constant across renewals,
-  /// upgrades and resubscribes. Unique because it identifies the subscription
-  /// itself: if it ever appears under a second account, that is one Apple ID
-  /// funding two accounts and the newer claim has to be rejected rather than
-  /// silently entitle both.
-  originalTransactionId String @unique
+  /// Apple's stable identifier for this subscription, constant across
+  /// renewals, upgrades and resubscribes.
+  ///
+  /// Deliberately not unique: Family Sharing puts the buyer's id on every
+  /// family member's transaction, so several rows legitimately share one.
+  /// `syncSubscription` enforces the real rule instead — at most one
+  /// PURCHASED row per id — which a database constraint cannot express.
+  originalTransactionId String
+
+  /// 'PURCHASED' | 'FAMILY_SHARED'. Who this row belongs to relative to the
+  /// person who paid. Apple signs it, so it can be trusted to tell a family
+  /// member apart from a replayed receipt.
+  ownershipType String @default("PURCHASED")
 
   /// The App Store product — the monthly or the annual.
   productId String
@@ -356,4 +363,7 @@ model Subscription {
   updatedAt      DateTime @updatedAt
 
   @@index([expiresAt])
+  /// Notifications and the collision check both look rows up by this, and it
+  /// stopped being indexed when the unique constraint came off.
+  @@index([originalTransactionId])
 }

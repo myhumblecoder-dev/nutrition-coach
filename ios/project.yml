@@ -103,4 +103,3 @@ schemes:
       targets:
         - NutritionCoachTests
       gatherCoverageData: true
-      storeKitConfiguration: Configuration.storekit

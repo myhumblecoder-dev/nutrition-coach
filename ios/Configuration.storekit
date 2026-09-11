@@ -1,75 +1,133 @@
 {
-  "identifier": "A1B2C3D4",
-  "nonRenewingSubscriptions": [],
-  "products": [],
-  "settings": {},
-  "subscriptionGroups": [
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "86CE8ECC",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6808993265",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "S84D3BXRYL",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 810830648.16138101,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
     {
-      "id": "21520728",
-      "localizations": [
+      "id" : "22375198",
+      "localizations" : [
         {
-          "description": "Roughly",
-          "displayName": "Roughly",
-          "locale": "en_US"
+          "description" : "",
+          "displayName" : "Roughly",
+          "locale" : "en_US"
         }
       ],
-      "name": "Roughly",
-      "subscriptions": [
+      "name" : "Roughly Subscription Group",
+      "subscriptions" : [
         {
-          "adHocOffers": [],
-          "codeOffers": [],
-          "displayPrice": "7.99",
-          "familyShareable": false,
-          "groupNumber": 1,
-          "internalID": "6499001001",
-          "introductoryOffer": {
-            "internalID": "6499002001",
-            "paymentMode": "free",
-            "subscriptionPeriod": "P1W"
-          },
-          "localizations": [
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
             {
-              "description": "The coach, meal photos and the weekly check-in.",
-              "displayName": "Roughly Monthly",
-              "locale": "en_US"
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "79.99",
+              "displayPrice" : "79.99",
+              "internalID" : "6811077498_BILLED_UPFRONT",
+              "isEnabled" : true
             }
           ],
-          "productID": "dev.myhumblecoder.nutritioncoach.monthly",
-          "recurringSubscriptionPeriod": "P1M",
-          "referenceName": "Roughly Monthly",
-          "subscriptionGroupID": "21520728",
-          "type": "RecurringSubscription"
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "79.99",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "6811077498",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "Photo meal logging, daily targets, a real coach.",
+              "displayName" : "Roughly Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "dev.myhumblecoder.nutritioncoach.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Roughly Annual",
+          "subscriptionGroupID" : "22375198",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         },
         {
-          "adHocOffers": [],
-          "codeOffers": [],
-          "displayPrice": "79.99",
-          "familyShareable": false,
-          "groupNumber": 1,
-          "internalID": "6499001002",
-          "introductoryOffer": {
-            "internalID": "6499002002",
-            "paymentMode": "free",
-            "subscriptionPeriod": "P1W"
-          },
-          "localizations": [
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
             {
-              "description": "The coach, meal photos and the weekly check-in.",
-              "displayName": "Roughly Annual",
-              "locale": "en_US"
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "7.99",
+              "displayPrice" : "7.99",
+              "internalID" : "6810817160_BILLED_UPFRONT",
+              "isEnabled" : true
             }
           ],
-          "productID": "dev.myhumblecoder.nutritioncoach.annual",
-          "recurringSubscriptionPeriod": "P1Y",
-          "referenceName": "Roughly Annual",
-          "subscriptionGroupID": "21520728",
-          "type": "RecurringSubscription"
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "7.99",
+          "familyShareable" : true,
+          "groupNumber" : 2,
+          "internalID" : "6810817160",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "Photo meal logging, daily targets, a real coach.",
+              "displayName" : "Roughly Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "dev.myhumblecoder.nutritioncoach.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Roughly Monthly",
+          "subscriptionGroupID" : "22375198",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         }
       ]
     }
   ],
-  "version": {
-    "major": 3,
-    "minor": 0
+  "version" : {
+    "major" : 5,
+    "minor" : 0
   }
 }

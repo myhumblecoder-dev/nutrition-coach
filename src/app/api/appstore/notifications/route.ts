@@ -61,13 +61,30 @@ export async function POST(request: Request) {
   // notification itself says which subscription it is about. `updateMany`
   // rather than `update` so an unknown subscription is a count of zero instead
   // of a thrown record-not-found.
+  //
+  // Family Sharing makes the scope matter. Every family member's row carries
+  // the buyer's `originalTransactionId`, so a notification about one of them
+  // would otherwise rewrite the buyer's row too — and a withdrawn share would
+  // revoke the person actually paying. A notification about a purchase still
+  // reaches everyone, which is right: a renewal extends the whole household
+  // and a refund ends it.
+  //
+  // What this cannot do is tell two family members apart — they share both
+  // fields — so one leaving revokes the others until they restore. Apple sends
+  // nothing that would separate them.
   const { count } = await prisma.subscription.updateMany({
-    where: { originalTransactionId: fields.originalTransactionId },
+    where: {
+      originalTransactionId: fields.originalTransactionId,
+      ...(fields.ownershipType === 'FAMILY_SHARED'
+        ? { ownershipType: 'FAMILY_SHARED' }
+        : {}),
+    },
     data: {
       productId: fields.productId,
       status: fields.status,
       expiresAt: fields.expiresAt,
       isTrial: fields.isTrial,
+      ownershipType: fields.ownershipType,
       environment: fields.environment,
       lastVerifiedAt: new Date(),
     },

@@ -3,7 +3,7 @@ import { subscriptionFieldsFrom, syncSubscription } from './subscriptionSync'
 import { prisma } from '@/lib/db'
 
 vi.mock('@/lib/db', () => ({
-  prisma: { subscription: { findUnique: vi.fn(), upsert: vi.fn() } },
+  prisma: { subscription: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn() } },
 }))
 
 const EXPIRES = Date.UTC(2026, 9, 9, 12, 0, 0)
@@ -57,7 +57,9 @@ describe('subscriptionFieldsFrom', () => {
 
 describe('syncSubscription', () => {
   const mockUpsert = vi.mocked(prisma.subscription.upsert)
-  const mockFind = vi.mocked(prisma.subscription.findUnique)
+  // findFirst, not findUnique: originalTransactionId stopped being unique
+  // when Family Sharing made several rows share one.
+  const mockFind = vi.mocked(prisma.subscription.findFirst)
 
   beforeEach(() => {
     vi.resetAllMocks()
@@ -90,5 +92,63 @@ describe('syncSubscription', () => {
     await syncSubscription('u1', transaction())
 
     expect(mockUpsert).toHaveBeenCalled()
+  })
+})
+
+
+describe('family sharing', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.subscription.findFirst).mockReset()
+    vi.mocked(prisma.subscription.upsert).mockReset()
+  })
+
+  it('reads the ownership type Apple sends', () => {
+    const shared = subscriptionFieldsFrom(transaction({ inAppOwnershipType: 'FAMILY_SHARED' }))
+
+    expect(shared.ownershipType).toBe('FAMILY_SHARED')
+  })
+
+  it('treats a transaction with no ownership type as a purchase', () => {
+    // Apple has always sent this field, but a missing one must not silently
+    // become a family share — that is the direction that gives access away.
+    expect(subscriptionFieldsFrom(transaction()).ownershipType).toBe('PURCHASED')
+  })
+
+  it('entitles a family member even though the purchaser holds the same transaction id', async () => {
+    // The whole point of Family Sharing: one purchase, several Apple IDs, all
+    // carrying the buyer's originalTransactionId. Refusing on the id alone
+    // would deny everyone Apple has told they have access.
+    vi.mocked(prisma.subscription.findFirst).mockResolvedValue(null)
+
+    await syncSubscription('family-member', transaction({ inAppOwnershipType: 'FAMILY_SHARED' }))
+
+    expect(prisma.subscription.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'family-member' } })
+    )
+  })
+
+  it('still refuses a second account claiming the same purchase', async () => {
+    // Unchanged from before, and the reason the check exists: a receipt moved
+    // to another account arrives as PURCHASED, not FAMILY_SHARED, because
+    // Apple signs the ownership type along with everything else.
+    vi.mocked(prisma.subscription.findFirst).mockResolvedValue(
+      { userId: 'the-buyer' } as never
+    )
+
+    await expect(syncSubscription('someone-else', transaction())).rejects.toThrow(
+      /already attached to another account/
+    )
+  })
+
+  it('looks only at purchases when deciding whether a claim collides', async () => {
+    vi.mocked(prisma.subscription.findFirst).mockResolvedValue(null)
+
+    await syncSubscription('buyer', transaction())
+
+    expect(prisma.subscription.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { originalTransactionId: 'ot-1', ownershipType: 'PURCHASED' },
+      })
+    )
   })
 })
