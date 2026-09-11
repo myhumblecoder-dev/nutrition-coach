@@ -5,11 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import RingGauge from '@/components/RingGauge'
 import DeleteMealButton from '@/components/DeleteMealButton'
+import { fatColour } from '@/lib/fatColour'
 
 interface TodayDashboardProps {
   consumed: {
     calories: number
     protein: number
+    fat: number
+  }
+  fatQuality: {
+    wholeFoodShare: number | null
+    label: string | null
   }
   target: {
     calories: number
@@ -39,7 +45,12 @@ function mealLabel(foodItems: string): string {
   return 'Meal'
 }
 
-export default function TodayDashboard({ consumed, target, meals }: TodayDashboardProps) {
+export default function TodayDashboard({
+  consumed,
+  target,
+  meals,
+  fatQuality,
+}: TodayDashboardProps) {
   return (
     <div className="space-y-6">
       <Card>
@@ -48,14 +59,16 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
         </CardHeader>
         <CardContent>
           {target ? (
-            <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-6 py-2">
+            // Three rings now, so the gap comes down and the rings with it —
+            // 168 three-up overflowed at the card's width.
+            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6 py-2">
               <RingGauge
                 value={consumed.calories}
                 max={target.calories}
                 centerText={consumed.calories.toLocaleString()}
                 subText={`of ${target.calories.toLocaleString()} kcal`}
                 label="Calories"
-                size={168}
+                size={148}
               />
               <RingGauge
                 value={consumed.protein}
@@ -63,7 +76,23 @@ export default function TodayDashboard({ consumed, target, meals }: TodayDashboa
                 centerText={`${consumed.protein}g`}
                 subText={`of ${target.protein}g protein`}
                 label="Protein"
-                size={168}
+                size={148}
+              />
+              {/* No max: fat has no target. The circle is always full and the
+                  colour is the content — green for fat from whole foods,
+                  amber for refined, gradient between. `subText` repeats the
+                  reading in words because green and amber are among the
+                  hardest pairs to separate with red-green colour vision
+                  deficiency, so hue cannot be the only channel. */}
+              <RingGauge
+                value={consumed.fat}
+                max={0}
+                full
+                color={fatColour(fatQuality.wholeFoodShare)}
+                centerText={`${consumed.fat}g`}
+                subText={fatQuality.label ?? 'no fat logged'}
+                label="Fat"
+                size={148}
               />
             </div>
           ) : (

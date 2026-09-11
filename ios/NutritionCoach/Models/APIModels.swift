@@ -38,6 +38,10 @@ struct MealAnalysis: Codable, Equatable, Identifiable {
     let foodItems: [FoodItem]
     let totalCalories: Int
     let totalProtein: Int
+    /// Optional so a build can decode a response from a server without fat.
+    let totalFat: Int?
+
+    var fatGrams: Int { totalFat ?? 0 }
 }
 
 struct MacroPair: Codable, Equatable {
@@ -45,10 +49,39 @@ struct MacroPair: Codable, Equatable {
     let protein: Int
 }
 
+/// What has been eaten today. Separate from `MacroPair` because a target has
+/// no fat — fat deliberately has no target (see `FatQuality`), so folding it
+/// into the shared type would mean an optional that is always nil on one side.
+struct Consumed: Codable, Equatable {
+    let calories: Int
+    let protein: Int
+    /// Absent on a response from a server that predates fat, which is why it
+    /// decodes as optional and reads as zero.
+    let fat: Int?
+
+    var fatGrams: Int { fat ?? 0 }
+}
+
+/// How good today's fat was, and how to say it.
+///
+/// `wholeFoodShare` is 0 to 1, or nil when nothing carried fat — which is not
+/// the same as bad fat, and must not render as the worst colour.
+///
+/// `label` says the same thing in words. It exists because the ring says it in
+/// green and amber, and those are among the hardest pairs to separate with
+/// red-green colour vision deficiency, so hue cannot be the only channel. The
+/// copy comes from the server so it has one home rather than one per client.
+struct FatQuality: Codable, Equatable {
+    let wholeFoodShare: Double?
+    let label: String?
+}
+
 struct TodayResponse: Codable, Equatable {
     let meals: [Meal]
     let target: MacroPair?
-    let consumed: MacroPair
+    let consumed: Consumed
+    /// Optional so a build can run against a server that has not shipped it.
+    let fatQuality: FatQuality?
 }
 
 struct ChatMessage: Codable, Equatable, Identifiable {

@@ -7,6 +7,10 @@ const foodItemSchema = z.object({
   portion: z.string().trim().min(1),
   calories: z.number().nonnegative(),
   protein: z.number().nonnegative(),
+  // Optional so a caller that predates fat still validates. See `fat.ts` for
+  // why the source is whole-versus-refined rather than saturation.
+  fat: z.number().nonnegative().optional(),
+  fatSource: z.enum(["whole", "refined"]).nullable().optional(),
 });
 
 const saveMealEntrySchema = z.object({
@@ -14,6 +18,7 @@ const saveMealEntrySchema = z.object({
   foodItems: z.array(foodItemSchema).min(1),
   totalCalories: z.number().nonnegative(),
   totalProtein: z.number().nonnegative(),
+  totalFat: z.number().nonnegative().optional(),
 });
 
 export async function logMealForUser(userId: string, input: z.infer<typeof saveMealEntrySchema>, sourceText?: string, confirmed: boolean = true) {
@@ -31,6 +36,7 @@ export async function logMealForUser(userId: string, input: z.infer<typeof saveM
       foodItems: JSON.stringify(parsed.foodItems),
       totalCalories: parsed.totalCalories,
       totalProtein: parsed.totalProtein,
+      totalFat: parsed.totalFat ?? 0,
       confirmed,
       sourceText: sourceText ?? null,
       loggedAt: new Date(),
@@ -50,7 +56,7 @@ export async function logMealForUser(userId: string, input: z.infer<typeof saveM
  * operations, and a second copy would be a second chance to forget the
  * `userId` scope.
  */
-type MealTotals = { totalCalories?: number; totalProtein?: number }
+type MealTotals = { totalCalories?: number; totalProtein?: number; totalFat?: number }
 
 // The meal id always arrives from a client — a Telegram `callback_data`
 // string or an iOS request path — so it is never the only thing scoping the
@@ -72,6 +78,7 @@ export async function confirmPendingMeal(
   // keeps the written data equal to what the caller actually asked for.
   if (overrides?.totalCalories !== undefined) data.totalCalories = overrides.totalCalories;
   if (overrides?.totalProtein !== undefined) data.totalProtein = overrides.totalProtein;
+  if (overrides?.totalFat !== undefined) data.totalFat = overrides.totalFat;
 
   const { count } = await prisma.mealEntry.updateMany({
     where: pendingScope(userId, mealId),
@@ -105,6 +112,7 @@ type MealAnalysis = {
   foodItems: z.infer<typeof foodItemSchema>[];
   totalCalories: number;
   totalProtein: number;
+  totalFat?: number;
 };
 
 /**
@@ -146,6 +154,7 @@ export async function updatePendingMealAnalysis(
       foodItems: JSON.stringify(analysis.foodItems),
       totalCalories: analysis.totalCalories,
       totalProtein: analysis.totalProtein,
+      totalFat: analysis.totalFat ?? 0,
       sourceText,
     },
   });

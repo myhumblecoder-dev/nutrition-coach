@@ -78,6 +78,18 @@ struct PendingMealCard: View {
             stepper("Calories", value: $calories, step: 10, unit: "cal")
             stepper("Protein", value: $protein, step: 5, unit: "g")
 
+            // Shown, not editable. Fat has no target, so a stepper would be
+            // precision this app does not want — but what got logged should
+            // still be visible. Correcting it in words still works: "that was
+            // fried, not grilled" re-reads the photo and moves this with it.
+            HStack {
+                Text("Fat").font(.subheadline).foregroundStyle(Theme.secondary)
+                Spacer()
+                Text("\(meal.analysis.fatGrams) g")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.ink)
+            }
+
             HStack(spacing: 8) {
                 Button(role: .destructive, action: onDiscard) {
                     Text("Discard").frame(maxWidth: .infinity)

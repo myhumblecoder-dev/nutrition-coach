@@ -31,6 +31,19 @@ enum Theme {
     /// `accentWash`.
     static let accentInk = Color(hex: 0x065F46)
 
+    /// The fat ring's two ends, mirroring `src/lib/fatColour.ts`. Green for
+    /// fat from whole foods, amber for refined, gradient between.
+    ///
+    /// Amber rather than red: red reads as "you failed", amber reads as "look
+    /// at this". The judgement belongs on the fat, not the person eating it —
+    /// `src/lib/voice.ts` makes that a hard rule.
+    /// Emerald 500, not the accent's emerald 600, and yellow rather than
+    /// amber. Both ends have to be about equally light or the path between
+    /// them sags through olive — which is what the first attempt did, making a
+    /// 60% whole-food day look like sludge. See `src/lib/fatColour.ts`.
+    static let fatWhole = Color(hex: 0x10B981)
+    static let fatRefined = Color(hex: 0xEAB308)
+
     static let cardRadius: CGFloat = 14
     static let rowRadius: CGFloat = 10
 }

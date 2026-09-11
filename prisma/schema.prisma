@@ -195,6 +195,11 @@ model MealEntry {
   foodItems     String
   totalCalories Int
   totalProtein Int
+  /// Grams of fat. Defaulted rather than optional: every meal has some, and a
+  /// null would have to be special-cased at every ring and aggregate. Rows
+  /// written before fat existed read as 0, which is honest — nobody measured
+  /// it — and the per-item source lives in `foodItems` alongside it.
+  totalFat      Int      @default(0)
   confirmed     Boolean  @default(false)
   source        String   @default("manual")
   sourceText    String?
