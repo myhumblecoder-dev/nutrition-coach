@@ -5,6 +5,8 @@ import { caffeineStatus } from "@/lib/caffeine";
 import { describeExercises } from "@/lib/dashboard";
 import { startOfWeek, appTimeZone, nowLine, startOfToday } from "@/lib/time";
 import { COACH_PREAMBLE } from "@/lib/voice";
+import { fatItemsFromJson, fatQualityLabel, wholeFoodFatShare } from "@/lib/fat";
+import { naturalShare, processedItemsFromJson, processingLabel } from "@/lib/processing";
 import { attributeTokens, denialFor, recordUsage, type DenialReason } from "@/lib/limits";
 import { redactIdentifiers } from "@/lib/redact";
 import { zoneFor } from "@/lib/userZone";
@@ -132,8 +134,33 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
 
     const consumedCal = meals.reduce((sum, m) => sum + m.totalCalories, 0);
     const consumedProtein = meals.reduce((sum, m) => sum + m.totalProtein, 0);
+    const consumedFat = meals.reduce((sum, m) => sum + (m.totalFat ?? 0), 0);
 
-    coachPersona += `\nToday so far: ${consumedCal} of ${target.calories} cal, ${consumedProtein}g of ${target.protein}g protein.\n`;
+    coachPersona += `\nToday so far: ${consumedCal} of ${target.calories} cal, ${consumedProtein}g of ${target.protein}g protein, ${consumedFat}g fat.\n`;
+
+    // The coach is told the two quality readings, and told they are its job to
+    // interpret rather than the screen's. The gauge can only show a position;
+    // it cannot say that a protein shake is ultra-processed *and* fine, which
+    // is exactly the case where a bare marker would contradict the coach's own
+    // advice to hit a protein target.
+    const fatShare = wholeFoodFatShare(meals.flatMap((m) => fatItemsFromJson(m.foodItems)));
+    const natural = naturalShare(meals.flatMap((m) => processedItemsFromJson(m.foodItems)));
+
+    if (fatShare !== null) {
+      coachPersona +=
+        `Fat quality: ${fatQualityLabel(fatShare)} — whole-food fat versus refined, ` +
+        'not saturated versus unsaturated. Avocado and butter are whole; crisps and ' +
+        'fried takeaway are refined.\n';
+    }
+
+    if (natural !== null) {
+      coachPersona +=
+        `How processed today was: ${processingLabel(natural)}.\n` +
+        'Be sensible about this rather than dogmatic. Ultra-processed is not a verdict: ' +
+        'protein powder and supermarket bread are both ultra-processed and both fine, ' +
+        'and you are the one who tells them to hit a protein target. Comment on what ' +
+        'the food actually was. Never imply they should feel bad about it.\n';
+    }
   }
 
   const profile = await prisma.userProfile.findUnique({ where: { userId } });

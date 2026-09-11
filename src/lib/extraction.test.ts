@@ -194,6 +194,7 @@ describe('extraction', () => {
           protein: 25,
           fat: 18,
           fatSource: 'refined' as const,
+          processingGroup: 4 as const,
         },
       ],
       training: [{ kind: 'resistance' as const, minutes: 30 }],

@@ -76,12 +76,23 @@ struct FatQuality: Codable, Equatable {
     let label: String?
 }
 
+/// Where the day sat between packaged and real food, and how to say it.
+///
+/// `naturalShare` is 0 to 1, or nil when nothing was classified — which is
+/// every meal logged before groups existed. No marker beats a marker in the
+/// wrong place.
+struct Processing: Codable, Equatable {
+    let naturalShare: Double?
+    let label: String?
+}
+
 struct TodayResponse: Codable, Equatable {
     let meals: [Meal]
     let target: MacroPair?
     let consumed: Consumed
     /// Optional so a build can run against a server that has not shipped it.
     let fatQuality: FatQuality?
+    let processing: Processing?
 }
 
 struct ChatMessage: Codable, Equatable, Identifiable {

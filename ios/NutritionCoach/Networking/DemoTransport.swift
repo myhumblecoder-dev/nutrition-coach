@@ -243,7 +243,7 @@ enum DemoFixtures {
     /// A brand-new account: nothing logged, no targets set.
     private static let emptyDashboard = """
     {
-      "today": {"meals": [], "target": null, "consumed": {"calories": 0, "protein": 0, "fat": 0}, "fatQuality": {"wholeFoodShare": null, "label": null}},
+      "today": {"meals": [], "target": null, "consumed": {"calories": 0, "protein": 0, "fat": 0}, "fatQuality": {"wholeFoodShare": null, "label": null}, "processing": {"naturalShare": null, "label": null}},
       "week": {
         "training": {"resistance":0,"hiit":0,"core":0,"stepsToday":0,
           "days":{"resistance":[false,false,false,false,false,false,false],
@@ -289,7 +289,8 @@ enum DemoFixtures {
         ],
         "target": {"calories":2000,"protein":150},
         "consumed": {"calories":1085,"protein":62,"fat":48},
-        "fatQuality": {"wholeFoodShare":0.62,"label":"mostly whole"}
+        "fatQuality": {"wholeFoodShare":0.62,"label":"mostly whole"},
+        "processing": {"naturalShare":0.74,"label":"mostly real food"}
       },
       "week": {
         "training": {"resistance":3,"hiit":1,"core":2,"stepsToday":6540,

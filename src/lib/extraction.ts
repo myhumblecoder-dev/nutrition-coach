@@ -51,6 +51,12 @@ const factsSchema = z.object({
       fat: roundedInt.catch(0).default(0),
       // See `fat.ts`: where the fat came from, not whether it is saturated.
       fatSource: z.enum(['whole', 'refined']).nullable().catch(null).default(null),
+      // NOVA 1-4. See `processing.ts` — a different question from fatSource.
+      processingGroup: z
+        .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+        .nullable()
+        .catch(null)
+        .default(null),
     }),
     8
   ),

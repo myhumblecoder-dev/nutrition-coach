@@ -20,6 +20,14 @@ const mealSchema = z.object({
       // an unexpected word degrades to null instead of throwing away the whole
       // meal — the calories are still worth having.
       fatSource: z.enum(['whole', 'refined']).nullable().catch(null).default(null),
+      // NOVA 1-4. A different question from fatSource: cheese is group 3 with
+      // perfectly good fat. Unclassified simply does not vote, rather than
+      // dragging the day's marker somewhere arbitrary.
+      processingGroup: z
+        .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+        .nullable()
+        .catch(null)
+        .default(null),
     })
   ),
   totalCalories: roundedInt,
@@ -71,7 +79,8 @@ export async function analyzeMeal(userId: string, photoUrl: string, hint?: strin
       "calories": number,
       "protein": number,
       "fat": number,
-      "fatSource": "whole" | "refined" | null
+      "fatSource": "whole" | "refined" | null,
+      "processingGroup": 1 | 2 | 3 | 4 | null
     }
   ],
   "totalCalories": number,
@@ -87,7 +96,21 @@ crisps and packaged snacks, fast food, margarine, hydrogenated fat, or a
 commercial baked good.
 null when the item carries no meaningful fat.
 Butter is "whole". Crisps are "refined", even though their fat is mostly
-unsaturated.`
+unsaturated.
+
+processingGroup is how processed the food is, on the NOVA scale, and is a
+separate question from fatSource:
+1 unprocessed or minimally processed — fruit, vegetables, meat, fish, eggs,
+milk, plain rice, dried beans.
+2 processed culinary ingredients — olive oil, butter, lard, sugar, salt,
+vinegar.
+3 processed foods — bread, cheese, canned vegetables, cured or smoked meat,
+tinned fish, plain yoghurt with sugar.
+4 ultra-processed — soft drinks, crisps and packaged snacks, sweets, instant
+noodles, reconstituted meat, protein bars and powders, commercial baked goods,
+most fast food.
+Cheese is 3 even though its fat is "whole". A protein shake is 4 even though
+it is mostly protein.`
 
   // The tokens come back with the reply, so the row written above gets its
   // real cost filled in. Fire-and-forget: attributeTokens never throws, and
