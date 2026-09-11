@@ -217,6 +217,35 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
     }
   }
 
+  // Extraction runs BEFORE the reply, not after it.
+  //
+  // It used to run after, which made "Logged." theatre: the model said it
+  // because a statement gets a statement back, with no idea whether a row had
+  // actually been written. Asking the coach to "log 40g of fat" got a
+  // confident "Logged." and stored nothing, because fat is a property of a
+  // meal and there was no meal in that sentence. An app whose whole claim is
+  // that every number came from the conversation cannot invent having saved
+  // one.
+  //
+  // Same two model calls in the same order of magnitude of time — only the
+  // order changed — and still wrapped, because extraction must never break a
+  // reply. Skipped when onboarding already ran it above; twice would log the
+  // same meal twice.
+  let recorded = { meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 };
+  if (hadTargetBefore) {
+    try {
+      recorded = await extractHealthFacts(userId, modelText, {
+        sourceText: cleanText,
+        onUsage: (usage) => void attributeTokens(usageEventId, usage),
+      });
+    } catch {
+      // Leaves the counts at zero, so the coach is told nothing was saved
+      // rather than being left free to guess.
+    }
+  }
+
+  coachPersona += storageNote(recorded);
+
   const prompt = [
     coachPersona,
     ...historyLines,
@@ -228,20 +257,6 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
   });
 
   await persistExchange(userId, cleanText, reply);
-
-  // Belt and braces on top of the orchestrator's own guard: extraction must
-  // never break a reply. Skipped when onboarding already ran it above — twice
-  // would log the same meal twice.
-  if (hadTargetBefore) {
-    try {
-      await extractHealthFacts(userId, modelText, {
-        sourceText: cleanText,
-        onUsage: (usage) => void attributeTokens(usageEventId, usage),
-      });
-    } catch {
-      // ignore
-    }
-  }
 
   return { assistantReply: reply };
 }
@@ -330,4 +345,40 @@ async function persistExchange(userId: string, userText: string, reply: string):
       createdAt: new Date(askedAt.getTime() + 1),
     },
   });
+}
+
+
+/**
+ * Tells the coach what this message actually wrote to the database.
+ *
+ * The point is the negative case. Without it the model says "Logged." to
+ * anything that looks like a statement, which is a lie whenever nothing could
+ * be extracted — and the thing most often not extractable is a request to log
+ * a bare number, because every row here hangs off a named food, session or
+ * measurement.
+ */
+function storageNote(recorded: {
+  meals: number;
+  training: number;
+  recovery: number;
+  mood: number;
+  measurement: number;
+}): string {
+  const written = Object.entries(recorded)
+    .filter(([, count]) => count > 0)
+    .map(([kind, count]) => `${count} ${kind}`);
+
+  if (written.length > 0) {
+    return `\nRecorded from this message: ${written.join(', ')}. You may say it is logged.\n`;
+  }
+
+  return (
+    '\nNothing in this message was recorded — no meal, training, measurement, ' +
+    'recovery value or mood was extracted from it. Do NOT say "logged" and do ' +
+    'not imply anything was saved. If they asked you to log something, say ' +
+    'plainly that you cannot and what you need instead.\n' +
+    'Fat is recorded as part of a meal, worked out from what the meal was. ' +
+    'There is no way to log fat on its own, so if they ask, tell them to name ' +
+    'the food and you will take it from there.\n'
+  );
 }

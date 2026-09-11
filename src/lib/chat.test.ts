@@ -469,3 +469,86 @@ describe('quality readings in the coach prompt', () => {
     expect(prompt).not.toContain('Fat quality:')
   })
 })
+
+describe('the coach only claims what was actually written', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([])
+    vi.mocked(prisma.chatMessage.create).mockResolvedValue({} as never)
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([])
+    vi.mocked(generate).mockResolvedValue('Logged.')
+    vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue({
+      id: 't1',
+      userId: 'u1',
+      calories: 2000,
+      protein: 150,
+      createdAt: new Date(Date.UTC(2024, 0, 1)),
+      updatedAt: new Date(Date.UTC(2024, 0, 1)),
+    } as never)
+  })
+
+  it('extracts before replying, so the reply can know', async () => {
+    // The ordering IS the fix. Replying first meant "Logged." was said with no
+    // knowledge of whether a row existed.
+    const order: string[] = []
+    vi.mocked(extractHealthFacts).mockImplementation(async () => {
+      order.push('extract')
+      return { meals: 1, training: 0, recovery: 0, mood: 0, measurement: 0 }
+    })
+    vi.mocked(generate).mockImplementation(async () => {
+      order.push('generate')
+      return 'Logged.'
+    })
+
+    await coachReply('u1', 'two eggs')
+
+    expect(order).toEqual(['extract', 'generate'])
+  })
+
+  it('forbids saying "logged" when nothing was stored', async () => {
+    // "Log 40g healthy fats" — the case that exposed this. Fat hangs off a
+    // meal, there was no meal in the sentence, nothing was written, and the
+    // coach answered "Logged." anyway.
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 0,
+      training: 0,
+      recovery: 0,
+      mood: 0,
+      measurement: 0,
+    })
+
+    await coachReply('u1', 'log 40g healthy fats')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('Nothing in this message was recorded')
+    expect(prompt).toContain('Do NOT say "logged"')
+    expect(prompt).toContain('no way to log fat on its own')
+  })
+
+  it('tells the coach what it may claim when something was stored', async () => {
+    vi.mocked(extractHealthFacts).mockResolvedValue({
+      meals: 1,
+      training: 1,
+      recovery: 0,
+      mood: 0,
+      measurement: 0,
+    })
+
+    await coachReply('u1', 'steak and sweet potato, and I lifted')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('Recorded from this message: 1 meals, 1 training')
+    expect(prompt).toContain('You may say it is logged')
+  })
+
+  it('treats a failed extraction as nothing stored', async () => {
+    // Failing open would be the worst of both: the coach free to claim a save
+    // that did not happen, and no error anywhere.
+    vi.mocked(extractHealthFacts).mockRejectedValue(new Error('model down'))
+
+    await coachReply('u1', 'two eggs')
+
+    const prompt = vi.mocked(generate).mock.calls[0][0]
+    expect(prompt).toContain('Nothing in this message was recorded')
+  })
+})
