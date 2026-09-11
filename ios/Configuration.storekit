@@ -24,7 +24,7 @@
     "_developerTeamID" : "S84D3BXRYL",
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 810830648.16138101,
+    "_lastSynchronizedDate" : 810831931.53257596,
     "_locale" : "en_US",
     "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "USA",
@@ -65,8 +65,21 @@
           "familyShareable" : true,
           "groupNumber" : 1,
           "internalID" : "6811077498",
+          "introductoryOffer" : {
+            "billingPlanType" : "BILLED_UPFRONT",
+            "internalID" : "BDF0F354",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
           "introductoryOffers" : [
-
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "internalID" : "BDF0F354",
+              "numberOfPeriods" : 1,
+              "paymentMode" : "free",
+              "subscriptionPeriod" : "P1W"
+            }
           ],
           "localizations" : [
             {
@@ -104,8 +117,21 @@
           "familyShareable" : true,
           "groupNumber" : 2,
           "internalID" : "6810817160",
+          "introductoryOffer" : {
+            "billingPlanType" : "BILLED_UPFRONT",
+            "internalID" : "4DCD5235",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
           "introductoryOffers" : [
-
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "internalID" : "4DCD5235",
+              "numberOfPeriods" : 1,
+              "paymentMode" : "free",
+              "subscriptionPeriod" : "P1W"
+            }
           ],
           "localizations" : [
             {
