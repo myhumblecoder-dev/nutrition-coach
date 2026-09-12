@@ -21,10 +21,27 @@ Erring dear is deliberate: under-counting spend is the one direction a cost
 ceiling must not be wrong in. `rates()` warns once per process when it falls
 through, because the silence was the real defect.
 
-**`LLM_MODEL` is stored Sensitive in Vercel**, so `vercel env pull` writes
-`[SENSITIVE]` rather than the value and the CLI cannot confirm it. The
-dashboard can (Settings → Environment Variables → reveal). Adding a model
-means adding it to `RATES` in the same change.
+Adding a model means adding it to `RATES` in the same change.
+
+### Do not mark a non-secret Sensitive
+
+`LLM_MODEL` and `LLM_PROVIDER` were both created Sensitive in Vercel. That
+type is **write-only**: the value can be edited or rotated but never read
+back, not by `vercel env pull` and not in the dashboard. `vercel env pull`
+writes the literal string `[SENSITIVE]` in its place, which is eleven
+characters and parses as a model name that is in no rate table.
+
+Neither is a credential. Nothing was protected, and the cost was that "which
+model is production actually running?" became unanswerable without changing
+it — while the fallback silently priced every call at five times Haiku.
+
+The way out is to edit it to a known value, or delete and recreate it as a
+plain variable so it can be read again. The other check that needs nothing at
+all is the Anthropic console, which breaks usage down by model and reports
+what was actually called rather than what someone believes was configured.
+
+Reserve Sensitive for things that would do damage if read: API keys, the auth
+secret, the APNs private key, webhook secrets.
 
 ## What things actually cost
 
