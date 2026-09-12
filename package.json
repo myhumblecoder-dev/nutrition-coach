@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "check:listing": "node scripts/check-listing.mjs",
+    "cost": "node scripts/token-cost.mjs",
     "test": "vitest",
     "postinstall": "prisma generate"
   },
