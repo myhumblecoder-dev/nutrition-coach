@@ -287,8 +287,47 @@ const RATES: Record<string, { input: number; output: number }> = {
 
 const FALLBACK_RATE = { input: 5, output: 25 }
 
+/**
+ * Whether the unknown-model warning has already been logged.
+ *
+ * Module-level, so it fires once per process rather than on every call. A
+ * warning printed thousands of times a day is a warning nobody reads.
+ */
+let warnedAboutRate = false
+
+/** Exposed for tests, which need each case to start from silence. */
+export function resetRateWarning(): void {
+  warnedAboutRate = false
+}
+
+/**
+ * What a token costs, from `LLM_MODEL`.
+ *
+ * Falling back to the dearest rate is deliberate — under-counting spend is the
+ * one direction a cost ceiling must not be wrong in. Falling back *silently*
+ * was not. A model name that is valid at the API but absent from this table —
+ * a dated identifier like `claude-3-5-haiku-20241022`, say — prices every call
+ * at five times Haiku, and the only symptom is users meeting a spend ceiling
+ * at roughly a quarter of the allowance they were meant to have, told they
+ * have spent money they have not.
+ *
+ * Nothing about that is visible from the outside, which is why it says so.
+ */
 function rates(): { input: number; output: number } {
-  return RATES[process.env.LLM_MODEL ?? 'claude-haiku-4-5'] ?? FALLBACK_RATE
+  const model = process.env.LLM_MODEL ?? 'claude-haiku-4-5'
+  const known = RATES[model]
+
+  if (!known && !warnedAboutRate) {
+    warnedAboutRate = true
+    console.warn(
+      `[limits] LLM_MODEL "${model}" is not in the rate table, so spend is ` +
+        `being priced at the fallback $${FALLBACK_RATE.input}/$${FALLBACK_RATE.output} ` +
+        `per MTok. If that is not this model's real price, the monthly ceiling ` +
+        `will cut users off early. Add it to RATES in src/lib/limits.ts.`
+    )
+  }
+
+  return known ?? FALLBACK_RATE
 }
 
 /**
