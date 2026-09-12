@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftUI
 import UIKit
 
@@ -25,6 +26,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 struct NutritionCoachApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var state = AppState()
+
+    init() {
+        // Registered here, not lazily: `@Dependency` traps if the value is
+        // missing when an intent runs, and Siri can invoke one before any view
+        // has appeared — the app may not be running at all.
+        AppDependencyManager.shared.add(dependency: APIClientFactory.live)
+    }
 
     var body: some Scene {
         WindowGroup {
