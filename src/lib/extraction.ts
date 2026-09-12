@@ -147,11 +147,19 @@ export function buildExtractionPrompt(
     'EVERYTHING ELSE (training, mood, measurement, and the sleep and water recovery kinds): ONLY facts the ' +
     'user EXPLICITLY stated — never infer, never invent.\n' +
     'Return ONLY a JSON object with keys: "meals" (array of {"name","portion","calories","protein",' +
-    '"fat","fatSource"} with integer calories/protein/fat and fatSource "whole"|"refined"|null ' +
-    '— "whole" for fat from a whole food (avocado, nuts, eggs, dairy, butter, olive oil, meat, ' +
-    'oily fish), "refined" for fat from an industrially processed product (anything deep fried, ' +
-    'crisps, fast food, margarine, commercial baked goods), null when there is no real fat. ' +
-    'Butter is "whole"; crisps are "refined" despite being mostly unsaturated), "training" (array of {"kind": "resistance"|"hiit"|"core"|"neat", ' +
+    '"fat","fatSource","processingGroup"} with integer calories/protein/fat and fatSource ' +
+    '"whole"|"refined"|null — "whole" for fat from a whole food (avocado, nuts, eggs, dairy, ' +
+    'butter, olive oil, meat, oily fish), "refined" for fat from an industrially processed ' +
+    'product (anything deep fried, crisps, fast food, margarine, commercial baked goods), null ' +
+    'when there is no real fat. Butter is "whole"; crisps are "refined" despite being mostly ' +
+    'unsaturated. processingGroup is 1-4 on the NOVA scale and is a SEPARATE question from ' +
+    'fatSource: 1 unprocessed or minimally processed (fruit, vegetables, meat, fish, eggs, milk, ' +
+    'plain rice, dried beans), 2 processed culinary ingredients (olive oil, butter, lard, sugar, ' +
+    'salt), 3 processed foods (bread, cheese, canned vegetables, cured or smoked meat, tinned ' +
+    'fish), 4 ultra-processed (soft drinks, crisps and packaged snacks, sweets, instant noodles, ' +
+    'reconstituted meat, protein bars and powders, commercial baked goods, most fast food). ' +
+    'Cheese is 3 even though its fat is "whole"; a protein shake is 4 even though it is mostly ' +
+    'protein. Always give a group), "training" (array of {"kind": "resistance"|"hiit"|"core"|"neat", ' +
     '"minutes"?, "steps"?, "note"?, "exercises"?: [{"name","sets"?,"reps"?,"weightLb"?}]}), "recovery" (array of {"kind": "sleep"|"water"|"caffeine", ' +
     '"value": number} — sleep in hours, water in liters, caffeine in milligrams), "mood" (array of ' +
     '{"score": 1-5, "note"?}), "measurement" (array of {"weightLb"?, "waistIn"?}), ' +
