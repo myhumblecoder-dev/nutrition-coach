@@ -39,6 +39,16 @@ struct LogFoodIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        try await Self.log(food, using: clientFactory)
+    }
+
+    /// Shared with `LogFoodOneShotIntent`, which differs only in how the words
+    /// arrive. Anything that behaves differently between the two should do so
+    /// because Siri heard something different, not because the code diverged.
+    static func log(
+        _ food: String,
+        using clientFactory: APIClientFactory
+    ) async throws -> some IntentResult & ProvidesDialog {
         let client = clientFactory.make()
 
         do {
@@ -67,7 +77,7 @@ struct LogFoodIntent: AppIntent {
     /// happened on the other — the log may well have landed a moment later, and
     /// claiming failure would be as wrong as claiming success. Same rule the
     /// coach follows in chat: never assert a state you cannot see.
-    private var uncertain: IntentDialog {
+    private static var uncertain: IntentDialog {
         "I'm not sure that saved — check the app."
     }
 }
