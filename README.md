@@ -10,6 +10,12 @@ Personal diet and fitness coach: photo meal logging with vision, daily targets, 
 
 Built with Next.js (App Router, TypeScript), Tailwind, Prisma + PostgreSQL, and Zod.
 
+## Architecture
+
+The load-bearing and non-obvious decisions — costs, entitlement, day
+boundaries, the generated Xcode project — are in
+[docs/architecture.md](docs/architecture.md).
+
 ## Getting Started
 
 ### Prerequisites

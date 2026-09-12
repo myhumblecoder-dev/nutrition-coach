@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   dailyMessageLimit,
   dailyLimit,
@@ -12,6 +12,7 @@ import {
   monthlySpendUsd,
   monthlyCeilingUsd,
   attributeTokens,
+  resetRateWarning,
 } from './limits'
 import { prisma } from '@/lib/db'
 import { isEntitled } from '@/lib/entitlement'
@@ -489,5 +490,70 @@ describe('attributeTokens', () => {
     await expect(
       attributeTokens('event-1', { inputTokens: 1, outputTokens: 1 })
     ).resolves.toBeUndefined()
+  })
+})
+
+describe('an unrecognised model does not fail silently', () => {
+  const realModel = process.env.LLM_MODEL
+  let warn: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    resetRateWarning()
+    // Cleared explicitly: vi.spyOn on an already-spied method hands back the
+    // same spy, call history and all, so without this the second test sees
+    // the first one's warning.
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    warn.mockClear()
+    vi.mocked(prisma.usageEvent.aggregate).mockResolvedValue({
+      _sum: { inputTokens: 0, outputTokens: 0 },
+    } as never)
+    vi.mocked(prisma.usageEvent.groupBy).mockResolvedValue([] as never)
+  })
+
+  afterEach(() => {
+    warn.mockRestore()
+    if (realModel === undefined) delete process.env.LLM_MODEL
+    else process.env.LLM_MODEL = realModel
+  })
+
+  it('says so when the model is not in the rate table', async () => {
+    // The failure this prevents: a model valid at the API but absent here — a
+    // dated identifier, say — prices every call at five times Haiku, and the
+    // only symptom is users meeting the spend ceiling at a quarter of their
+    // intended allowance, told they have spent money they have not.
+    process.env.LLM_MODEL = 'claude-3-5-haiku-20241022'
+
+    await monthlySpendUsd('u1')
+
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn.mock.calls[0][0]).toContain('claude-3-5-haiku-20241022')
+    expect(warn.mock.calls[0][0]).toContain('not in the rate table')
+  })
+
+  it('stays quiet for a model it knows', async () => {
+    process.env.LLM_MODEL = 'claude-haiku-4-5'
+
+    await monthlySpendUsd('u1')
+
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('stays quiet when LLM_MODEL is unset, since the default is known', async () => {
+    delete process.env.LLM_MODEL
+
+    await monthlySpendUsd('u1')
+
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('warns once, not on every call', async () => {
+    // Thousands of identical lines a day is a warning nobody reads.
+    process.env.LLM_MODEL = 'something-invented'
+
+    await monthlySpendUsd('u1')
+    await monthlySpendUsd('u1')
+    await monthlySpendUsd('u2')
+
+    expect(warn).toHaveBeenCalledOnce()
   })
 })
