@@ -28,6 +28,12 @@
 	     explanation the user gets at the moment they decide.
 	     The photo library needs no key: PhotosPicker runs out of process and
 	     hands back only what the user picked. -->
+	<!-- App Intents shortcuts do not request Siri authorisation the way SiriKit
+	     did, so this may be unnecessary. Kept because the guidance is mixed,
+	     it is one line, and a missing usage string is a rejection while a
+	     surplus one is not. -->
+	<key>NSSiriUsageDescription</key>
+	<string>Log what you ate by talking to Siri instead of opening the app.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo of a meal and the coach will estimate its calories and protein for you.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

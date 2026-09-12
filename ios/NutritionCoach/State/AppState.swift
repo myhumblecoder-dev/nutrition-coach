@@ -65,7 +65,10 @@ final class AppState {
         entitlement = fresh
     }
 
-    private static func liveClient() -> APIClient {
+    /// Internal and non-isolated so a background App Intent can build one.
+    /// `APIClient` has no MainActor or `AppState` coupling of its own — only
+    /// this factory did, by living on a MainActor type.
+    nonisolated static func liveClient() -> APIClient {
         APIClient(
             baseURL: AppState.productionURL,
             tokenStore: KeychainTokenStore(),

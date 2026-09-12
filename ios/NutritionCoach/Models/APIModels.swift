@@ -131,6 +131,14 @@ struct Entitlement: Codable, Equatable {
     var isTrialing: Bool { tier == "trialing" }
 }
 
+/// What `/api/v1/log` answers with.
+///
+/// `spoken` is assembled server-side, like every other line the coach says, so
+/// pluralisation and register have one home rather than one per client.
+struct SpokenLogResponse: Codable, Equatable {
+    let spoken: String
+}
+
 struct TimezoneResponse: Codable, Equatable {
     let timezone: String
 }
