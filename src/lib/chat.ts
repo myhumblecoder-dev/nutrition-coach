@@ -5,6 +5,7 @@ import { caffeineStatus } from "@/lib/caffeine";
 import { describeExercises } from "@/lib/dashboard";
 import { startOfWeek, appTimeZone, nowLine, startOfToday } from "@/lib/time";
 import { COACH_PREAMBLE } from "@/lib/voice";
+import { checkInLine, eatenTodayLine, moodLine, recoveryLine } from "@/lib/todayContext";
 import { fatItemsFromJson, fatQualityLabel, wholeFoodFatShare } from "@/lib/fat";
 import { naturalShare, processedItemsFromJson, processingLabel } from "@/lib/processing";
 import { attributeTokens, denialFor, recordUsage, type DenialReason } from "@/lib/limits";
@@ -156,6 +157,11 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
 
     coachPersona += `\nToday so far: ${consumedCal} of ${target.calories} cal, ${consumedProtein}g of ${target.protein}g protein, ${consumedFat}g fat.\n`;
 
+    // The names were already here and were being thrown away, so a meal logged
+    // by photo with no caption was invisible as content — the coach could see
+    // the total move and had no idea what the food was. No new query.
+    coachPersona += eatenTodayLine(meals, timeZone);
+
     // The coach is told the two quality readings, and told they are its job to
     // interpret rather than the screen's. The gauge can only show a position;
     // it cannot say that a protein shake is ultra-processed *and* fine, which
@@ -225,6 +231,33 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
   const caffeineRows = await prisma.recoveryEntry.findMany({
     where: { userId, kind: 'caffeine', loggedAt: { gte: startOfToday(new Date(), timeZone) } },
   });
+  // Sleep and water, which were never read at all. Caffeine had a decay model
+  // and a sentence of context; sleep is the bigger lever and was invisible.
+  const recoveryToday = await prisma.recoveryEntry.findMany({
+    where: {
+      userId,
+      kind: { in: ['sleep', 'water'] },
+      loggedAt: { gte: startOfToday(new Date(), timeZone) },
+    },
+    orderBy: { loggedAt: 'desc' },
+  });
+  coachPersona += recoveryLine(recoveryToday);
+
+  // Today's mood, logged since the beginning and never surfaced. It is the
+  // context for *why* a week went badly rather than just that it did.
+  const moodToday = await prisma.moodEntry.findFirst({
+    where: { userId, loggedAt: { gte: startOfToday(new Date(), timeZone) } },
+    orderBy: { loggedAt: 'desc' },
+  });
+  coachPersona += moodLine(moodToday);
+
+  // The coach ran the interview and could not see the answers afterwards.
+  const lastCheckIn = await prisma.weeklyCheckIn.findFirst({
+    where: { userId },
+    orderBy: { weekOf: 'desc' },
+  });
+  coachPersona += checkInLine(lastCheckIn);
+
   if (caffeineRows.length > 0) {
     const status = caffeineStatus(
       caffeineRows.map((r) => ({ mg: r.value, at: r.loggedAt })),
