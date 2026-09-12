@@ -6,7 +6,7 @@ import { attributeTokens, denialFor, recordUsage, UsageLimitError } from '@/lib/
 import { denialResponse } from '@/lib/denialResponse'
 import { redactIdentifiers } from '@/lib/redact'
 import { persistExchange } from '@/lib/chat'
-import { spokenResult } from '@/lib/spoken'
+import { spokenResult, writtenResult } from '@/lib/spoken'
 
 /**
  * Logging without a conversation, for Siri.
@@ -78,7 +78,12 @@ export async function POST(request: Request) {
   // The app's claim is that every number traces back to something the user
   // told the coach. A meal logged by voice that never appears in the
   // conversation would break that, and extraction writes fact rows only.
-  await persistExchange(user.id, text, spoken)
+  //
+  // The *written* line, not the spoken one. Siri says "Logged 2 meals"
+  // because there is no screen; the transcript says "Logged." because that is
+  // the coach's register and the entries are already visible on Today. Using
+  // one string for both put a status message in the middle of a conversation.
+  await persistExchange(user.id, text, writtenResult(recorded))
 
   return Response.json({ spoken, recorded })
 }
