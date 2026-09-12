@@ -376,7 +376,15 @@ async function answerCheckInInConversation(
  * is not enough on its own: two inserts inside the same millisecond still tie,
  * and the bug returns only sometimes, which is worse than always.
  */
-async function persistExchange(userId: string, userText: string, reply: string): Promise<void> {
+/**
+ * Writes both sides of an exchange.
+ *
+ * Exported because the Siri log route needs it too: extraction writes fact
+ * rows only, so a meal logged by voice would never appear in the conversation
+ * — and the app's claim is that every number traces back to something the user
+ * told the coach.
+ */
+export async function persistExchange(userId: string, userText: string, reply: string): Promise<void> {
   const askedAt = new Date();
 
   await prisma.chatMessage.create({

@@ -211,7 +211,7 @@ describe('extraction', () => {
     expect(arg.data.source).toBe('extracted')
     expect(arg.data.sourceText).toBe('had baozi')
     expect(arg.data.totalCalories).toBe(600)
-    expect(counts).toEqual({ meals: 1, training: 1, recovery: 0, mood: 0, measurement: 0, targets: 0 })
+    expect(counts).toEqual({ meals: 1, training: 1, recovery: 0, mood: 0, measurement: 0, targets: 0, failed: false })
   })
 
   it('empty facts touch nothing', async () => {
@@ -221,7 +221,7 @@ describe('extraction', () => {
 
     expect(prisma.mealEntry.create).not.toHaveBeenCalled()
     expect(prisma.trainingEntry.create).not.toHaveBeenCalled()
-    expect(counts).toEqual({ meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0, targets: 0 })
+    expect(counts).toEqual({ meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0, targets: 0, failed: false })
   })
 
   it('the orchestrator passes the user text through', async () => {
@@ -240,7 +240,7 @@ describe('extraction', () => {
     // Verify that the recovery entry creation received the sourceText
     const recoveryArg = vi.mocked(prisma.recoveryEntry.create).mock.calls[0][0]
     expect(recoveryArg.data.sourceText).toBe(userText)
-    expect(counts).toEqual({ meals: 0, training: 0, recovery: 1, mood: 0, measurement: 0, targets: 0 })
+    expect(counts).toEqual({ meals: 0, training: 0, recovery: 1, mood: 0, measurement: 0, targets: 0, failed: false })
   })
 
   it('an llm failure resolves to zero counts', async () => {
@@ -249,8 +249,11 @@ describe('extraction', () => {
     vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
     vi.mocked(generate).mockRejectedValue(new Error('down'))
 
+    // `targets` and `failed` included: the catch path used to omit the first
+    // and had no way to report the second.
     await expect(extractHealthFacts('u1', 'hello')).resolves.toEqual({
       meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
+      targets: 0, failed: true,
     })
   })
 })
@@ -287,5 +290,68 @@ describe('the prompt asks for every field the schema accepts', () => {
     // fat is "whole".
     expect(prompt).toMatch(/SEPARATE question/i)
     expect(prompt).toContain('Cheese is 3')
+  })
+})
+
+describe('extraction reports whether it worked', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(prisma.mealEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.trainingEntry.findMany).mockResolvedValue([] as never)
+    vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
+  })
+
+  it('says nothing failed when nothing was extractable', async () => {
+    // "I could not find a meal in that" is a real answer and must stay
+    // distinguishable from "the model is down".
+    vi.mocked(generate).mockResolvedValue(
+      JSON.stringify({ meals: [], training: [], recovery: [], mood: [], measurement: [] })
+    )
+
+    const result = await extractHealthFacts('u1', 'hello')
+
+    expect(result.failed).toBe(false)
+    expect(result.meals).toBe(0)
+  })
+
+  it('says so when the model call throws', async () => {
+    // The whole body is wrapped in try/catch and returned all-zero counts, so
+    // an outage was indistinguishable from an empty message. On screen that is
+    // survivable; by voice Siri would cheerfully report "nothing to log" while
+    // the backend was down.
+    vi.mocked(generate).mockRejectedValue(new Error('anthropic is down'))
+
+    const result = await extractHealthFacts('u1', 'two eggs')
+
+    expect(result.failed).toBe(true)
+  })
+
+  it('cannot tell prose from an empty message, and does not pretend to', async () => {
+    // `parseHealthFacts` returns EMPTY_FACTS for a response with no JSON in
+    // it, deliberately — it is fail-silent and shared with other callers. So a
+    // model that answers in prose reads as "nothing to log" rather than as a
+    // failure. The dominant failure mode, a thrown call, is caught above; this
+    // one is a known limit, recorded so nobody assumes otherwise.
+    vi.mocked(generate).mockResolvedValue('I am afraid I cannot do that')
+
+    const result = await extractHealthFacts('u1', 'two eggs')
+
+    expect(result.failed).toBe(false)
+    expect(result.meals).toBe(0)
+  })
+
+  it('returns the same keys whether it succeeded or failed', async () => {
+    // The success path returned six keys and the catch path five — `targets`
+    // was missing — so a caller passing the result straight to a client gave
+    // an inconsistent object.
+    vi.mocked(generate).mockResolvedValue(
+      JSON.stringify({ meals: [], training: [], recovery: [], mood: [], measurement: [] })
+    )
+    const ok = await extractHealthFacts('u1', 'hello')
+
+    vi.mocked(generate).mockRejectedValue(new Error('down'))
+    const bad = await extractHealthFacts('u1', 'hello')
+
+    expect(Object.keys(ok).sort()).toEqual(Object.keys(bad).sort())
   })
 })
