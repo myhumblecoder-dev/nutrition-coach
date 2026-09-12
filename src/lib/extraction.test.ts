@@ -254,3 +254,38 @@ describe('extraction', () => {
     })
   })
 })
+
+describe('the prompt asks for every field the schema accepts', () => {
+  // The schema accepting a field, the column storing it and a gauge reading it
+  // are all worthless if the prompt never asks. `processingGroup` shipped that
+  // way: a replace that silently matched nothing left it out of the shape
+  // declaration, so every chat-logged meal carried null and the gauge read
+  // "no reading yet" for a fortnight of real logging.
+  //
+  // Counting occurrences in the file does not catch this — the schema mentions
+  // the field too, which is what made the original check pass.
+  const prompt = buildExtractionPrompt(
+    { meals: [], training: [], recovery: [] },
+    'two eggs'
+  )
+  const shape = prompt.slice(prompt.indexOf('"meals" (array of'), prompt.indexOf('"training"'))
+
+  it.each(['name', 'portion', 'calories', 'protein', 'fat', 'fatSource', 'processingGroup'])(
+    'names %s in the meal shape',
+    (field) => {
+      expect(shape).toContain(`"${field}"`)
+    }
+  )
+
+  it('explains the NOVA scale rather than only naming the key', () => {
+    expect(prompt).toContain('NOVA')
+    expect(prompt).toMatch(/ultra-processed/i)
+  })
+
+  it('says the group is a different question from the fat source', () => {
+    // Without this the model conflates them and gives cheese a 1, because its
+    // fat is "whole".
+    expect(prompt).toMatch(/SEPARATE question/i)
+    expect(prompt).toContain('Cheese is 3')
+  })
+})

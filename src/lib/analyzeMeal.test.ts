@@ -129,3 +129,36 @@ describe('fat', () => {
     expect(result.foodItems[0].fat).toBe(11)
   })
 })
+
+describe('the vision prompt asks for every field the schema accepts', () => {
+  // Same guard as the extraction prompt. A schema that accepts a field, a
+  // column that stores it and a gauge that reads it are all worthless if the
+  // prompt never asks for it — which is exactly how `processingGroup` shipped
+  // dead on the chat path.
+  it('names fat, its source and the processing group in the shape', async () => {
+    vi.mocked(analyzePhoto).mockResolvedValue(
+      JSON.stringify({ foodItems: [], totalCalories: 0, totalProtein: 0, totalFat: 0 })
+    )
+
+    await analyzeMeal('u1', 'https://example.com/p.jpg')
+
+    const systemPrompt = vi.mocked(analyzePhoto).mock.calls[0][1]
+    for (const field of ['name', 'portion', 'calories', 'protein', 'fat', 'fatSource', 'processingGroup']) {
+      expect(systemPrompt).toContain(`"${field}"`)
+    }
+  })
+
+  it('explains both judgements, and that they are different questions', async () => {
+    vi.mocked(analyzePhoto).mockResolvedValue(
+      JSON.stringify({ foodItems: [], totalCalories: 0, totalProtein: 0, totalFat: 0 })
+    )
+
+    await analyzeMeal('u1', 'https://example.com/p.jpg')
+
+    const systemPrompt = vi.mocked(analyzePhoto).mock.calls[0][1]
+    // Fat source is about where the fat came from, not saturation.
+    expect(systemPrompt).toContain('NOT whether it is saturated')
+    // And the group is a separate axis: cheese has whole fat and is group 3.
+    expect(systemPrompt).toContain('Cheese is 3')
+  })
+})
