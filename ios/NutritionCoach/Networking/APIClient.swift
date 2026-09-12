@@ -13,6 +13,10 @@ final class APIClient {
 
     private let decoder = JSONDecoder.api
 
+    /// Serialises attested requests. See `AttestedRequestQueue` — out-of-order
+    /// assertion counters get a 401, and a 401 clears the session token.
+    private let attestedQueue = AttestedRequestQueue()
+
     init(
         baseURL: URL,
         session: URLSession = .shared,
@@ -207,6 +211,19 @@ final class APIClient {
         return response.assistantReply
     }
 
+    /// Logs what someone said without asking the coach to reply.
+    ///
+    /// For Siri. `/api/v1/chat` makes two model calls under a sixty-second
+    /// budget and Siri gives up around ten, so this goes to a route that runs
+    /// extraction alone and answers with a sentence to say aloud.
+    @discardableResult
+    func logSpoken(_ text: String) async throws -> String {
+        let response: SpokenLogResponse = try await send(
+            "/api/v1/log", method: "POST", body: ["text": .string(text)]
+        )
+        return response.spoken
+    }
+
     /// Flags a coach reply the user found objectionable.
     ///
     /// The text is sent rather than an id: a reply shown optimistically has no
@@ -386,6 +403,27 @@ final class APIClient {
     private func send<T: Decodable>(
         _ path: String, method: String, body: [String: JSONValue]?,
         authenticated: Bool = true, attested: Bool = true
+    ) async throws -> T {
+        // Attested calls go through the queue so the signing and the request
+        // carrying it cannot interleave with another pair. Unattested ones —
+        // the attestation handshake itself, sign-out — are left alone, since
+        // they carry no counter to get out of order.
+        guard attested else {
+            return try await perform(
+                path, method: method, body: body, authenticated: authenticated, attested: false
+            )
+        }
+
+        return try await attestedQueue.run { [self] in
+            try await perform(
+                path, method: method, body: body, authenticated: authenticated, attested: true
+            )
+        }
+    }
+
+    private func perform<T: Decodable>(
+        _ path: String, method: String, body: [String: JSONValue]?,
+        authenticated: Bool, attested: Bool
     ) async throws -> T {
         let request = try await makeRequest(
             path, method: method, body: body, authenticated: authenticated, attested: attested

@@ -263,8 +263,42 @@ export async function recordHealthFacts(
       (m) => m.weightLb !== undefined || m.waistIn !== undefined
     ).length,
     targets: facts.targets ? 1 : 0,
+    failed: false,
   };
 }
+
+/**
+ * What extraction reports back: how many rows of each kind it wrote, and
+ * whether it got as far as trying.
+ *
+ * `failed` exists because everything below is wrapped in a catch that used to
+ * return all-zero counts, making a model outage indistinguishable from a
+ * message with nothing loggable in it. On a screen that is survivable — the
+ * coach says something and the user can see their day. By voice it is not: an
+ * assistant that cheerfully reports "nothing to log" while the backend is down
+ * is lying with confidence, and the user has no screen to check against.
+ */
+export type ExtractionResult = {
+  meals: number;
+  training: number;
+  recovery: number;
+  mood: number;
+  measurement: number;
+  targets: number;
+  failed: boolean;
+};
+
+/** The same keys either way. The catch path used to omit `targets`, so a
+ * caller handing the result straight to a client got an inconsistent object. */
+const NOTHING_RECORDED: ExtractionResult = {
+  meals: 0,
+  training: 0,
+  recovery: 0,
+  mood: 0,
+  measurement: 0,
+  targets: 0,
+  failed: true,
+};
 
 export function parseHealthFacts(response: string) {
   const start = response.indexOf('{');
@@ -329,7 +363,7 @@ export async function extractHealthFacts(
     );
     return await recordHealthFacts(userId, facts, (options.sourceText ?? userText).slice(0, 200));
   } catch {
-    return { meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0 };
+    return { ...NOTHING_RECORDED };
   }
 }
 

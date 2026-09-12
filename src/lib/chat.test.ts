@@ -64,9 +64,7 @@ describe('chat', () => {
     vi.mocked(prisma.recoveryEntry.findMany).mockResolvedValue([] as never)
     vi.mocked(prisma.moodEntry.findFirst).mockResolvedValue(null)
     vi.mocked(prisma.weeklyCheckIn.findFirst).mockResolvedValue(null)
-    vi.mocked(extractHealthFacts).mockResolvedValue({
-      meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
-    })
+    vi.mocked(extractHealthFacts).mockResolvedValue({ meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0, targets: 0, failed: false })
   })
 
   it('extraction runs on every user turn', async () => {
@@ -501,7 +499,7 @@ describe('the coach only claims what was actually written', () => {
     const order: string[] = []
     vi.mocked(extractHealthFacts).mockImplementation(async () => {
       order.push('extract')
-      return { meals: 1, training: 0, recovery: 0, mood: 0, measurement: 0 }
+      return { meals: 1, training: 0, recovery: 0, mood: 0, measurement: 0, targets: 0, failed: false }
     })
     vi.mocked(generate).mockImplementation(async () => {
       order.push('generate')
@@ -517,13 +515,7 @@ describe('the coach only claims what was actually written', () => {
     // "Log 40g healthy fats" — the case that exposed this. Fat hangs off a
     // meal, there was no meal in the sentence, nothing was written, and the
     // coach answered "Logged." anyway.
-    vi.mocked(extractHealthFacts).mockResolvedValue({
-      meals: 0,
-      training: 0,
-      recovery: 0,
-      mood: 0,
-      measurement: 0,
-    })
+    vi.mocked(extractHealthFacts).mockResolvedValue({ meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0, targets: 0, failed: false })
 
     await coachReply('u1', 'log 40g healthy fats')
 
@@ -534,13 +526,7 @@ describe('the coach only claims what was actually written', () => {
   })
 
   it('tells the coach what it may claim when something was stored', async () => {
-    vi.mocked(extractHealthFacts).mockResolvedValue({
-      meals: 1,
-      training: 1,
-      recovery: 0,
-      mood: 0,
-      measurement: 0,
-    })
+    vi.mocked(extractHealthFacts).mockResolvedValue({ meals: 1, training: 1, recovery: 0, mood: 0, measurement: 0, targets: 0, failed: false })
 
     await coachReply('u1', 'steak and sweet potato, and I lifted')
 
@@ -600,13 +586,7 @@ describe('what the coach is told was recorded', () => {
   })
 
   it('pluralises properly', async () => {
-    vi.mocked(extractHealthFacts).mockResolvedValue({
-      meals: 2,
-      training: 0,
-      recovery: 3,
-      mood: 0,
-      measurement: 0,
-    })
+    vi.mocked(extractHealthFacts).mockResolvedValue({ meals: 2, training: 0, recovery: 3, mood: 0, measurement: 0, targets: 0, failed: false })
 
     await coachReply('u1', 'two meals and some water')
 
@@ -627,9 +607,7 @@ describe('what the coach can see about today', () => {
     vi.mocked(prisma.weeklyCheckIn.findFirst).mockResolvedValue(null)
     vi.mocked(prisma.measurement.findFirst).mockResolvedValue(null)
     vi.mocked(prisma.userProfile.findUnique).mockResolvedValue(null)
-    vi.mocked(extractHealthFacts).mockResolvedValue({
-      meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0,
-    })
+    vi.mocked(extractHealthFacts).mockResolvedValue({ meals: 0, training: 0, recovery: 0, mood: 0, measurement: 0, targets: 0, failed: false })
     vi.mocked(generate).mockResolvedValue('Logged.')
     vi.mocked(prisma.dailyTarget.findUnique).mockResolvedValue({
       id: 't1', userId: 'u1', calories: 2000, protein: 150,
