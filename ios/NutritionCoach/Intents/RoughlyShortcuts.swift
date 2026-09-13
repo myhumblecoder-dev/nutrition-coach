@@ -32,15 +32,18 @@ import AppIntents
 /// without new evidence that Apple has changed the constraint.
 struct RoughlyShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
+        // `${kind}` is an `AppEnum`, which is exactly what App Shortcuts do
+        // support: Siri pre-generates a phrase for every case and every
+        // synonym, so "log a run in Roughly" and "log my sleep in Roughly"
+        // both land without the user having to remember one magic sentence.
         AppShortcut(
             intent: LogFoodIntent(),
             phrases: [
-                "Log food in \(.applicationName)",
-                "Log a meal in \(.applicationName)",
-                "Tell \(.applicationName) what I ate",
-                "Start a food log in \(.applicationName)",
+                "Log a \(\.$kind) in \(.applicationName)",
+                "Log my \(\.$kind) in \(.applicationName)",
+                "Add a \(\.$kind) to \(.applicationName)",
             ],
-            shortTitle: "Log food",
+            shortTitle: "Log an entry",
             systemImageName: "fork.knife"
         )
     }

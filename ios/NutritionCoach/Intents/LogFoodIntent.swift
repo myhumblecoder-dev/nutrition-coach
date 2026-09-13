@@ -13,19 +13,22 @@ import Foundation
 /// server-side. An extension would read no token and could mint no assertion
 /// the server would accept.
 struct LogFoodIntent: AppIntent {
-    static var title: LocalizedStringResource = "Log food"
+    static var title: LocalizedStringResource = "Log an entry"
     static var description = IntentDescription(
-        "Tell Roughly what you ate and it works out the rest."
+        "Tell Roughly what you ate, drank, or did, and it works out the rest."
     )
 
     /// No app launch. The whole value is not having to open anything.
     static var openAppWhenRun = false
 
-    @Parameter(
-        title: "What you ate",
-        requestValueDialog: "What did you eat?"
-    )
-    var food: String
+    @Parameter(title: "What to log")
+    var kind: LogKind
+
+    /// Optional so the dialog can be chosen after the kind is known. A fixed
+    /// `requestValueDialog` would ask "what did you eat?" after someone said
+    /// "log my sleep", which is the app not listening.
+    @Parameter(title: "Details")
+    var detail: String?
 
     /// Injected for tests. `APIClient` is not Sendable, so it is built inside
     /// `perform()` rather than stored — which is also the natural shape, since
@@ -34,12 +37,17 @@ struct LogFoodIntent: AppIntent {
 
     init() {}
 
-    init(food: String) {
-        self.food = food
+    init(kind: LogKind, detail: String? = nil) {
+        self.kind = kind
+        self.detail = detail
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        try await Self.log(food, using: clientFactory)
+        // Asked here rather than declared on the parameter, so the question
+        // fits what is being logged.
+        let said = try await $detail.requestValue(kind.question)
+
+        return try await Self.log(kind.phrase(said), using: clientFactory)
     }
 
     /// Split out when a second intent shared it. That intent is gone — see
