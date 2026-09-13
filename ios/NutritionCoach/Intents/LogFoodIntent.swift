@@ -42,9 +42,10 @@ struct LogFoodIntent: AppIntent {
         try await Self.log(food, using: clientFactory)
     }
 
-    /// Shared with `LogFoodOneShotIntent`, which differs only in how the words
-    /// arrive. Anything that behaves differently between the two should do so
-    /// because Siri heard something different, not because the code diverged.
+    /// Split out when a second intent shared it. That intent is gone — see
+    /// `RoughlyShortcuts` for why one-shot phrasing cannot be built — but the
+    /// shape is the right one anyway: `perform()` stays about the intent and
+    /// this stays about the work.
     static func log(
         _ food: String,
         using clientFactory: APIClientFactory
