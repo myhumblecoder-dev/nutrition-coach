@@ -1,7 +1,7 @@
 import type { ExtractionResult } from '@/lib/extraction'
 
 /**
- * What Siri says back.
+ * What Siri says back — the count included.
  *
  * Server-side so the copy has one home, the same reason `limitMessage` and the
  * coach's storage note live here. A client assembling this would need its own
@@ -27,6 +27,30 @@ export function spokenResult(recorded: ExtractionResult): string {
   }
 
   return `Logged ${list(written)}.`
+}
+
+/**
+ * The same outcome, written into the chat transcript.
+ *
+ * Deliberately not the spoken line. Spoken, there is no screen, so "Logged 2
+ * meals" is the only way to know it split the chips from the guacamole.
+ * Written, the entries are right there on Today, and the count reads as a
+ * status message from a different program sitting beside replies like
+ * "Logged. Bun's processed, meat's whole."
+ *
+ * `voice.ts` settles it: "Logged." is a complete reply. That is the register,
+ * and a voice log appearing in the transcript should not break it just because
+ * it arrived through Siri.
+ */
+export function writtenResult(recorded: ExtractionResult): string {
+  const wroteSomething =
+    recorded.meals > 0 ||
+    recorded.training > 0 ||
+    recorded.recovery > 0 ||
+    recorded.mood > 0 ||
+    recorded.measurement > 0
+
+  return wroteSomething ? 'Logged.' : "Couldn't make anything of that."
 }
 
 function label(count: number, one: string, many: string): string | null {

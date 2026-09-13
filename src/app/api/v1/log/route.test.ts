@@ -169,4 +169,19 @@ describe('POST /api/v1/log', () => {
 
     expect(persistExchange).toHaveBeenCalledWith('u1', 'two eggs', expect.stringMatching(/logged/i))
   })
+
+  it('keeps the spoken count out of the transcript', async () => {
+    // Siri says "Logged 2 meals" because there is no screen. The transcript
+    // sits beside real coach replies — "Logged. Bun's processed, meat's
+    // whole." — and a count there reads as a status message from a different
+    // program. `voice.ts`: "Logged." is a complete reply.
+    vi.mocked(extractHealthFacts).mockResolvedValue({ ...RECORDED, meals: 2 })
+
+    const body = await (await POST(postRequest({ text: 'chips and guacamole' }))).json()
+
+    expect(body.spoken).toContain('2')
+
+    const written = vi.mocked(persistExchange).mock.calls[0][2]
+    expect(written).toBe('Logged.')
+  })
 })
