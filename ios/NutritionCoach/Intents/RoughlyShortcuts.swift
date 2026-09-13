@@ -5,42 +5,42 @@ import AppIntents
 /// Every phrase must contain `${applicationName}` — Siri needs to know which
 /// app is being addressed, and a phrase without it is rejected at build time.
 ///
-/// **Order and overlap both matter, and getting them wrong is silent.** Siri
-/// matches against these fuzzily and takes the first plausible hit. The first
-/// version listed the two-turn shortcut first with the phrase "Log food in
-/// Roughly", which swallowed "log a second serving of chocolate cake in
-/// Roughly" — the parameterised phrase never got a chance, and the user was
-/// asked what they ate having just said it. Likewise "Tell Roughly what I ate"
-/// sat almost on top of "Tell Roughly I ate ${food}".
+/// ## Why there is no one-shot phrase
 ///
-/// So: the specific, parameterised phrases come first, and the fallback
-/// phrases are worded so they cannot be mistaken for the start of one.
+/// "Hey Siri, log a second serving of chocolate cake in Roughly" is the thing
+/// everyone wants to say, and it cannot be built. This was tried properly.
+///
+/// App Shortcut phrase parameters must be `AppEnum` or `AppEntity`; a
+/// free-form `String` cannot appear in one. The documented way round that is
+/// an `AppEntity` backed by an `EntityStringQuery`, which is handed the raw
+/// spoken text — so an entity that matches nothing and wraps whatever was said
+/// ought to smuggle free text through. It was implemented and tested on a
+/// device across three builds.
+///
+/// It does not work, and the reason is structural. Siri **pre-generates** every
+/// phrase variant ahead of time from `suggestedEntities()`. An entity that
+/// accepts anything has no suggestions to offer, so there are no variants to
+/// index, so the parameterised phrase never matches. Apple's own guidance says
+/// as much: App Shortcuts support "a fixed set of well-known parameter values"
+/// and explicitly not "open-ended values like 'Search my app for X'".
+///
+/// What actually happened on the device is Apple's documented fallback: Siri
+/// asked what the user had eaten and resolved the answer through the string
+/// query. Which is the two-turn flow, arrived at from the other direction.
+///
+/// So this is the two-turn flow, deliberately. Do not re-attempt the one-shot
+/// without new evidence that Apple has changed the constraint.
 struct RoughlyShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
-        // First, and deliberately. A phrase carrying the food has to be tried
-        // before the one that asks for it.
-        AppShortcut(
-            intent: LogFoodOneShotIntent(),
-            phrases: [
-                "Log \(\.$food) in \(.applicationName)",
-                "Tell \(.applicationName) I ate \(\.$food)",
-                "Add \(\.$food) to \(.applicationName)",
-            ],
-            shortTitle: "Log food in one go",
-            systemImageName: "fork.knife"
-        )
-
-        // The fallback, for when someone opens with nothing to log. Worded so
-        // it cannot be read as the beginning of a phrase above: no bare "log
-        // food", and nothing starting "tell Roughly I".
         AppShortcut(
             intent: LogFoodIntent(),
             phrases: [
+                "Log food in \(.applicationName)",
                 "Log a meal in \(.applicationName)",
+                "Tell \(.applicationName) what I ate",
                 "Start a food log in \(.applicationName)",
-                "Open a meal log in \(.applicationName)",
             ],
-            shortTitle: "Log a meal",
+            shortTitle: "Log food",
             systemImageName: "fork.knife"
         )
     }
