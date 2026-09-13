@@ -96,3 +96,51 @@ final class LogFoodIntentTests: XCTestCase {
         }
     }
 }
+
+/// The one-shot path differs from the two-turn one only in how the words
+/// arrive. These pin that, so a future change cannot let the two diverge
+/// quietly — the whole point of the shared `log` is that a difference in
+/// behaviour means Siri heard something different, not that the code forked.
+@MainActor
+final class SpokenFoodQueryTests: XCTestCase {
+    func testItHandsBackWhateverWasSaid() async throws {
+        // No matching, no lookup, no list of foods. The string is the answer —
+        // that is the entire trick that gets free text through a phrase
+        // parameter Siri would otherwise refuse.
+        let found = try await SpokenFoodQuery().entities(
+            matching: "a second serving of chocolate cake"
+        )
+
+        XCTAssertEqual(found.count, 1)
+        XCTAssertEqual(found.first?.text, "a second serving of chocolate cake")
+    }
+
+    func testItTrimsWhatSiriHandsOver() async throws {
+        let found = try await SpokenFoodQuery().entities(matching: "  two eggs  ")
+
+        XCTAssertEqual(found.first?.text, "two eggs")
+    }
+
+    func testSilenceMatchesNothing() async throws {
+        // An empty entity would reach the server as an empty log, and the
+        // route would reject it — but failing here is cheaper and quieter.
+        let found = try await SpokenFoodQuery().entities(matching: "   ")
+
+        XCTAssertTrue(found.isEmpty)
+    }
+
+    func testAnIdentifierRoundTripsAsItsOwnText() async throws {
+        // The identifier *is* the text, so a repeated shortcut resolves to the
+        // same words rather than to nothing.
+        let found = try await SpokenFoodQuery().entities(for: ["two eggs"])
+
+        XCTAssertEqual(found.first?.text, "two eggs")
+    }
+
+    func testThereIsNothingToSuggest() async throws {
+        // There is no list of foods. Suggesting anything would imply one.
+        let suggested = try await SpokenFoodQuery().suggestedEntities()
+
+        XCTAssertTrue(suggested.isEmpty)
+    }
+}
