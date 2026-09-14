@@ -5,46 +5,103 @@ import AppIntents
 /// Every phrase must contain `${applicationName}` — Siri needs to know which
 /// app is being addressed, and a phrase without it is rejected at build time.
 ///
+/// ## Why six shortcuts rather than one parameterised shortcut
+///
+/// One entry with `"Log a ${kind} in ${app}"` works and is less code, but
+/// `systemImageName` is set on the `AppShortcut` rather than on the case — so
+/// every kind appeared in Siri and Spotlight with a fork and knife beside it,
+/// sleep and weight included. Six entries, each with the kind fixed and its
+/// own symbol, is the only way to give them their own faces.
+///
+/// The intent is the same one either way. Only the presentation differs.
+///
 /// ## Why there is no one-shot phrase
 ///
-/// "Hey Siri, log a second serving of chocolate cake in Roughly" is the thing
-/// everyone wants to say, and it cannot be built. This was tried properly.
+/// "Hey Siri, log a second serving of chocolate cake in Roughly" is what
+/// everyone wants to say, and it cannot be built. It was tried properly across
+/// three builds on a device.
 ///
 /// App Shortcut phrase parameters must be `AppEnum` or `AppEntity`; a
-/// free-form `String` cannot appear in one. The documented way round that is
-/// an `AppEntity` backed by an `EntityStringQuery`, which is handed the raw
-/// spoken text — so an entity that matches nothing and wraps whatever was said
-/// ought to smuggle free text through. It was implemented and tested on a
-/// device across three builds.
+/// free-form `String` cannot appear in one. The documented way round it is an
+/// `AppEntity` backed by an `EntityStringQuery`, which is handed the raw
+/// spoken text. The entity part works; the phrase never matches, because Siri
+/// pre-generates every variant ahead of time from `suggestedEntities()`, and
+/// an entity accepting anything has no suggestions to generate from. Apple's
+/// guidance says as much: a "fixed set of well-known parameter values", and
+/// explicitly not "open-ended values like 'Search my app for X'".
 ///
-/// It does not work, and the reason is structural. Siri **pre-generates** every
-/// phrase variant ahead of time from `suggestedEntities()`. An entity that
-/// accepts anything has no suggestions to offer, so there are no variants to
-/// index, so the parameterised phrase never matches. Apple's own guidance says
-/// as much: App Shortcuts support "a fixed set of well-known parameter values"
-/// and explicitly not "open-ended values like 'Search my app for X'".
+/// That constraint is exactly why the `LogKind` enum below *does* work. A kind
+/// is a finite set; a meal is not.
 ///
-/// What actually happened on the device is Apple's documented fallback: Siri
-/// asked what the user had eaten and resolved the answer through the string
-/// query. Which is the two-turn flow, arrived at from the other direction.
-///
-/// So this is the two-turn flow, deliberately. Do not re-attempt the one-shot
-/// without new evidence that Apple has changed the constraint.
+/// Do not re-attempt the one-shot without evidence Apple has changed this.
 struct RoughlyShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
-        // `${kind}` is an `AppEnum`, which is exactly what App Shortcuts do
-        // support: Siri pre-generates a phrase for every case and every
-        // synonym, so "log a run in Roughly" and "log my sleep in Roughly"
-        // both land without the user having to remember one magic sentence.
+        // Symbols are written out rather than read from `LogKind`, because
+        // `systemImageName` demands a compile-time literal.
+        //
+        // Ordered as `LogKind.allCases`, and `RoughlyShortcutsTests` asserts
+        // every case has a shortcut — the compiler will not catch a missing
+        // one, and a kind with no phrase is simply invisible.
         AppShortcut(
-            intent: LogFoodIntent(),
+            intent: LogFoodIntent(kind: .meal),
             phrases: [
-                "Log a \(\.$kind) in \(.applicationName)",
-                "Log my \(\.$kind) in \(.applicationName)",
-                "Add a \(\.$kind) to \(.applicationName)",
+                "Log a meal in \(.applicationName)",
+                "Log food in \(.applicationName)",
+                "Log a snack in \(.applicationName)",
             ],
-            shortTitle: "Log an entry",
+            shortTitle: "Log a meal",
             systemImageName: "fork.knife"
+        )
+
+        AppShortcut(
+            intent: LogFoodIntent(kind: .drink),
+            phrases: [
+                "Log a drink in \(.applicationName)",
+                "Log water in \(.applicationName)",
+            ],
+            shortTitle: "Log a drink",
+            systemImageName: "cup.and.saucer"
+        )
+
+        AppShortcut(
+            intent: LogFoodIntent(kind: .workout),
+            phrases: [
+                "Log a workout in \(.applicationName)",
+                "Log a run in \(.applicationName)",
+                "Log training in \(.applicationName)",
+            ],
+            shortTitle: "Log a workout",
+            systemImageName: "figure.run"
+        )
+
+        AppShortcut(
+            intent: LogFoodIntent(kind: .sleep),
+            phrases: [
+                "Log my sleep in \(.applicationName)",
+                "Log sleep in \(.applicationName)",
+            ],
+            shortTitle: "Log sleep",
+            systemImageName: "bed.double"
+        )
+
+        AppShortcut(
+            intent: LogFoodIntent(kind: .weight),
+            phrases: [
+                "Log my weight in \(.applicationName)",
+                "Log a weigh-in in \(.applicationName)",
+            ],
+            shortTitle: "Log weight",
+            systemImageName: "scalemass"
+        )
+
+        AppShortcut(
+            intent: LogFoodIntent(kind: .mood),
+            phrases: [
+                "Log my mood in \(.applicationName)",
+                "Log how I'm feeling in \(.applicationName)",
+            ],
+            shortTitle: "Log mood",
+            systemImageName: "face.smiling"
         )
     }
 }
