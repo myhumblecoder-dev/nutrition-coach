@@ -5,6 +5,7 @@ import { caffeineStatus } from "@/lib/caffeine";
 import { describeExercises } from "@/lib/dashboard";
 import { startOfWeek, appTimeZone, nowLine, startOfToday } from "@/lib/time";
 import { COACH_PREAMBLE } from "@/lib/voice";
+import { CHAT_WINDOW, historyLinesFor } from "@/lib/chatWindow";
 import { checkInLine, eatenTodayLine, moodLine, recoveryLine } from "@/lib/todayContext";
 import { fatItemsFromJson, fatQualityLabel, wholeFoodFatShare } from "@/lib/fat";
 import { naturalShare, processedItemsFromJson, processingLabel } from "@/lib/processing";
@@ -68,7 +69,7 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
   const history = await prisma.chatMessage.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    take: 10,
+    take: CHAT_WINDOW,
   });
 
   // Captured before the reverse below, which mutates the array.
@@ -86,9 +87,10 @@ export async function coachReply(userId: string, userText: string): Promise<Coac
     return answerCheckInInConversation(userId, checkInField, cleanText, modelText, usageEventId);
   }
 
-  const historyLines = history
-    .reverse()
-    .map((m) => `${m.role}: ${m.content}`);
+  // Reversed here — oldest first — because a conversation reads forwards. The
+  // budget and the clipping live in `chatWindow`; see there for why the coach's
+  // own replies are trimmed and the user's are not.
+  const historyLines = historyLinesFor(history.reverse());
 
   let coachPersona = nowLine() + " " + COACH_PREAMBLE + " ";
 
