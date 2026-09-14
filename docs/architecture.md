@@ -159,11 +159,36 @@ anywhere in the iOS target — so tapping any notification just opens the app
 wherever it was. Worth knowing before adding a notification that should land
 somewhere specific.
 
-## Schema changes go out by `db push`
+## Schema changes go out by `db push`, during the build
 
-There is no migrations directory. CD runs `prisma db push --accept-data-loss`
-on deploy to `main`. Additive changes are safe; anything destructive needs
-thinking about before it is merged, because nothing will stop it.
+There is no migrations directory. `prisma db push --accept-data-loss` runs in
+`scripts/vercel-build.mjs`, guarded to `VERCEL_ENV === 'production'`.
+
+**The ordering is the point.** On 2026-08-26 main deployed code that selected a
+column the database did not have yet. Code and database move together or they
+do not move — and a build completes before its deployment is promoted, so
+schema-then-code holds.
+
+**The guard is the whole safety of that file.** Preview deployments build from
+feature branches against the *production* database unless separate credentials
+are configured, so an unguarded push would let any open pull request reshape
+production's schema.
+
+Additive changes are safe. Anything destructive needs thinking about before it
+is merged, because nothing will stop it.
+
+### Deploys come from Vercel's Git integration, not a workflow
+
+There used to be a `cd.yml` that ran the tests, pushed the schema, and then
+deployed by CLI — so an untested merge could not reach users. Vercel's GitHub
+App now deploys on push to `main`, which is simpler and one less token to
+rotate, but it deploys **immediately and unconditionally**.
+
+So the test gate has moved from the deploy to the merge: `main` must be
+protected, requiring CI to pass on the pull request. That is a GitHub setting
+rather than something the repository can enforce, which is worth knowing —
+if branch protection is ever switched off, nothing stands between a red build
+and production.
 
 ## The iOS project is generated
 
